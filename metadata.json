@@ -1,0 +1,6 @@
+{
+  "name": "Tech Sokoni",
+  "description": "Curated digital showroom for flagship laptops, smartphones, desktops, studio monitors, printers, and precision technology accessories.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

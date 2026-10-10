@@ -1,0 +1,480 @@
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAnalytics, isSupported as isAnalyticsSupported } from 'firebase/analytics';
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  updateProfile,
+  signOut,
+  onAuthStateChanged,
+  User as FirebaseUser,
+} from 'firebase/auth';
+import {
+  getFirestore,
+  collection,
+  doc,
+  setDoc,
+  getDoc,
+  getDocs,
+  getDocFromServer,
+  deleteDoc,
+  onSnapshot,
+  writeBatch,
+} from 'firebase/firestore';
+import {
+  CategoryInfo,
+  ClientAccount,
+  MpesaTransaction,
+  Offer,
+  Order,
+  Product,
+  SiteSettings,
+} from '../types/store';
+
+// User's Tech Sokoni Firebase configuration
+export const firebaseConfig = {
+  apiKey: 'AIzaSyDIwfvGzc18vxAJIB_kcxsDiNWwnh1Sj-w',
+  authDomain: 'tech-sokoni.firebaseapp.com',
+  projectId: 'tech-sokoni',
+  storageBucket: 'tech-sokoni.firebasestorage.app',
+  messagingSenderId: '767706157093',
+  appId: '1:767706157093:web:925e029f36812380bdefcc',
+  measurementId: 'G-42LQWWN2YY',
+};
+
+// Initialize Firebase App
+export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+
+// Safely initialize Firebase Analytics in browser environments
+export let analytics: ReturnType<typeof getAnalytics> | null = null;
+if (typeof window !== 'undefined') {
+  isAnalyticsSupported()
+    .then((supported) => {
+      if (supported) {
+        analytics = getAnalytics(app);
+      }
+    })
+    .catch(() => {
+      // Analytics blocked or unsupported in environment
+    });
+}
+
+export const db = getFirestore(app);
+export const auth = getAuth(app);
+export { sendPasswordResetEmail };
+export const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({
+  prompt: 'select_account',
+});
+
+// Tracks whether the external `tech-sokoni` Firestore rules currently allow read/write for the current auth session
+let firestoreReadAllowed = false;
+let firestoreWriteAllowed = false;
+
+export function isFirestoreSyncAvailable(): boolean {
+  return firestoreReadAllowed;
+}
+
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  };
+}
+
+export let lastFirestoreErrorInfo: FirestoreErrorInfo | null = null;
+
+export function handleFirestoreError(
+  error: unknown,
+  operationType: OperationType,
+  path: string | null,
+  rethrow = false
+): FirestoreErrorInfo {
+  const message = error instanceof Error ? error.message : String(error);
+  const errInfo: FirestoreErrorInfo = {
+    error: message,
+    authInfo: {
+      userId: auth.currentUser?.uid ?? null,
+      email: auth.currentUser?.email ?? null,
+      emailVerified: auth.currentUser?.emailVerified ?? null,
+      isAnonymous: auth.currentUser?.isAnonymous ?? null,
+      tenantId: auth.currentUser?.tenantId ?? null,
+      providerInfo:
+        auth.currentUser?.providerData?.map((provider) => ({
+          providerId: provider.providerId,
+          email: provider.email,
+        })) || [],
+    },
+    operationType,
+    path,
+  };
+
+  lastFirestoreErrorInfo = errInfo;
+
+  // If external Firebase Console security rules reject access for the current auth state,
+  // disable further background writes/listeners until auth state changes so the app remains error-free.
+  if (
+    message.includes('Missing or insufficient permissions') ||
+    message.includes('permission-denied')
+  ) {
+    if (
+      operationType === OperationType.WRITE ||
+      operationType === OperationType.CREATE ||
+      operationType === OperationType.UPDATE ||
+      operationType === OperationType.DELETE
+    ) {
+      firestoreWriteAllowed = false;
+    } else {
+      firestoreReadAllowed = false;
+      firestoreWriteAllowed = false;
+    }
+  }
+
+  if (rethrow) {
+    throw new Error(JSON.stringify(errInfo));
+  }
+  return errInfo;
+}
+
+/**
+ * Recursively strips `undefined` fields so Firestore setDoc/updateDoc never fails on optional properties.
+ */
+export function sanitizeForFirestore<T>(input: T): T {
+  if (input === null || input === undefined) return input;
+  if (Array.isArray(input)) {
+    return input.map((item) => sanitizeForFirestore(item)) as unknown as T;
+  }
+  if (typeof input === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+      if (value !== undefined) {
+        result[key] = sanitizeForFirestore(value);
+      }
+    }
+    return result as T;
+  }
+  return input;
+}
+
+/**
+ * Validate Firestore connectivity and check whether current security rules allow reading.
+ */
+export async function probeFirestoreAccess(): Promise<{
+  connected: boolean;
+  canRead: boolean;
+}> {
+  try {
+    await getDocFromServer(doc(db, 'settings', 'storefront'));
+    firestoreReadAllowed = true;
+    firestoreWriteAllowed = true;
+    return { connected: true, canRead: true };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (msg.includes('the client is offline')) {
+      firestoreReadAllowed = false;
+      firestoreWriteAllowed = false;
+      return { connected: false, canRead: false };
+    }
+    if (
+      msg.includes('Missing or insufficient permissions') ||
+      msg.includes('permission-denied')
+    ) {
+      // Server is reachable, but remote Firestore rules require authentication or rule update in Firebase Console
+      firestoreReadAllowed = false;
+      firestoreWriteAllowed = false;
+      return { connected: true, canRead: false };
+    }
+    return { connected: true, canRead: false };
+  }
+}
+
+/**
+ * Seeds initial catalog, orders, offers, categories, settings, and demo clients to Firestore
+ * if remote collections are empty and writable.
+ */
+export async function seedFirestoreIfEmpty(seedData: {
+  products: Product[];
+  orders: Order[];
+  offers: Offer[];
+  categories: CategoryInfo[];
+  settings: SiteSettings;
+  clients: ClientAccount[];
+}): Promise<void> {
+  if (!firestoreReadAllowed || !firestoreWriteAllowed) return;
+
+  try {
+    const productsSnap = await getDocs(collection(db, 'products'));
+    if (productsSnap.empty) {
+      const batch = writeBatch(db);
+      seedData.products.forEach((product) => {
+        batch.set(doc(db, 'products', product.id), sanitizeForFirestore(product));
+      });
+      seedData.offers.forEach((offer) => {
+        batch.set(doc(db, 'offers', offer.id), sanitizeForFirestore(offer));
+      });
+      seedData.categories.forEach((cat) => {
+        batch.set(doc(db, 'categories', cat.id), sanitizeForFirestore(cat));
+      });
+      batch.set(
+        doc(db, 'settings', 'storefront'),
+        sanitizeForFirestore(seedData.settings)
+      );
+      await batch.commit();
+    }
+
+    const ordersSnap = await getDocs(collection(db, 'orders'));
+    if (ordersSnap.empty && firestoreWriteAllowed) {
+      const orderBatch = writeBatch(db);
+      seedData.orders.forEach((order) => {
+        orderBatch.set(doc(db, 'orders', order.id), sanitizeForFirestore(order));
+      });
+      await orderBatch.commit();
+    }
+
+    if (auth.currentUser && firestoreWriteAllowed) {
+      const clientsSnap = await getDocs(collection(db, 'clients'));
+      if (clientsSnap.empty) {
+        const clientBatch = writeBatch(db);
+        seedData.clients.forEach((client) => {
+          clientBatch.set(
+            doc(db, 'clients', client.id),
+            sanitizeForFirestore(client)
+          );
+        });
+        await clientBatch.commit();
+      }
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, 'seedFirestoreIfEmpty', false);
+  }
+}
+
+// ============================================================================
+// Firestore Persistence Helpers (Guarded by permission probe)
+// ============================================================================
+
+export async function saveProductToFirestore(product: Product): Promise<void> {
+  if (!firestoreWriteAllowed) return;
+  const path = `products/${product.id}`;
+  try {
+    await setDoc(doc(db, 'products', product.id), sanitizeForFirestore(product), {
+      merge: true,
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path, false);
+  }
+}
+
+export async function removeProductFromFirestore(productId: string): Promise<void> {
+  if (!firestoreWriteAllowed) return;
+  const path = `products/${productId}`;
+  try {
+    await deleteDoc(doc(db, 'products', productId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path, false);
+  }
+}
+
+export async function saveOrderToFirestore(order: Order): Promise<void> {
+  if (!firestoreWriteAllowed) return;
+  const path = `orders/${order.id}`;
+  try {
+    await setDoc(doc(db, 'orders', order.id), sanitizeForFirestore(order), {
+      merge: true,
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path, false);
+  }
+}
+
+export async function saveMpesaTransactionToFirestore(
+  tx: MpesaTransaction
+): Promise<void> {
+  if (!firestoreWriteAllowed) return;
+  const path = `mpesa_transactions/${tx.id}`;
+  try {
+    await setDoc(
+      doc(db, 'mpesa_transactions', tx.id),
+      sanitizeForFirestore(tx),
+      { merge: true }
+    );
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path, false);
+  }
+}
+
+export async function saveOfferToFirestore(offer: Offer): Promise<void> {
+  if (!firestoreWriteAllowed) return;
+  const path = `offers/${offer.id}`;
+  try {
+    await setDoc(doc(db, 'offers', offer.id), sanitizeForFirestore(offer), {
+      merge: true,
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path, false);
+  }
+}
+
+export async function removeOfferFromFirestore(offerId: string): Promise<void> {
+  if (!firestoreWriteAllowed) return;
+  const path = `offers/${offerId}`;
+  try {
+    await deleteDoc(doc(db, 'offers', offerId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path, false);
+  }
+}
+
+export async function saveCategoryToFirestore(category: CategoryInfo): Promise<void> {
+  if (!firestoreWriteAllowed) return;
+  const path = `categories/${category.id}`;
+  try {
+    await setDoc(doc(db, 'categories', category.id), sanitizeForFirestore(category), {
+      merge: true,
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path, false);
+  }
+}
+
+export async function saveSettingsToFirestore(settings: SiteSettings): Promise<void> {
+  if (!firestoreWriteAllowed) return;
+  const path = 'settings/storefront';
+  try {
+    await setDoc(doc(db, 'settings', 'storefront'), sanitizeForFirestore(settings), {
+      merge: true,
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path, false);
+  }
+}
+
+export async function saveClientToFirestore(client: ClientAccount): Promise<void> {
+  if (!firestoreWriteAllowed && !auth.currentUser) return;
+  const path = `clients/${client.id}`;
+  try {
+    await setDoc(doc(db, 'clients', client.id), sanitizeForFirestore(client), {
+      merge: true,
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path, false);
+  }
+}
+
+// ============================================================================
+// Firebase Authentication + Client Profile Sync
+// ============================================================================
+
+export async function fetchOrCreateClientForFirebaseUser(
+  fbUser: FirebaseUser,
+  existingClients: ClientAccount[],
+  extraProfile?: {
+    name?: string;
+    phone?: string;
+    defaultAddress?: string;
+    city?: string;
+    password?: string;
+  }
+): Promise<ClientAccount> {
+  const docId = `client-${fbUser.uid}`;
+  const emailLower = (fbUser.email || '').toLowerCase();
+
+  // Re-probe Firestore now that a Firebase user is authenticated
+  const probe = await probeFirestoreAccess();
+
+  if (probe.canRead) {
+    try {
+      const snap = await getDoc(doc(db, 'clients', docId));
+      if (snap.exists()) {
+        const remoteData = snap.data() as ClientAccount;
+        const merged: ClientAccount = {
+          ...remoteData,
+          id: remoteData.id || docId,
+          uid: fbUser.uid,
+          name:
+            extraProfile?.name ||
+            remoteData.name ||
+            fbUser.displayName ||
+            'Tech Sokoni Client',
+          email: fbUser.email || remoteData.email,
+          photoURL: fbUser.photoURL || remoteData.photoURL,
+        };
+        await saveClientToFirestore(merged);
+        return merged;
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, `clients/${docId}`, false);
+    }
+  }
+
+  // Check if there is an existing client by email
+  const matchByEmail = existingClients.find(
+    (c) => c.email.toLowerCase() === emailLower
+  );
+
+  const clientProfile: ClientAccount = {
+    id: matchByEmail?.id || docId,
+    uid: fbUser.uid,
+    name:
+      extraProfile?.name ||
+      fbUser.displayName ||
+      matchByEmail?.name ||
+      (fbUser.email ? fbUser.email.split('@')[0] : 'Tech Sokoni Client'),
+    email: fbUser.email || matchByEmail?.email || '',
+    phone:
+      extraProfile?.phone ||
+      fbUser.phoneNumber ||
+      matchByEmail?.phone ||
+      '+254 700 000 000',
+    password: extraProfile?.password || matchByEmail?.password,
+    defaultAddress:
+      extraProfile?.defaultAddress ||
+      matchByEmail?.defaultAddress ||
+      'Nairobi CBD / Express Delivery',
+    city: extraProfile?.city || matchByEmail?.city || 'Nairobi',
+    authProvider: fbUser.providerData.some((p) => p.providerId === 'google.com')
+      ? 'google'
+      : 'password',
+    photoURL: fbUser.photoURL || matchByEmail?.photoURL || undefined,
+    createdAt: matchByEmail?.createdAt || new Date().toISOString(),
+  };
+
+  if (probe.canRead) {
+    await saveClientToFirestore(clientProfile);
+  }
+  return clientProfile;
+}
+
+export {
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
+  signOut,
+  onAuthStateChanged,
+  collection,
+  doc,
+  onSnapshot,
+};

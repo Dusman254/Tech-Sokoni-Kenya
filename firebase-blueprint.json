@@ -1,0 +1,160 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Hardware system or accessory in the Tech Sokoni catalog",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "sku": { "type": "string", "maxLength": 64 },
+        "name": { "type": "string", "maxLength": 200 },
+        "brand": { "type": "string", "maxLength": 100 },
+        "category": {
+          "type": "string",
+          "enum": [
+            "laptops",
+            "phones",
+            "desktops",
+            "monitors",
+            "printers",
+            "tablets",
+            "accessories",
+            "networking",
+            "storage",
+            "gaming"
+          ]
+        },
+        "price": { "type": "number" },
+        "salePrice": { "type": "number" },
+        "stock": { "type": "number" },
+        "condition": { "type": "string", "enum": ["New", "Refurbished", "Used"] },
+        "shortSpec": { "type": "string", "maxLength": 300 },
+        "shortDescription": { "type": "string", "maxLength": 500 },
+        "description": { "type": "string", "maxLength": 4000 },
+        "featured": { "type": "boolean" },
+        "isNewArrival": { "type": "boolean" },
+        "inShowroomRail": { "type": "boolean" },
+        "rating": { "type": "number" },
+        "reviewCount": { "type": "number" },
+        "deliveryInfo": { "type": "string", "maxLength": 500 },
+        "deletedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "sku", "name", "brand", "category", "price", "stock", "condition"]
+    },
+    "ClientAccount": {
+      "title": "ClientAccount",
+      "description": "Registered client account and delivery profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "uid": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 150 },
+        "email": { "type": "string", "format": "email", "maxLength": 254 },
+        "phone": { "type": "string", "maxLength": 40 },
+        "defaultAddress": { "type": "string", "maxLength": 300 },
+        "city": { "type": "string", "maxLength": 100 },
+        "authProvider": { "type": "string", "enum": ["password", "google"] },
+        "photoURL": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "name", "email", "createdAt"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer hardware order with M-Pesa Express or Payment on Delivery transaction record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orderNumber": { "type": "string", "maxLength": 64 },
+        "clientId": { "type": "string", "maxLength": 128 },
+        "customerName": { "type": "string", "maxLength": 150 },
+        "customerEmail": { "type": "string", "format": "email", "maxLength": 254 },
+        "customerPhone": { "type": "string", "maxLength": 40 },
+        "shippingAddress": { "type": "string", "maxLength": 300 },
+        "city": { "type": "string", "maxLength": 100 },
+        "paymentMethod": {
+          "type": "string",
+          "enum": ["M-Pesa Express", "Payment on Delivery"]
+        },
+        "subtotal": { "type": "number" },
+        "discountTotal": { "type": "number" },
+        "total": { "type": "number" },
+        "status": {
+          "type": "string",
+          "enum": ["Processing", "Packed & Verified", "Dispatched", "Delivered", "Cancelled"]
+        },
+        "trackingNote": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": [
+        "id",
+        "orderNumber",
+        "customerName",
+        "customerEmail",
+        "customerPhone",
+        "shippingAddress",
+        "city",
+        "paymentMethod",
+        "total",
+        "status",
+        "createdAt"
+      ]
+    },
+    "Offer": {
+      "title": "Offer",
+      "description": "Promotional discount offer for selected catalog hardware",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "maxLength": 150 },
+        "subtitle": { "type": "string", "maxLength": 300 },
+        "badgeText": { "type": "string", "maxLength": 60 },
+        "bannerText": { "type": "string", "maxLength": 300 },
+        "discountType": { "type": "string", "enum": ["percentage", "fixed"] },
+        "discountValue": { "type": "number" },
+        "startDate": { "type": "string", "maxLength": 32 },
+        "endDate": { "type": "string", "maxLength": 32 },
+        "enabled": { "type": "boolean" },
+        "featured": { "type": "boolean" }
+      },
+      "required": ["id", "title", "discountType", "discountValue", "enabled"]
+    },
+    "SiteSettings": {
+      "title": "SiteSettings",
+      "description": "Global storefront configuration and showroom contact information",
+      "type": "object",
+      "properties": {
+        "heroHeadline": { "type": "string", "maxLength": 200 },
+        "heroSupportingText": { "type": "string", "maxLength": 500 },
+        "currencySymbol": { "type": "string", "maxLength": 10 },
+        "freeShippingThreshold": { "type": "number" },
+        "supportPhone": { "type": "string", "maxLength": 40 },
+        "supportEmail": { "type": "string", "maxLength": 254 },
+        "showroomAddress": { "type": "string", "maxLength": 300 }
+      },
+      "required": ["heroHeadline", "currencySymbol", "supportPhone", "supportEmail", "showroomAddress"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Hardware catalog items synced between Admin Dashboard and Storefront"
+    },
+    "/clients/{clientId}": {
+      "schema": { "$ref": "#/entities/ClientAccount" },
+      "description": "Registered client profiles and delivery preferences"
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Customer orders for M-Pesa Express and Payment on Delivery transactions"
+    },
+    "/offers/{offerId}": {
+      "schema": { "$ref": "#/entities/Offer" },
+      "description": "Storefront promotional offers"
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/SiteSettings" },
+      "description": "Global storefront settings"
+    }
+  }
+}

@@ -1,0 +1,135 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Default-Deny Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (request.auth.token.email_verified == true && request.auth.token.email == 'sirdusman@gmail.com')
+      );
+    }
+
+    function isValidProduct(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.sku is string && data.sku.size() <= 64 &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 200 &&
+             data.brand is string && data.brand.size() <= 100 &&
+             data.category is string && data.category.size() <= 40 &&
+             data.price is number && data.price >= 0 &&
+             data.stock is number && data.stock >= 0 &&
+             data.condition in ['New', 'Refurbished', 'Used'];
+    }
+
+    function isValidClient(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 150 &&
+             data.email is string && data.email.size() >= 3 && data.email.size() <= 254 &&
+             data.phone is string && data.phone.size() <= 40 &&
+             data.defaultAddress is string && data.defaultAddress.size() <= 300 &&
+             data.city is string && data.city.size() <= 100 &&
+             data.createdAt is string && data.createdAt.size() <= 64;
+    }
+
+    function isValidOrder(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.orderNumber is string && data.orderNumber.size() <= 64 &&
+             data.customerName is string && data.customerName.size() <= 150 &&
+             data.customerEmail is string && data.customerEmail.size() <= 254 &&
+             data.customerPhone is string && data.customerPhone.size() <= 40 &&
+             data.shippingAddress is string && data.shippingAddress.size() <= 300 &&
+             data.city is string && data.city.size() <= 100 &&
+             data.paymentMethod in ['M-Pesa Express', 'Payment on Delivery'] &&
+             data.total is number && data.total >= 0 &&
+             data.status in ['Processing', 'Packed & Verified', 'Dispatched', 'Delivered', 'Cancelled'] &&
+             data.createdAt is string && data.createdAt.size() <= 64;
+    }
+
+    // Public Catalog Products
+    match /products/{productId} {
+      allow get: if isValidId(productId);
+      allow list: if resource.data.price >= 0;
+      allow create, update: if isValidId(productId) && isValidProduct(incoming());
+      allow delete: if isValidId(productId);
+    }
+
+    // Client Profiles
+    match /clients/{clientId} {
+      allow get: if isValidId(clientId) && (
+        isSignedIn() && (request.auth.uid == clientId || existing().uid == request.auth.uid || isAdmin())
+      );
+      allow list: if isSignedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow create, update: if isValidId(clientId) && isValidClient(incoming());
+    }
+
+    // Orders (M-Pesa Express & Payment on Delivery)
+    match /orders/{orderId} {
+      allow get: if isValidId(orderId) && (
+        !isSignedIn() ||
+        resource.data.clientId == request.auth.uid ||
+        resource.data.customerEmail == request.auth.token.email ||
+        isAdmin()
+      );
+      allow list: if (
+        !isSignedIn() ||
+        resource.data.clientId == request.auth.uid ||
+        resource.data.customerEmail == request.auth.token.email ||
+        isAdmin()
+      );
+      allow create, update: if isValidId(orderId) && isValidOrder(incoming());
+    }
+
+    // M-Pesa Transactions & Confirmation Messages (Admin or client confirmation submission)
+    match /mpesa_transactions/{txId} {
+      allow get: if isValidId(txId) && (
+        !isSignedIn() ||
+        resource.data.clientId == request.auth.uid ||
+        isAdmin()
+      );
+      allow list: if isAdmin() || !isSignedIn() || resource.data.clientId == request.auth.uid;
+      allow create, update: if isValidId(txId);
+    }
+
+    // Offers, Categories & Storefront Settings
+    match /offers/{offerId} {
+      allow get: if isValidId(offerId);
+      allow list: if resource.data.discountValue >= 0;
+      allow create, update, delete: if isValidId(offerId);
+    }
+
+    match /categories/{categoryId} {
+      allow get: if isValidId(categoryId);
+      allow list: if resource.data.startingPrice >= 0;
+      allow create, update: if isValidId(categoryId);
+    }
+
+    match /settings/{settingId} {
+      allow get: if isValidId(settingId);
+      allow create, update: if isValidId(settingId);
+    }
+
+    match /test/{docId} {
+      allow get: if isValidId(docId);
+    }
+  }
+}

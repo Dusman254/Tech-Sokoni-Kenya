@@ -1,0 +1,112 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-serif: 'Instrument Serif', Georgia, serif;
+    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: #F4F3EF;
+    color: #141413;
+    overflow-x: hidden;
+  }
+
+  h1, h2, .font-editorial {
+    font-family: var(--font-serif);
+  }
+
+  .font-mono-num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Subtle architectural crosshatch studio backdrop inspired by reference video */
+.showroom-canvas {
+  background-color: #EAE9E4;
+  background-image: 
+    radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.65) 0%, rgba(234, 233, 228, 0.2) 65%, transparent 100%),
+    linear-gradient(to right, rgba(20, 20, 19, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(20, 20, 19, 0.035) 1px, transparent 1px);
+  background-size: 100% 100%, 36px 36px, 36px 36px;
+}
+
+/* Brushed anodized aluminum horizontal suspension bar / architectural shelf */
+.aluminum-rail {
+  background: linear-gradient(
+    180deg,
+    #F8F8F6 0%,
+    #D8D7D2 18%,
+    #9E9D98 48%,
+    #6E6D68 62%,
+    #C7C6C1 85%,
+    #8A8984 100%
+  );
+  box-shadow: 
+    0 12px 28px -6px rgba(20, 20, 19, 0.18),
+    0 2px 4px rgba(20, 20, 19, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.aluminum-bracket {
+  background: linear-gradient(
+    90deg,
+    #9E9D98 0%,
+    #EFECE6 35%,
+    #BDBCB7 65%,
+    #787772 100%
+  );
+  box-shadow: 
+    0 4px 10px rgba(0, 0, 0, 0.16),
+    inset 0 1px 1px rgba(255, 255, 255, 0.9);
+}
+
+/* Multiply blend for studio photos on #F4F3EF / #EAE9E4 so backgrounds dissolve seamlessly like floating cutouts */
+.studio-cutout {
+  mix-blend-mode: multiply;
+  filter: contrast(1.04) brightness(1.02);
+}
+
+/* Hide scrollbars on horizontal showroom carousels while keeping functionality */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@keyframes marquee-slow {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee-slow {
+  display: flex;
+  width: max-content;
+  animation: marquee-slow 38s linear infinite;
+}
+
+.animate-marquee-slow:hover {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-marquee-slow {
+    animation: none !important;
+  }
+}
+
