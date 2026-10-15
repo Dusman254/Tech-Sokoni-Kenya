@@ -3,10 +3,16 @@ import {
   ArrowLeft,
   Calendar,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Download,
+  Eye,
+  EyeOff,
   History,
+  KeyRound,
   LogOut,
+  Mail,
   Package,
   Radio,
   RotateCcw,
@@ -212,11 +218,17 @@ export const ClientPortalView: React.FC = () => {
     cancelClientOrder,
     submitMpesaConfirmation,
     resetPassword,
+    verifyResetCode,
+    confirmNewPassword,
+    passwordResetCode,
+    clearPasswordResetCode,
     addToCart,
     navigate,
   } = useStore();
 
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [authMode, setAuthMode] = useState<
+    'login' | 'signup' | 'forgot-password' | 'reset-password'
+  >('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -226,6 +238,41 @@ export const ClientPortalView: React.FC = () => {
   const [authError, setAuthError] = useState('');
   const [resetSuccess, setResetSuccess] = useState('');
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
+
+  // Dedicated Password Reset States
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
+  const [verifiedEmail, setVerifiedEmail] = useState('');
+  const [codeError, setCodeError] = useState('');
+  const [manualCode, setManualCode] = useState('');
+  const [showManualCodeInput, setShowManualCodeInput] = useState(false);
+  const [isSubmittingReset, setIsSubmittingReset] = useState(false);
+  const [resetCompleted, setResetCompleted] = useState(false);
+
+  // Automatically switch to reset-password view if an email reset link (oobCode) is present
+  useEffect(() => {
+    if (passwordResetCode) {
+      setAuthMode('reset-password');
+      setIsVerifyingCode(true);
+      setCodeError('');
+      setAuthError('');
+      verifyResetCode(passwordResetCode).then((res) => {
+        setIsVerifyingCode(false);
+        if (res.ok && res.email) {
+          setVerifiedEmail(res.email);
+          setEmail(res.email);
+        } else {
+          setCodeError(
+            res.error ||
+              'This password reset link is invalid or has already expired.'
+          );
+        }
+      });
+    }
+  }, [passwordResetCode]);
 
   // Portal view tabs: 'orders' (Live Progress), 'history' (Past Order History), 'profile' (Delivery Profile)
   const [activeTab, setActiveTab] = useState<'orders' | 'history' | 'profile'>(
@@ -310,6 +357,64 @@ export const ClientPortalView: React.FC = () => {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      setAuthError('Please enter your client email to receive a password reset link.');
+      setResetSuccess('');
+      return;
+    }
+    setAuthError('');
+    setResetSuccess('');
+    setIsSubmittingAuth(true);
+    try {
+      const res = await resetPassword(cleanEmail);
+      if (!res.ok) {
+        setAuthError(res.error || 'Failed to send password reset email.');
+      } else {
+        setResetSuccess(
+          `Password reset link dispatched to ${cleanEmail}. Please check your inbox and click the link inside to set your new password.`
+        );
+      }
+    } finally {
+      setIsSubmittingAuth(false);
+    }
+  };
+
+  const handleConfirmReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    const codeToUse = passwordResetCode || manualCode.trim();
+    if (!codeToUse) {
+      setAuthError('No reset security code detected. Please request a new password reset email or paste your code below.');
+      return;
+    }
+    if (!newPassword || newPassword.length < 6) {
+      setAuthError('New password must be at least 6 characters long.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setAuthError('Passwords do not match. Please ensure both passwords match.');
+      return;
+    }
+
+    setIsSubmittingReset(true);
+    try {
+      const res = await confirmNewPassword(codeToUse, newPassword);
+      if (res.ok) {
+        setResetCompleted(true);
+      } else {
+        setAuthError(
+          res.error ||
+            'Failed to reset password. The link may have expired or already been used. Please request a new link.'
+        );
+      }
+    } finally {
+      setIsSubmittingReset(false);
+    }
+  };
+
   // Orders belonging to this client
   const displayedOrders = useMemo(() => {
     if (!currentClient) return orders;
@@ -358,6 +463,27 @@ export const ClientPortalView: React.FC = () => {
     historySearchQuery,
   ]);
 
+  // 9 items per page for client order history
+  const [historyOrdersPage, setHistoryOrdersPage] = useState<number>(1);
+  const CLIENT_ORDERS_PAGE_SIZE = 9;
+
+  useEffect(() => {
+    setHistoryOrdersPage(1);
+  }, [historyPaymentFilter, historyStatusFilter, historySearchQuery]);
+
+  const historyTotalPages = Math.max(
+    1,
+    Math.ceil(filteredHistoryOrders.length / CLIENT_ORDERS_PAGE_SIZE)
+  );
+  const safeHistoryPage = Math.min(
+    Math.max(1, historyOrdersPage),
+    historyTotalPages
+  );
+  const paginatedHistoryOrders = filteredHistoryOrders.slice(
+    (safeHistoryPage - 1) * CLIENT_ORDERS_PAGE_SIZE,
+    safeHistoryPage * CLIENT_ORDERS_PAGE_SIZE
+  );
+
   // Summary metrics for Order History
   const historyStats = useMemo(() => {
     const mpesaOrders = displayedOrders.filter(
@@ -400,70 +526,85 @@ export const ClientPortalView: React.FC = () => {
             TECH SOKONI KENYA · CLIENT PORTAL
           </p>
           <h1 className="font-editorial text-3xl sm:text-4xl text-[#141413] text-center mt-1">
-            {authMode === 'login' ? 'Client Sign In' : 'Create Client Account'}
+            {authMode === 'login'
+              ? 'Client Sign In'
+              : authMode === 'signup'
+              ? 'Create Client Account'
+              : authMode === 'forgot-password'
+              ? 'Reset Account Password'
+              : 'Choose New Password'}
           </h1>
           <p className="text-xs text-[#6E6D68] text-center mt-1.5">
-            Track real-time delivery status, M-Pesa payment confirmations, and
-            download official PDF receipts.
+            {authMode === 'forgot-password'
+              ? "We'll send a secure password reset link to your registered email address."
+              : authMode === 'reset-password'
+              ? 'Enter and confirm your new secure password to access your account.'
+              : 'Track real-time delivery status, M-Pesa payment confirmations, and download official PDF receipts.'}
           </p>
 
-          {/* Mode Switcher */}
-          <div className="grid grid-cols-2 border border-[#141413]/15 mt-6 text-xs font-mono-num uppercase tracking-wider">
-            <button
-              type="button"
-              onClick={() => {
-                setAuthMode('login');
-                setAuthError('');
-              }}
-              className={`py-2.5 cursor-pointer transition-colors ${
-                authMode === 'login'
-                  ? 'bg-[#141413] text-[#F4F3EF]'
-                  : 'text-[#6E6D68] hover:text-[#141413]'
-              }`}
-            >
-              Sign In
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setAuthMode('signup');
-                setAuthError('');
-              }}
-              className={`py-2.5 cursor-pointer transition-colors ${
-                authMode === 'signup'
-                  ? 'bg-[#141413] text-[#F4F3EF]'
-                  : 'text-[#6E6D68] hover:text-[#141413]'
-              }`}
-            >
-              Sign Up
-            </button>
-          </div>
+          {/* Mode Switcher (Visible on Login & Sign Up) */}
+          {(authMode === 'login' || authMode === 'signup') && (
+            <>
+              <div className="grid grid-cols-2 border border-[#141413]/15 mt-6 text-xs font-mono-num uppercase tracking-wider">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('login');
+                    setAuthError('');
+                    setResetSuccess('');
+                  }}
+                  className={`py-2.5 cursor-pointer transition-colors ${
+                    authMode === 'login'
+                      ? 'bg-[#141413] text-[#F4F3EF]'
+                      : 'text-[#6E6D68] hover:text-[#141413]'
+                  }`}
+                >
+                  Sign In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('signup');
+                    setAuthError('');
+                    setResetSuccess('');
+                  }}
+                  className={`py-2.5 cursor-pointer transition-colors ${
+                    authMode === 'signup'
+                      ? 'bg-[#141413] text-[#F4F3EF]'
+                      : 'text-[#6E6D68] hover:text-[#141413]'
+                  }`}
+                >
+                  Sign Up
+                </button>
+              </div>
 
-          {/* Google Sign-In Button */}
-          <div className="mt-5">
-            <button
-              type="button"
-              disabled={isSubmittingAuth}
-              onClick={handleGoogleAuth}
-              className="w-full py-3 px-4 bg-white hover:bg-[#EAE9E4]/80 border border-[#141413]/20 text-[#141413] text-xs font-mono-num uppercase tracking-wider flex items-center justify-center gap-3 transition-colors cursor-pointer disabled:opacity-60"
-            >
-              <GoogleMarkSvg className="w-4 h-4 shrink-0" />
-              <span>
-                {authMode === 'login'
-                  ? 'Sign In with Google'
-                  : 'Sign Up with Google'}
-              </span>
-            </button>
-          </div>
+              {/* Google Sign-In Button */}
+              <div className="mt-5">
+                <button
+                  type="button"
+                  disabled={isSubmittingAuth}
+                  onClick={handleGoogleAuth}
+                  className="w-full py-3 px-4 bg-white hover:bg-[#EAE9E4]/80 border border-[#141413]/20 text-[#141413] text-xs font-mono-num uppercase tracking-wider flex items-center justify-center gap-3 transition-colors cursor-pointer disabled:opacity-60"
+                >
+                  <GoogleMarkSvg className="w-4 h-4 shrink-0" />
+                  <span>
+                    {authMode === 'login'
+                      ? 'Sign In with Google'
+                      : 'Sign Up with Google'}
+                  </span>
+                </button>
+              </div>
 
-          {/* Divider */}
-          <div className="relative my-5 flex items-center justify-center">
-            <div className="border-t border-[#141413]/12 w-full" />
-            <span className="bg-[#F4F3EF] px-3 text-[10px] font-mono-num uppercase tracking-widest text-[#6E6D68] shrink-0">
-              Or with Email
-            </span>
-            <div className="border-t border-[#141413]/12 w-full" />
-          </div>
+              {/* Divider */}
+              <div className="relative my-5 flex items-center justify-center">
+                <div className="border-t border-[#141413]/12 w-full" />
+                <span className="bg-[#F4F3EF] px-3 text-[10px] font-mono-num uppercase tracking-widest text-[#6E6D68] shrink-0">
+                  Or with Email
+                </span>
+                <div className="border-t border-[#141413]/12 w-full" />
+              </div>
+            </>
+          )}
 
           {authError && (
             <div className="mb-4 p-3 bg-[#D94E34]/10 border border-[#D94E34]/30 text-xs text-[#D94E34]">
@@ -471,16 +612,20 @@ export const ClientPortalView: React.FC = () => {
             </div>
           )}
 
-          {resetSuccess && (
-            <div className="mb-4 p-3 bg-[#1F6F43]/10 border border-[#1F6F43]/30 text-xs text-[#1F6F43] space-y-1">
-              <p className="font-semibold">{resetSuccess}</p>
-              <p className="text-[11px] text-[#5E5D59]">
+          {resetSuccess && authMode !== 'reset-password' && (
+            <div className="mb-4 p-3.5 bg-[#1F6F43]/10 border border-[#1F6F43]/30 text-xs text-[#1F6F43] space-y-1.5">
+              <div className="flex items-center gap-1.5 font-semibold">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>{resetSuccess}</span>
+              </div>
+              <p className="text-[11px] text-[#5E5D59] leading-relaxed">
                 Deliverability note: If the message does not appear in your primary inbox, please check your Spam, Junk, or Updates folder, and mark <span className="font-mono text-[#141413]">shop@techsokoni.com</span> as a safe sender.
               </p>
             </div>
           )}
 
-          {authMode === 'login' ? (
+          {/* VIEW 1: SIGN IN */}
+          {authMode === 'login' && (
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <label className="block text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68] mb-1">
@@ -502,20 +647,10 @@ export const ClientPortalView: React.FC = () => {
                   </label>
                   <button
                     type="button"
-                    onClick={async () => {
-                      if (!email.trim()) {
-                        setAuthError('Please enter your client email above to receive a password reset link.');
-                        setResetSuccess('');
-                        return;
-                      }
+                    onClick={() => {
+                      setAuthMode('forgot-password');
                       setAuthError('');
                       setResetSuccess('');
-                      const res = await resetPassword(email);
-                      if (!res.ok) {
-                        setAuthError(res.error || 'Failed to send reset email.');
-                      } else {
-                        setResetSuccess(`Password reset email dispatched to ${email}.`);
-                      }
                     }}
                     className="text-[10px] font-mono-num text-[#6E6D68] hover:text-[#141413] underline cursor-pointer"
                   >
@@ -540,7 +675,10 @@ export const ClientPortalView: React.FC = () => {
                 {isSubmittingAuth ? 'Signing In...' : 'Access Client Area'}
               </button>
             </form>
-          ) : (
+          )}
+
+          {/* VIEW 2: SIGN UP */}
+          {authMode === 'signup' && (
             <form onSubmit={handleSignup} className="space-y-3.5">
               <div>
                 <label className="block text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68] mb-1">
@@ -632,6 +770,273 @@ export const ClientPortalView: React.FC = () => {
                   : 'Create Account & Enter Portal'}
               </button>
             </form>
+          )}
+
+          {/* VIEW 3: FORGOT PASSWORD */}
+          {authMode === 'forgot-password' && (
+            <div className="space-y-4 mt-6">
+              <div className="flex items-center gap-2 mb-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('login');
+                    setAuthError('');
+                    setResetSuccess('');
+                  }}
+                  className="text-xs font-mono-num uppercase tracking-wider text-[#6E6D68] hover:text-[#141413] flex items-center gap-1.5 cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Return to Sign In</span>
+                </button>
+              </div>
+
+              <div className="border border-[#141413]/15 bg-[#EAE9E4]/50 p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-[#141413]" />
+                  <h3 className="font-semibold text-xs text-[#141413] uppercase tracking-wider">
+                    Secure Password Reset
+                  </h3>
+                </div>
+                <p className="text-xs text-[#5E5D59] leading-relaxed">
+                  Enter the email address tied to your account. We will send you an email with a secure link so you can create a new password.
+                </p>
+              </div>
+
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68] mb-1">
+                    Registered Client Email *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      className="w-full bg-[#EAE9E4]/60 border border-[#141413]/20 pl-3.5 pr-10 py-2.5 text-xs text-[#141413]"
+                    />
+                    <Mail className="w-4 h-4 text-[#6E6D68] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSubmittingAuth}
+                  className="w-full py-3 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-[0.2em] hover:bg-[#2B2B28] transition-colors cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{isSubmittingAuth ? 'Sending Reset Email...' : 'Send Password Reset Link'}</span>
+                </button>
+              </form>
+
+              <div className="pt-2 text-center border-t border-[#141413]/10">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowManualCodeInput((prev) => !prev);
+                    setAuthError('');
+                  }}
+                  className="text-[11px] font-mono-num text-[#6E6D68] hover:text-[#141413] underline cursor-pointer"
+                >
+                  Already received your reset link or code? Click here to change password
+                </button>
+              </div>
+
+              {showManualCodeInput && (
+                <div className="p-3 bg-[#EAE9E4]/60 border border-[#141413]/15 space-y-2">
+                  <label className="block text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68]">
+                    Paste Reset Code or Full Link
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={manualCode}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val.includes('oobCode=')) {
+                          try {
+                            const urlObj = new URL(val);
+                            const c = urlObj.searchParams.get('oobCode');
+                            setManualCode(c || val);
+                            return;
+                          } catch {
+                            // ignore
+                          }
+                        }
+                        setManualCode(val);
+                      }}
+                      placeholder="Paste oobCode or link from email"
+                      className="flex-1 bg-[#F4F3EF] border border-[#141413]/20 px-2.5 py-1.5 text-xs font-mono-num"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!manualCode.trim()) return;
+                        setAuthMode('reset-password');
+                        setIsVerifyingCode(true);
+                        verifyResetCode(manualCode.trim()).then((res) => {
+                          setIsVerifyingCode(false);
+                          if (res.ok && res.email) {
+                            setVerifiedEmail(res.email);
+                            setEmail(res.email);
+                          } else {
+                            setCodeError(res.error || 'Invalid reset code.');
+                          }
+                        });
+                      }}
+                      className="px-3 py-1.5 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase cursor-pointer"
+                    >
+                      Verify
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* VIEW 4: RESET PASSWORD USING LINK / CODE */}
+          {authMode === 'reset-password' && (
+            <div className="space-y-4 mt-6">
+              <div className="flex items-center justify-between mb-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearPasswordResetCode();
+                    setAuthMode('login');
+                    setAuthError('');
+                    setResetCompleted(false);
+                  }}
+                  className="text-xs font-mono-num uppercase tracking-wider text-[#6E6D68] hover:text-[#141413] flex items-center gap-1.5 cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Return to Sign In</span>
+                </button>
+
+                {passwordResetCode && (
+                  <span className="text-[10px] font-mono-num text-[#1F6F43] bg-[#1F6F43]/10 px-2 py-0.5 border border-[#1F6F43]/20">
+                    Email Link Active
+                  </span>
+                )}
+              </div>
+
+              {resetCompleted ? (
+                <div className="p-6 bg-[#1F6F43]/10 border border-[#1F6F43]/30 text-center space-y-3">
+                  <CheckCircle2 className="w-10 h-10 text-[#1F6F43] mx-auto" />
+                  <h3 className="font-editorial text-2xl text-[#141413]">Password Reset Complete!</h3>
+                  <p className="text-xs text-[#5E5D59] leading-relaxed max-w-sm mx-auto">
+                    Your Tech Sokoni password has been updated successfully. You can now log into your client portal with your new password.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearPasswordResetCode();
+                      setAuthMode('login');
+                      setPassword('');
+                      setAuthError('');
+                      setResetSuccess('Password reset successfully. Please sign in below.');
+                    }}
+                    className="w-full py-3 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-[0.2em] hover:bg-[#2B2B28] cursor-pointer mt-3"
+                  >
+                    Proceed to Sign In
+                  </button>
+                </div>
+              ) : isVerifyingCode ? (
+                <div className="py-12 text-center space-y-3">
+                  <div className="w-7 h-7 border-2 border-[#141413] border-t-transparent rounded-full animate-spin mx-auto" />
+                  <p className="text-xs font-mono-num uppercase tracking-wider text-[#6E6D68]">
+                    Verifying security link from email...
+                  </p>
+                </div>
+              ) : codeError ? (
+                <div className="p-5 bg-[#D94E34]/10 border border-[#D94E34]/30 space-y-3 text-left">
+                  <p className="text-xs font-semibold text-[#D94E34]">{codeError}</p>
+                  <p className="text-[11px] text-[#5E5D59] leading-relaxed">
+                    Security links expire after a short period or once used. Please request a fresh reset email to create a new password.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearPasswordResetCode();
+                      setAuthMode('forgot-password');
+                      setAuthError('');
+                      setCodeError('');
+                    }}
+                    className="w-full py-2.5 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-wider cursor-pointer"
+                  >
+                    Request New Reset Link
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleConfirmReset} className="space-y-4">
+                  <div className="p-3.5 bg-[#EAE9E4]/60 border border-[#141413]/12 space-y-1">
+                    <p className="text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68]">
+                      Account Being Reset
+                    </p>
+                    <p className="text-xs font-semibold text-[#141413] font-mono">
+                      {verifiedEmail || email || 'Registered Client Account'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68] mb-1">
+                      New Password * (Min 6 characters)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showNewPassword ? 'text' : 'password'}
+                        required
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="••••••••"
+                        minLength={6}
+                        className="w-full bg-[#EAE9E4]/60 border border-[#141413]/20 pl-3.5 pr-10 py-2.5 text-xs text-[#141413]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword((p) => !p)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6E6D68] hover:text-[#141413] cursor-pointer"
+                      >
+                        {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68] mb-1">
+                      Confirm New Password *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        required
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="••••••••"
+                        minLength={6}
+                        className="w-full bg-[#EAE9E4]/60 border border-[#141413]/20 pl-3.5 pr-10 py-2.5 text-xs text-[#141413]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword((p) => !p)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6E6D68] hover:text-[#141413] cursor-pointer"
+                      >
+                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmittingReset}
+                    className="w-full py-3 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-[0.2em] hover:bg-[#2B2B28] transition-colors cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>{isSubmittingReset ? 'Updating Password...' : 'Save New Password & Sign In'}</span>
+                  </button>
+                </form>
+              )}
+            </div>
           )}
         </motion.div>
       </div>
@@ -882,8 +1287,9 @@ export const ClientPortalView: React.FC = () => {
 
             {/* Order History Cards with Real-Time Tracking Indicator */}
             {filteredHistoryOrders.length > 0 ? (
-              <div className="space-y-5">
-                {filteredHistoryOrders.map((order) => {
+              <>
+                <div className="space-y-5">
+                  {paginatedHistoryOrders.map((order) => {
                   const formattedDate = new Date(
                     order.createdAt
                   ).toLocaleDateString('en-US', {
@@ -1066,7 +1472,55 @@ export const ClientPortalView: React.FC = () => {
                   );
                 })}
               </div>
-            ) : (
+
+              {/* Pagination Controls for Client Order History (when > 9 orders) */}
+              {filteredHistoryOrders.length > CLIENT_ORDERS_PAGE_SIZE && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 font-mono-num text-xs border-t border-[#141413]/10">
+                  <div className="text-[#6E6D68]">
+                    Showing {(safeHistoryPage - 1) * CLIENT_ORDERS_PAGE_SIZE + 1}–
+                    {Math.min(safeHistoryPage * CLIENT_ORDERS_PAGE_SIZE, filteredHistoryOrders.length)} of{' '}
+                    {filteredHistoryOrders.length} orders
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setHistoryOrdersPage((p) => Math.max(1, p - 1))}
+                      disabled={safeHistoryPage === 1}
+                      className="px-3 py-1.5 border border-[#141413]/20 bg-[#F4F3EF] text-[#141413] uppercase tracking-wider flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed hover:border-[#141413] cursor-pointer"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                      <span>Prev</span>
+                    </button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: historyTotalPages }, (_, i) => i + 1).map((pn) => (
+                        <button
+                          key={pn}
+                          type="button"
+                          onClick={() => setHistoryOrdersPage(pn)}
+                          className={`w-8 h-8 flex items-center justify-center border text-xs font-mono-num transition-colors cursor-pointer ${
+                            safeHistoryPage === pn
+                              ? 'bg-[#141413] text-[#F4F3EF] border-[#141413] font-semibold'
+                              : 'border-[#141413]/20 bg-transparent text-[#5E5D59] hover:border-[#141413]'
+                          }`}
+                        >
+                          {pn}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setHistoryOrdersPage((p) => Math.min(historyTotalPages, p + 1))}
+                      disabled={safeHistoryPage === historyTotalPages}
+                      className="px-3 py-1.5 border border-[#141413]/20 bg-[#F4F3EF] text-[#141413] uppercase tracking-wider flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed hover:border-[#141413] cursor-pointer"
+                    >
+                      <span>Next</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
               <div className="p-10 text-center bg-[#EAE9E4]/40 border border-[#141413]/12 space-y-3">
                 <p className="text-sm font-medium text-[#141413]">
                   {displayedOrders.length === 0

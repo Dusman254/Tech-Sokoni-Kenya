@@ -129,6 +129,37 @@ export const AdminDashboard: React.FC = () => {
     {}
   );
 
+  // 9-item pagination for inventory list & orders list
+  const ADMIN_PAGE_SIZE = 9;
+  const [adminProductPage, setAdminProductPage] = useState<number>(1);
+  const [adminOrderPage, setAdminOrderPage] = useState<number>(1);
+
+  const adminProductTotalPages = Math.max(
+    1,
+    Math.ceil(products.length / ADMIN_PAGE_SIZE)
+  );
+  const safeAdminProductPage = Math.min(
+    Math.max(1, adminProductPage),
+    adminProductTotalPages
+  );
+  const paginatedAdminProducts = products.slice(
+    (safeAdminProductPage - 1) * ADMIN_PAGE_SIZE,
+    safeAdminProductPage * ADMIN_PAGE_SIZE
+  );
+
+  const adminOrderTotalPages = Math.max(
+    1,
+    Math.ceil(orders.length / ADMIN_PAGE_SIZE)
+  );
+  const safeAdminOrderPage = Math.min(
+    Math.max(1, adminOrderPage),
+    adminOrderTotalPages
+  );
+  const paginatedAdminOrders = orders.slice(
+    (safeAdminOrderPage - 1) * ADMIN_PAGE_SIZE,
+    safeAdminOrderPage * ADMIN_PAGE_SIZE
+  );
+
   // Backup & Diagnostics State
   const [restoreNotice, setRestoreNotice] = useState<string | null>(null);
   const [diagnosticsLogs, setDiagnosticsLogs] = useState(() =>
@@ -1185,7 +1216,7 @@ export const AdminDashboard: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#141413]/10 text-xs">
-                  {products.map((prod) => {
+                  {paginatedAdminProducts.map((prod) => {
                     const pricing = getEffectivePricing(prod);
                     return (
                       <tr key={prod.id} className="hover:bg-[#EAE9E4]/40">
@@ -1288,6 +1319,53 @@ export const AdminDashboard: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls for Products Table (when > 9 items) */}
+            {products.length > ADMIN_PAGE_SIZE && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-3 font-mono-num text-xs border-t border-[#141413]/10">
+                <div className="text-[#6E6D68]">
+                  Showing {(safeAdminProductPage - 1) * ADMIN_PAGE_SIZE + 1}–
+                  {Math.min(safeAdminProductPage * ADMIN_PAGE_SIZE, products.length)} of{' '}
+                  {products.length} products
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAdminProductPage((p) => Math.max(1, p - 1))}
+                    disabled={safeAdminProductPage === 1}
+                    className="px-3 py-1.5 border border-[#141413]/20 bg-[#F4F3EF] text-[#141413] uppercase tracking-wider flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed hover:border-[#141413] cursor-pointer"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    <span>Prev</span>
+                  </button>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: adminProductTotalPages }, (_, i) => i + 1).map((pn) => (
+                      <button
+                        key={pn}
+                        type="button"
+                        onClick={() => setAdminProductPage(pn)}
+                        className={`w-8 h-8 flex items-center justify-center border text-xs font-mono-num transition-colors cursor-pointer ${
+                          safeAdminProductPage === pn
+                            ? 'bg-[#141413] text-[#F4F3EF] border-[#141413] font-semibold'
+                            : 'border-[#141413]/20 bg-transparent text-[#5E5D59] hover:border-[#141413]'
+                        }`}
+                      >
+                        {pn}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAdminProductPage((p) => Math.min(adminProductTotalPages, p + 1))}
+                    disabled={safeAdminProductPage === adminProductTotalPages}
+                    className="px-3 py-1.5 border border-[#141413]/20 bg-[#F4F3EF] text-[#141413] uppercase tracking-wider flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed hover:border-[#141413] cursor-pointer"
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1610,8 +1688,9 @@ export const AdminDashboard: React.FC = () => {
                 </p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {orders.map((order) => {
+              <>
+                <div className="space-y-4">
+                  {paginatedAdminOrders.map((order) => {
                   const isMpesaVerified =
                     order.mpesaStatus === 'Verified & Paid';
                   const draftNote =
@@ -1813,7 +1892,55 @@ export const AdminDashboard: React.FC = () => {
                   );
                 })}
               </div>
-            )}
+
+              {/* Pagination Controls for Orders (when > 9 orders) */}
+              {orders.length > ADMIN_PAGE_SIZE && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 font-mono-num text-xs border-t border-[#141413]/10">
+                  <div className="text-[#6E6D68]">
+                    Showing {(safeAdminOrderPage - 1) * ADMIN_PAGE_SIZE + 1}–
+                    {Math.min(safeAdminOrderPage * ADMIN_PAGE_SIZE, orders.length)} of{' '}
+                    {orders.length} orders
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setAdminOrderPage((p) => Math.max(1, p - 1))}
+                      disabled={safeAdminOrderPage === 1}
+                      className="px-3 py-1.5 border border-[#141413]/20 bg-[#F4F3EF] text-[#141413] uppercase tracking-wider flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed hover:border-[#141413] cursor-pointer"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                      <span>Prev</span>
+                    </button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: adminOrderTotalPages }, (_, i) => i + 1).map((on) => (
+                        <button
+                          key={on}
+                          type="button"
+                          onClick={() => setAdminOrderPage(on)}
+                          className={`w-8 h-8 flex items-center justify-center border text-xs font-mono-num transition-colors cursor-pointer ${
+                            safeAdminOrderPage === on
+                              ? 'bg-[#141413] text-[#F4F3EF] border-[#141413] font-semibold'
+                              : 'border-[#141413]/20 bg-transparent text-[#5E5D59] hover:border-[#141413]'
+                          }`}
+                        >
+                          {on}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAdminOrderPage((p) => Math.min(adminOrderTotalPages, p + 1))}
+                      disabled={safeAdminOrderPage === adminOrderTotalPages}
+                      className="px-3 py-1.5 border border-[#141413]/20 bg-[#F4F3EF] text-[#141413] uppercase tracking-wider flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed hover:border-[#141413] cursor-pointer"
+                    >
+                      <span>Next</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
           </div>
         )}
 

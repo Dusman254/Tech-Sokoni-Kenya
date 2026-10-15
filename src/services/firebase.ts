@@ -7,6 +7,8 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
+  confirmPasswordReset,
+  verifyPasswordResetCode,
   updateProfile,
   signOut,
   onAuthStateChanged,
@@ -64,7 +66,7 @@ if (typeof window !== 'undefined') {
 
 export const db = getFirestore(app);
 export const auth = getAuth(app);
-export { sendPasswordResetEmail };
+export { sendPasswordResetEmail, confirmPasswordReset, verifyPasswordResetCode };
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
   prompt: 'select_account',

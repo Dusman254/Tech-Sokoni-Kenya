@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Grid, List, SlidersHorizontal, X } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight, Grid, List, SlidersHorizontal, X } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { CategoryId, ProductCondition } from '../types/store';
 import { ProductCard } from './ProductCard';
@@ -198,6 +198,50 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
     resetCategoryFilters(catKey);
   };
 
+  // 9 items per page: when the list reaches 9, let it move to next page
+  const ITEMS_PER_PAGE = 9;
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const productsTopRef = useRef<HTMLDivElement>(null);
+
+  // Reset to page 1 whenever category or any filter parameters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    categoryId,
+    dealsOnly,
+    selectedBrand,
+    selectedPriceBand,
+    selectedCondition,
+    inStockOnly,
+    selectedRam,
+    selectedStorage,
+    selectedOs,
+    sortBy,
+  ]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredProducts.length / ITEMS_PER_PAGE)
+  );
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = Math.min(
+    startIndex + ITEMS_PER_PAGE,
+    filteredProducts.length
+  );
+  const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+
+  const handlePageChange = (newPage: number) => {
+    const target = Math.min(Math.max(1, newPage), totalPages);
+    setCurrentPage(target);
+    if (productsTopRef.current) {
+      productsTopRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F4F3EF]">
       {/* Category Editorial Header */}
@@ -320,8 +364,9 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
           {/* Right: Count, Sort, and Grid/List Toggle */}
           <div className="flex items-center gap-4 ml-auto">
             <span className="text-xs font-mono-num text-[#6E6D68]">
-              {filteredProducts.length}{' '}
-              {filteredProducts.length === 1 ? 'system' : 'systems'}
+              {filteredProducts.length > ITEMS_PER_PAGE
+                ? `Showing ${startIndex + 1}–${endIndex} of ${filteredProducts.length} systems (Page ${safeCurrentPage}/${totalPages})`
+                : `${filteredProducts.length} ${filteredProducts.length === 1 ? 'system' : 'systems'}`}
             </span>
 
             <select
@@ -505,25 +550,96 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
         )}
 
         {/* Product Catalog Display */}
-        {filteredProducts.length > 0 ? (
-          viewMode === 'compact-list' ? (
-            <div className="mt-6 max-w-4xl space-y-3.5">
-              {filteredProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  layout="compact-list"
-                />
-              ))}
-            </div>
+        <div ref={productsTopRef} className="scroll-mt-6">
+          {filteredProducts.length > 0 ? (
+            <>
+              {viewMode === 'compact-list' ? (
+                <div className="mt-6 max-w-4xl space-y-3.5">
+                  {paginatedProducts.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      layout="compact-list"
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
+                  {paginatedProducts.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      layout="grid"
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Pagination Bar - Displayed when total systems reach/exceed 9 */}
+              {filteredProducts.length > ITEMS_PER_PAGE && (
+                <div className="mt-12 pt-8 border-t border-[#141413]/12 flex flex-col sm:flex-row items-center justify-between gap-4 font-mono-num text-xs">
+                  <div className="text-[#6E6D68]">
+                    Showing{' '}
+                    <span className="font-semibold text-[#141413]">
+                      {startIndex + 1}–{endIndex}
+                    </span>{' '}
+                    of{' '}
+                    <span className="font-semibold text-[#141413]">
+                      {filteredProducts.length}
+                    </span>{' '}
+                    systems
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handlePageChange(safeCurrentPage - 1)}
+                      disabled={safeCurrentPage === 1}
+                      className="px-3.5 py-2 border border-[#141413]/20 bg-[#F4F3EF] text-[#141413] uppercase tracking-wider flex items-center gap-1.5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:border-[#141413] cursor-pointer"
+                      aria-label="Previous Page"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                      <span>Prev</span>
+                    </button>
+
+                    {/* Numbered Page Buttons */}
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                        (pNum) => (
+                          <button
+                            key={pNum}
+                            type="button"
+                            onClick={() => handlePageChange(pNum)}
+                            className={`w-9 h-9 flex items-center justify-center border text-xs font-mono-num transition-colors cursor-pointer ${
+                              safeCurrentPage === pNum
+                                ? 'bg-[#141413] text-[#F4F3EF] border-[#141413] font-semibold'
+                                : 'border-[#141413]/20 bg-transparent text-[#5E5D59] hover:border-[#141413] hover:text-[#141413]'
+                            }`}
+                            aria-current={
+                              safeCurrentPage === pNum ? 'page' : undefined
+                            }
+                          >
+                            {pNum}
+                          </button>
+                        )
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handlePageChange(safeCurrentPage + 1)}
+                      disabled={safeCurrentPage === totalPages}
+                      className="px-3.5 py-2 border border-[#141413]/20 bg-[#F4F3EF] text-[#141413] uppercase tracking-wider flex items-center gap-1.5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:border-[#141413] cursor-pointer"
+                      aria-label="Next Page"
+                    >
+                      <span>Next</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
-            <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
-              {filteredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} layout="grid" />
-              ))}
-            </div>
-          )
-        ) : (
           <div className="py-20 text-center max-w-md mx-auto">
             <p className="font-mono-num text-xs uppercase tracking-widest text-[#6E6D68]">
               TECH SOKONI ARCHIVE
@@ -543,6 +659,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
             </button>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

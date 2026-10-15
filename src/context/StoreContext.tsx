@@ -45,6 +45,8 @@ import {
   saveSettingsToFirestore,
   seedFirestoreIfEmpty,
   sendPasswordResetEmail,
+  confirmPasswordReset,
+  verifyPasswordResetCode,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
@@ -108,6 +110,10 @@ interface StoreContextValue {
   updateClientProfile: (updates: Partial<ClientAccount>) => void;
   cancelClientOrder: (orderId: string) => void;
   resetPassword: (email: string) => Promise<{ ok: boolean; error?: string }>;
+  verifyResetCode: (code: string) => Promise<{ ok: boolean; email?: string; error?: string }>;
+  confirmNewPassword: (code: string, newPassword: string) => Promise<{ ok: boolean; error?: string }>;
+  passwordResetCode: string | null;
+  clearPasswordResetCode: () => void;
 
   // Category Filters (Persisted in Local Storage)
   categoryFilters: Record<string, CategoryFilterState>;
@@ -334,6 +340,29 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [passwordResetCode, setPasswordResetCode] = useState<string | null>(null);
+
+  // Detect password reset link from email (e.g., /?mode=resetPassword&oobCode=... or /?oobCode=...)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const hash = window.location.hash || '';
+      const hashQuery = hash.includes('?')
+        ? new URLSearchParams(hash.substring(hash.indexOf('?')))
+        : null;
+
+      const mode = searchParams.get('mode') || hashQuery?.get('mode');
+      const oobCode = searchParams.get('oobCode') || hashQuery?.get('oobCode');
+
+      if ((mode === 'resetPassword' || mode === 'reset-password' || !mode) && oobCode) {
+        setPasswordResetCode(oobCode);
+        setRoute({ page: 'client-portal' });
+      }
+    } catch {
+      // Ignore query string parsing errors
+    }
+  }, []);
 
   const clientsRef = useRef<ClientAccount[]>(clients);
   useEffect(() => {
@@ -965,7 +994,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       return { ok: false, error: 'Please enter your registered email address.' };
     }
     try {
-      await sendPasswordResetEmail(auth, cleanEmail);
+      // First attempt with actionCodeSettings returning directly to the app
+      try {
+        const actionCodeSettings = {
+          url: `${window.location.origin}/?mode=resetPassword`,
+          handleCodeInApp: true,
+        };
+        await sendPasswordResetEmail(auth, cleanEmail, actionCodeSettings);
+      } catch {
+        // Fall back to default email dispatch without custom continue URL
+        await sendPasswordResetEmail(auth, cleanEmail);
+      }
       showToast(`Password reset link dispatched to ${cleanEmail}`);
       return { ok: true };
     } catch (err: any) {
@@ -985,6 +1024,85 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
           err?.message ||
           'Unable to dispatch reset email. Please contact showroom concierge.',
       };
+    }
+  };
+
+  const verifyResetCode = async (
+    code: string
+  ): Promise<{ ok: boolean; email?: string; error?: string }> => {
+    try {
+      const email = await verifyPasswordResetCode(auth, code);
+      return { ok: true, email };
+    } catch (err: any) {
+      const codeErr = err?.code || '';
+      if (codeErr === 'auth/expired-action-code') {
+        return {
+          ok: false,
+          error: 'This password reset link has expired. Please request a new reset email.',
+        };
+      }
+      if (codeErr === 'auth/invalid-action-code') {
+        return {
+          ok: false,
+          error: 'This password reset link is invalid or has already been used.',
+        };
+      }
+      return {
+        ok: false,
+        error: err?.message || 'Invalid or expired password reset link.',
+      };
+    }
+  };
+
+  const confirmNewPassword = async (
+    code: string,
+    newPass: string
+  ): Promise<{ ok: boolean; error?: string }> => {
+    if (!newPass || newPass.trim().length < 6) {
+      return { ok: false, error: 'Password must be at least 6 characters long.' };
+    }
+    try {
+      await confirmPasswordReset(auth, code, newPass.trim());
+      showToast('Password updated successfully. Please sign in with your new password.');
+      // Clean query params so browser refresh won't retry expired code
+      if (typeof window !== 'undefined' && window.history?.replaceState) {
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+      setPasswordResetCode(null);
+      return { ok: true };
+    } catch (err: any) {
+      const codeErr = err?.code || '';
+      if (codeErr === 'auth/expired-action-code') {
+        return {
+          ok: false,
+          error: 'This password reset link has expired. Please request a fresh reset link.',
+        };
+      }
+      if (codeErr === 'auth/invalid-action-code') {
+        return {
+          ok: false,
+          error: 'This password reset link is invalid or has already been used.',
+        };
+      }
+      if (codeErr === 'auth/weak-password') {
+        return {
+          ok: false,
+          error: 'Password is too weak. Please use at least 6 characters with mixed characters.',
+        };
+      }
+      return {
+        ok: false,
+        error: err?.message || 'Failed to update password. Please try again.',
+      };
+    }
+  };
+
+  const clearPasswordResetCode = () => {
+    setPasswordResetCode(null);
+    if (typeof window !== 'undefined' && window.history?.replaceState) {
+      const cleanUrl = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
     }
   };
 
@@ -1773,6 +1891,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
         updateClientProfile,
         cancelClientOrder,
         resetPassword,
+        verifyResetCode,
+        confirmNewPassword,
+        passwordResetCode,
+        clearPasswordResetCode,
         categoryFilters,
         getCategoryFilters,
         setCategoryFilters,
