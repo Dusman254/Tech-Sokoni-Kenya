@@ -220,7 +220,12 @@ export type ActiveRoute =
   | { page: 'deals' }
   | { page: 'product'; productId: string }
   | { page: 'admin' }
-  | { page: 'client-portal'; tab?: 'orders' | 'history' | 'profile' }
+  | {
+      page: 'client-portal';
+      tab?: 'orders' | 'history' | 'profile' | 'track';
+      initialOrderId?: string;
+    }
+  | { page: 'track-shipment'; orderId?: string }
   | { page: 'compare' }
   | { page: 'wishlist' }
   | {
