@@ -7,6 +7,7 @@ import {
   MessageCircle,
   Search,
   ShoppingBag,
+  Truck,
   User,
   X,
 } from 'lucide-react';
@@ -206,6 +207,20 @@ export const Header: React.FC = () => {
               </button>
             )}
 
+            {/* Track Shipment Link (Desktop) */}
+            <button
+              onClick={() => navigate({ page: 'track-shipment' })}
+              aria-label="Track Shipment Status"
+              className={`hidden lg:flex items-center gap-1.5 px-2.5 py-2 text-[13px] font-medium transition-opacity cursor-pointer whitespace-nowrap shrink-0 ${
+                route.page === 'track-shipment'
+                  ? 'text-[#1F6F43] font-semibold'
+                  : 'text-[#141413] hover:opacity-70'
+              }`}
+            >
+              <Truck className="w-4 h-4 stroke-[1.6] text-[#1F6F43]" />
+              <span className="hidden xl:inline">Track Order</span>
+            </button>
+
             {/* Client Account Portal (Desktop) */}
             <button
               onClick={() => navigate({ page: 'client-portal' })}
@@ -334,8 +349,21 @@ export const Header: React.FC = () => {
               ))}
             </div>
 
-            {/* Secondary Account, Compare & Wishlist Actions on Mobile */}
+            {/* Secondary Account, Compare, Track & Wishlist Actions on Mobile */}
             <div className="grid grid-cols-2 gap-3 mt-8">
+              <button
+                onClick={() =>
+                  handleMobileNav(() => navigate({ page: 'track-shipment' }))
+                }
+                className="col-span-2 min-h-[46px] px-4 py-3 bg-[#EAE9E4] hover:bg-[#141413] hover:text-[#F4F3EF] border border-[#141413]/20 flex items-center justify-between text-xs font-medium uppercase tracking-wider text-[#141413] transition-colors cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-[#1F6F43]" />
+                  <span>Track Shipment by Order ID</span>
+                </span>
+                <span className="font-mono-num text-[11px] text-[#6E6D68]">Live Dispatch</span>
+              </button>
+
               <button
                 onClick={() =>
                   handleMobileNav(() => navigate({ page: 'client-portal' }))

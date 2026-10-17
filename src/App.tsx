@@ -16,6 +16,7 @@ import { CategoryView } from './components/CategoryView';
 import { ProductDetailView } from './components/ProductDetailView';
 import { AdminDashboard } from './components/AdminDashboard';
 import { ClientPortalView } from './components/ClientPortalView';
+import { TrackShipmentView } from './components/TrackShipmentView';
 import { CompareFloatingBar, CompareView } from './components/CompareView';
 import { SearchOverlay } from './components/SearchOverlay';
 import { CartAndCheckout } from './components/CartAndCheckout';
@@ -94,6 +95,10 @@ const StorefrontRouter: React.FC = () => {
 
               {route.page === 'client-portal' && <ClientPortalView />}
 
+              {route.page === 'track-shipment' && (
+                <TrackShipmentView initialOrderId={route.orderId} />
+              )}
+
               {route.page === 'compare' && <CompareView />}
 
               {route.page === 'wishlist' && <WishlistView />}
@@ -111,6 +116,7 @@ const StorefrontRouter: React.FC = () => {
                 'deals',
                 'product',
                 'client-portal',
+                'track-shipment',
                 'compare',
                 'wishlist',
                 'admin',

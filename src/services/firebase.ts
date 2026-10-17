@@ -268,7 +268,6 @@ export async function seedFirestoreIfEmpty(seedData: {
 // ============================================================================
 
 export async function saveProductToFirestore(product: Product): Promise<void> {
-  if (!firestoreWriteAllowed) return;
   const path = `products/${product.id}`;
   try {
     await setDoc(doc(db, 'products', product.id), sanitizeForFirestore(product), {
@@ -280,7 +279,6 @@ export async function saveProductToFirestore(product: Product): Promise<void> {
 }
 
 export async function removeProductFromFirestore(productId: string): Promise<void> {
-  if (!firestoreWriteAllowed) return;
   const path = `products/${productId}`;
   try {
     await deleteDoc(doc(db, 'products', productId));
@@ -290,7 +288,6 @@ export async function removeProductFromFirestore(productId: string): Promise<voi
 }
 
 export async function saveOrderToFirestore(order: Order): Promise<void> {
-  if (!firestoreWriteAllowed) return;
   const path = `orders/${order.id}`;
   try {
     await setDoc(doc(db, 'orders', order.id), sanitizeForFirestore(order), {
@@ -304,7 +301,6 @@ export async function saveOrderToFirestore(order: Order): Promise<void> {
 export async function saveMpesaTransactionToFirestore(
   tx: MpesaTransaction
 ): Promise<void> {
-  if (!firestoreWriteAllowed) return;
   const path = `mpesa_transactions/${tx.id}`;
   try {
     await setDoc(
@@ -318,7 +314,6 @@ export async function saveMpesaTransactionToFirestore(
 }
 
 export async function saveOfferToFirestore(offer: Offer): Promise<void> {
-  if (!firestoreWriteAllowed) return;
   const path = `offers/${offer.id}`;
   try {
     await setDoc(doc(db, 'offers', offer.id), sanitizeForFirestore(offer), {
@@ -330,7 +325,6 @@ export async function saveOfferToFirestore(offer: Offer): Promise<void> {
 }
 
 export async function removeOfferFromFirestore(offerId: string): Promise<void> {
-  if (!firestoreWriteAllowed) return;
   const path = `offers/${offerId}`;
   try {
     await deleteDoc(doc(db, 'offers', offerId));
@@ -340,7 +334,6 @@ export async function removeOfferFromFirestore(offerId: string): Promise<void> {
 }
 
 export async function saveCategoryToFirestore(category: CategoryInfo): Promise<void> {
-  if (!firestoreWriteAllowed) return;
   const path = `categories/${category.id}`;
   try {
     await setDoc(doc(db, 'categories', category.id), sanitizeForFirestore(category), {
@@ -352,7 +345,6 @@ export async function saveCategoryToFirestore(category: CategoryInfo): Promise<v
 }
 
 export async function saveSettingsToFirestore(settings: SiteSettings): Promise<void> {
-  if (!firestoreWriteAllowed) return;
   const path = 'settings/storefront';
   try {
     await setDoc(doc(db, 'settings', 'storefront'), sanitizeForFirestore(settings), {

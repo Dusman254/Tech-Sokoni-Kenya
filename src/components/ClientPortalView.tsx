@@ -29,6 +29,7 @@ import { useStore } from '../context/StoreContext';
 import { Order, OrderStatus } from '../types/store';
 import { PdfReceiptService } from '../services/pdfReceiptService';
 import { StudioImage } from './StudioImage';
+import { TrackShipmentView } from './TrackShipmentView';
 
 const PROGRESS_STEPS: Array<{
   status: OrderStatus;
@@ -274,10 +275,10 @@ export const ClientPortalView: React.FC = () => {
     }
   }, [passwordResetCode]);
 
-  // Portal view tabs: 'orders' (Live Progress), 'history' (Past Order History), 'profile' (Delivery Profile)
-  const [activeTab, setActiveTab] = useState<'orders' | 'history' | 'profile'>(
-    route.page === 'client-portal' && route.tab ? route.tab : 'history'
-  );
+  // Portal view tabs: 'history' (Order History), 'orders' (Detailed Receipts), 'track' (Shipment Tracker), 'profile' (Delivery Profile)
+  const [activeTab, setActiveTab] = useState<
+    'orders' | 'history' | 'profile' | 'track'
+  >(route.page === 'client-portal' && route.tab ? route.tab : 'history');
 
   // Inline M-Pesa confirmation input per order
   const [mpesaDrafts, setMpesaDrafts] = useState<Record<string, string>>({});
@@ -482,6 +483,21 @@ export const ClientPortalView: React.FC = () => {
   const paginatedHistoryOrders = filteredHistoryOrders.slice(
     (safeHistoryPage - 1) * CLIENT_ORDERS_PAGE_SIZE,
     safeHistoryPage * CLIENT_ORDERS_PAGE_SIZE
+  );
+
+  // 9 items per page for receipts view
+  const [receiptsOrdersPage, setReceiptsOrdersPage] = useState<number>(1);
+  const receiptsTotalPages = Math.max(
+    1,
+    Math.ceil(displayedOrders.length / CLIENT_ORDERS_PAGE_SIZE)
+  );
+  const safeReceiptsPage = Math.min(
+    Math.max(1, receiptsOrdersPage),
+    receiptsTotalPages
+  );
+  const paginatedReceiptsOrders = displayedOrders.slice(
+    (safeReceiptsPage - 1) * CLIENT_ORDERS_PAGE_SIZE,
+    safeReceiptsPage * CLIENT_ORDERS_PAGE_SIZE
   );
 
   // Summary metrics for Order History
@@ -1038,6 +1054,23 @@ export const ClientPortalView: React.FC = () => {
               )}
             </div>
           )}
+
+          {/* Quick Shipment Tracking Link Without Sign-In */}
+          {(authMode === 'login' || authMode === 'signup') && (
+            <div className="mt-6 pt-5 border-t border-[#141413]/12 text-center">
+              <p className="text-[11px] font-mono-num uppercase tracking-wider text-[#6E6D68] mb-2.5">
+                Have an Order ID or Consignment Ref?
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate({ page: 'track-shipment' })}
+                className="w-full py-2.5 px-4 bg-[#EAE9E4] hover:bg-[#141413] hover:text-[#F4F3EF] border border-[#141413]/20 text-xs font-mono-num uppercase tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Truck className="w-3.5 h-3.5 text-[#1F6F43]" />
+                <span>Track Live Shipment by Order ID</span>
+              </button>
+            </div>
+          )}
         </motion.div>
       </div>
     );
@@ -1116,6 +1149,18 @@ export const ClientPortalView: React.FC = () => {
           >
             <Package className="w-3.5 h-3.5" />
             <span>Detailed Receipts ({displayedOrders.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('track')}
+            className={`px-4 py-2.5 text-xs font-mono-num uppercase tracking-widest flex items-center gap-2 cursor-pointer transition-colors ${
+              activeTab === 'track'
+                ? 'bg-[#141413] text-[#F4F3EF]'
+                : 'bg-[#EAE9E4] text-[#5E5D59] hover:text-[#141413]'
+            }`}
+          >
+            <Truck className="w-3.5 h-3.5" />
+            <span>Track by Order ID</span>
           </button>
 
           <button
@@ -1361,6 +1406,20 @@ export const ClientPortalView: React.FC = () => {
                           <button
                             type="button"
                             onClick={() =>
+                              navigate({
+                                page: 'track-shipment',
+                                orderId: order.orderNumber,
+                              })
+                            }
+                            className="px-3 py-2 bg-[#1F6F43] text-[#F4F3EF] hover:bg-[#185835] text-[11px] font-mono-num uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-colors"
+                          >
+                            <Truck className="w-3.5 h-3.5" />
+                            <span>Track Shipment</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
                               PdfReceiptService.generateAndDownloadReceipt(
                                 order,
                                 settings
@@ -1555,81 +1614,136 @@ export const ClientPortalView: React.FC = () => {
         {activeTab === 'orders' && (
           <div className="py-8 space-y-6">
             {displayedOrders.length > 0 ? (
-              displayedOrders.map((order) => (
-                <div
-                  key={order.id}
-                  className="bg-[#EAE9E4]/55 border border-[#141413]/12 p-5 sm:p-8 space-y-5"
-                >
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#141413]/10">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2.5 text-xs font-mono-num">
-                        <span className="font-semibold text-sm text-[#141413]">
-                          {order.orderNumber}
-                        </span>
-                        <span>·</span>
-                        <span className="text-[#6E6D68]">
-                          Placed{' '}
-                          {new Date(order.createdAt).toLocaleDateString(
-                            'en-US',
-                            {
-                              year: 'numeric',
-                              month: 'short',
-                              day: '2-digit',
-                            }
-                          )}
-                        </span>
-                        <span>·</span>
-                        <span className="text-[#141413]">
-                          {order.paymentMethod}
+              <>
+                {paginatedReceiptsOrders.map((order) => (
+                  <div
+                    key={order.id}
+                    className="bg-[#EAE9E4]/55 border border-[#141413]/12 p-5 sm:p-8 space-y-5"
+                  >
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#141413]/10">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2.5 text-xs font-mono-num">
+                          <span className="font-semibold text-sm text-[#141413]">
+                            {order.orderNumber}
+                          </span>
+                          <span>·</span>
+                          <span className="text-[#6E6D68]">
+                            Placed{' '}
+                            {new Date(order.createdAt).toLocaleDateString(
+                              'en-US',
+                              {
+                                year: 'numeric',
+                                month: 'short',
+                                day: '2-digit',
+                              }
+                            )}
+                          </span>
+                          <span>·</span>
+                          <span className="text-[#141413]">
+                            {order.paymentMethod}
+                          </span>
+                        </div>
+                        <p className="text-xs text-[#5E5D59] mt-1">
+                          Destination: {order.shippingAddress}, {order.city}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3">
+                        <button
+                          onClick={() =>
+                            navigate({
+                              page: 'track-shipment',
+                              orderId: order.orderNumber,
+                            })
+                          }
+                          className="px-4 py-2.5 bg-[#1F6F43] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-wider hover:bg-[#185835] transition-colors flex items-center gap-2 cursor-pointer whitespace-nowrap"
+                        >
+                          <Truck className="w-3.5 h-3.5" />
+                          <span>Track Shipment</span>
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            PdfReceiptService.generateAndDownloadReceipt(
+                              order,
+                              settings
+                            )
+                          }
+                          className="px-4 py-2.5 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-wider hover:bg-[#2B2B28] transition-colors flex items-center gap-2 cursor-pointer whitespace-nowrap"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>Download PDF Receipt</span>
+                        </button>
+
+                        {order.status === 'Processing' && (
+                          <button
+                            onClick={() => cancelClientOrder(order.id)}
+                            className="px-3.5 py-2.5 border border-[#D94E34]/40 text-[#D94E34] text-xs font-mono-num uppercase tracking-wider hover:bg-[#D94E34] hover:text-[#F4F3EF] flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                            <span>Cancel</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <RealTimeTrackingIndicator order={order} />
+
+                    <div className="pt-2 border-t border-[#141413]/10 flex flex-wrap items-center justify-between gap-4 text-xs font-mono-num">
+                      <div className="flex items-center gap-2 text-[#1F6F43]">
+                        <ShieldCheck className="w-4 h-4" />
+                        <span>
+                          Official Tech Sokoni Serial & Warranty Registered
                         </span>
                       </div>
-                      <p className="text-xs text-[#5E5D59] mt-1">
-                        Destination: {order.shippingAddress}, {order.city}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-3">
-                      <button
-                        onClick={() =>
-                          PdfReceiptService.generateAndDownloadReceipt(
-                            order,
-                            settings
-                          )
-                        }
-                        className="px-4 py-2.5 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-wider hover:bg-[#2B2B28] transition-colors flex items-center gap-2 cursor-pointer whitespace-nowrap"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>Download PDF Receipt</span>
-                      </button>
-
-                      {order.status === 'Processing' && (
-                        <button
-                          onClick={() => cancelClientOrder(order.id)}
-                          className="px-3.5 py-2.5 border border-[#D94E34]/40 text-[#D94E34] text-xs font-mono-num uppercase tracking-wider hover:bg-[#D94E34] hover:text-[#F4F3EF] flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-                        >
-                          <XCircle className="w-3.5 h-3.5" />
-                          <span>Cancel</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <RealTimeTrackingIndicator order={order} />
-
-                  <div className="pt-2 border-t border-[#141413]/10 flex flex-wrap items-center justify-between gap-4 text-xs font-mono-num">
-                    <div className="flex items-center gap-2 text-[#1F6F43]">
-                      <ShieldCheck className="w-4 h-4" />
-                      <span>
-                        Official Tech Sokoni Serial & Warranty Registered
+                      <span className="text-base font-semibold text-[#141413]">
+                        Total: {settings.currencySymbol}
+                        {order.total.toLocaleString()}
                       </span>
                     </div>
-                    <span className="text-base font-semibold text-[#141413]">
-                      Total: {settings.currencySymbol}
-                      {order.total.toLocaleString()}
-                    </span>
                   </div>
-                </div>
-              ))
+                ))}
+
+                {displayedOrders.length > CLIENT_ORDERS_PAGE_SIZE && (
+                  <div className="pt-4 border-t border-[#141413]/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono-num">
+                    <span className="text-[#6E6D68]">
+                      Page {safeReceiptsPage} of {receiptsTotalPages} · Showing{' '}
+                      {(safeReceiptsPage - 1) * CLIENT_ORDERS_PAGE_SIZE + 1}–
+                      {Math.min(
+                        safeReceiptsPage * CLIENT_ORDERS_PAGE_SIZE,
+                        displayedOrders.length
+                      )}{' '}
+                      of {displayedOrders.length} receipts
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setReceiptsOrdersPage((p) => Math.max(1, p - 1))
+                        }
+                        disabled={safeReceiptsPage === 1}
+                        className="px-3 py-1.5 border border-[#141413]/20 bg-[#F4F3EF] text-[#141413] uppercase tracking-wider flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed hover:border-[#141413] cursor-pointer"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                        <span>Previous</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setReceiptsOrdersPage((p) =>
+                            Math.min(receiptsTotalPages, p + 1)
+                          )
+                        }
+                        disabled={safeReceiptsPage === receiptsTotalPages}
+                        className="px-3 py-1.5 border border-[#141413]/20 bg-[#F4F3EF] text-[#141413] uppercase tracking-wider flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed hover:border-[#141413] cursor-pointer"
+                      >
+                        <span>Next</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="p-10 text-center bg-[#EAE9E4]/40 border border-[#141413]/12">
                 <p className="text-sm text-[#141413]">
@@ -1698,6 +1812,19 @@ export const ClientPortalView: React.FC = () => {
                 className="w-full bg-[#EAE9E4]/60 border border-[#141413]/20 px-3.5 py-2 text-xs"
               />
             </div>
+          </div>
+        )}
+
+        {/* =====================================================================
+            VIEW 4: REAL-TIME SHIPMENT TRACKER BY ORDER ID
+           ===================================================================== */}
+        {activeTab === 'track' && (
+          <div className="py-6">
+            <TrackShipmentView
+              initialOrderId={
+                route.page === 'client-portal' ? route.initialOrderId : undefined
+              }
+            />
           </div>
         )}
       </div>
