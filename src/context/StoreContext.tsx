@@ -21,6 +21,11 @@ import {
   Product,
   ProductReview,
   SiteSettings,
+  BookingConfig,
+  ViewingAppointment,
+  ViewingBookingStatus,
+  ViewingLocation,
+  ViewingAuditLog,
 } from '../types/store';
 import {
   auth,
@@ -52,7 +57,24 @@ import {
   signOut,
   probeFirestoreAccess,
   updateProfile,
+  saveViewingAppointmentToFirestore,
+  deleteViewingAppointmentFromFirestore,
+  saveViewingLocationToFirestore,
+  deleteViewingLocationFromFirestore,
+  saveBookingConfigToFirestore,
 } from '../services/firebase';
+import {
+  DEFAULT_BOOKING_CONFIG,
+  DEFAULT_VIEWING_LOCATIONS,
+  INITIAL_VIEWING_APPOINTMENTS,
+  formatViewingDateDisplay,
+  generateDayTimeSlots,
+  getCurrentNairobiTime,
+  getNairobiDateString,
+  isValidKenyanPhone,
+  normalizeKenyanPhone,
+  parseSlotToMinutes,
+} from '../data/viewingConfig';
 import { errorTracker } from '../services/errorTracker';
 import { analyticsService } from '../services/analyticsService';
 
@@ -220,6 +242,54 @@ interface StoreContextValue {
     categories?: CategoryInfo[];
     settings?: Partial<SiteSettings>;
   }) => Promise<void>;
+
+  // "Book to View" In-Person Viewing Appointments & Locations
+  viewingAppointments: ViewingAppointment[];
+  viewingLocations: ViewingLocation[];
+  bookingConfig: BookingConfig;
+  isBookViewingModalOpen: boolean;
+  bookViewingTargetProduct: Product | null;
+  openBookViewingModal: (product: Product) => void;
+  closeBookViewingModal: () => void;
+  createViewingAppointment: (
+    data: Omit<
+      ViewingAppointment,
+      'id' | 'bookingReference' | 'status' | 'auditTrail' | 'createdAt' | 'updatedAt'
+    >
+  ) => Promise<{ ok: boolean; appointment?: ViewingAppointment; error?: string }>;
+  updateViewingAppointmentStatus: (
+    id: string,
+    status: ViewingBookingStatus,
+    reasonOrNote?: string,
+    actor?: string
+  ) => void;
+  rescheduleViewingAppointment: (
+    id: string,
+    newDate: string,
+    newTimeSlot: string,
+    actor?: string,
+    note?: string
+  ) => void;
+  addViewingInternalNote: (id: string, note: string) => void;
+  assignViewingStaff: (id: string, staffName: string) => void;
+  assignViewingLocation: (id: string, locationId: string) => void;
+  updateViewingLocation: (id: string, updates: Partial<ViewingLocation>) => void;
+  addViewingLocation: (loc: Omit<ViewingLocation, 'id'>) => ViewingLocation;
+  deleteViewingLocation: (id: string) => void;
+  updateBookingConfig: (updates: Partial<BookingConfig>) => void;
+  getEffectiveViewingLocation: (product: Product) => ViewingLocation;
+  getAvailableSlotsForDate: (
+    dateStr: string,
+    locationId?: string,
+    excludeAppointmentId?: string
+  ) => string[];
+  isDateBlocked: (dateStr: string) => boolean;
+  isSlotAvailable: (
+    dateStr: string,
+    timeSlot: string,
+    locationId?: string,
+    excludeAppointmentId?: string
+  ) => boolean;
 }
 
 const StoreContext = createContext<StoreContextValue | undefined>(undefined);
@@ -238,6 +308,9 @@ const STORAGE_KEYS = {
   CLIENTS: 'tech_sokoni_clients_live_v1',
   CURRENT_CLIENT: 'tech_sokoni_current_client_live_v1',
   CATEGORY_FILTERS: 'tech_sokoni_category_filters_live_v1',
+  VIEWING_APPOINTMENTS: 'tech_sokoni_viewing_appointments_live_v1',
+  VIEWING_LOCATIONS: 'tech_sokoni_viewing_locations_live_v1',
+  BOOKING_CONFIG: 'tech_sokoni_booking_config_live_v1',
 };
 
 export const DEFAULT_CATEGORY_FILTERS: CategoryFilterState = {
@@ -342,6 +415,40 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [passwordResetCode, setPasswordResetCode] = useState<string | null>(null);
 
+  // "Book to View" State
+  const [viewingAppointments, setViewingAppointments] = useState<
+    ViewingAppointment[]
+  >(() =>
+    loadFromStorage(
+      STORAGE_KEYS.VIEWING_APPOINTMENTS,
+      INITIAL_VIEWING_APPOINTMENTS
+    )
+  );
+  const [viewingLocations, setViewingLocations] = useState<ViewingLocation[]>(
+    () => loadFromStorage(STORAGE_KEYS.VIEWING_LOCATIONS, DEFAULT_VIEWING_LOCATIONS)
+  );
+  const [bookingConfig, setBookingConfig] = useState<BookingConfig>(() =>
+    loadFromStorage(STORAGE_KEYS.BOOKING_CONFIG, DEFAULT_BOOKING_CONFIG)
+  );
+  const [isBookViewingModalOpen, setIsBookViewingModalOpen] = useState(false);
+  const [bookViewingTargetProduct, setBookViewingTargetProduct] =
+    useState<Product | null>(null);
+
+  const openBookViewingModal = (product: Product) => {
+    setBookViewingTargetProduct(product);
+    setIsBookViewingModalOpen(true);
+    analyticsService.track('booking_form_started', {
+      productId: product.id,
+      productName: product.name,
+      productPrice: product.price,
+    });
+  };
+
+  const closeBookViewingModal = () => {
+    setIsBookViewingModalOpen(false);
+    setBookViewingTargetProduct(null);
+  };
+
   // Detect password reset link from email (e.g., /?mode=resetPassword&oobCode=... or /?oobCode=...)
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -391,6 +498,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
     let unsubCategories: (() => void) | undefined;
     let unsubClients: (() => void) | undefined;
     let unsubSettings: (() => void) | undefined;
+    let unsubViewings: (() => void) | undefined;
+    let unsubViewingLocations: (() => void) | undefined;
+    let unsubBookingConfig: (() => void) | undefined;
 
     const cleanupListeners = () => {
       unsubProducts?.();
@@ -400,6 +510,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       unsubCategories?.();
       unsubClients?.();
       unsubSettings?.();
+      unsubViewings?.();
+      unsubViewingLocations?.();
+      unsubBookingConfig?.();
       unsubProducts = undefined;
       unsubOrders = undefined;
       unsubMpesa = undefined;
@@ -407,6 +520,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       unsubCategories = undefined;
       unsubClients = undefined;
       unsubSettings = undefined;
+      unsubViewings = undefined;
+      unsubViewingLocations = undefined;
+      unsubBookingConfig = undefined;
     };
 
     const startFirestoreSyncIfPermitted = async (isAuthenticated: boolean) => {
@@ -574,6 +690,67 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
             );
           }
         );
+
+        unsubViewings = onSnapshot(
+          collection(db, 'viewing_appointments'),
+          (snap) => {
+            if (!snap.empty) {
+              const remoteViewings = snap.docs
+                .map((d) => ({ ...d.data(), id: d.id } as ViewingAppointment))
+                .sort(
+                  (a, b) =>
+                    new Date(b.createdAt).getTime() -
+                    new Date(a.createdAt).getTime()
+                );
+              setViewingAppointments(remoteViewings);
+            }
+          },
+          (err) => {
+            handleFirestoreError(
+              err,
+              OperationType.LIST,
+              'viewing_appointments',
+              false
+            );
+          }
+        );
+
+        unsubViewingLocations = onSnapshot(
+          collection(db, 'viewing_locations'),
+          (snap) => {
+            if (!snap.empty) {
+              const remoteLocs = snap.docs.map(
+                (d) => ({ ...d.data(), id: d.id } as ViewingLocation)
+              );
+              setViewingLocations(remoteLocs);
+            }
+          },
+          (err) => {
+            handleFirestoreError(
+              err,
+              OperationType.LIST,
+              'viewing_locations',
+              false
+            );
+          }
+        );
+
+        unsubBookingConfig = onSnapshot(
+          doc(db, 'settings', 'booking_config'),
+          (snap) => {
+            if (snap.exists()) {
+              setBookingConfig(snap.data() as BookingConfig);
+            }
+          },
+          (err) => {
+            handleFirestoreError(
+              err,
+              OperationType.GET,
+              'settings/booking_config',
+              false
+            );
+          }
+        );
       } catch {}
     };
 
@@ -674,6 +851,33 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       );
     } catch {}
   }, [categoryFilters]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        STORAGE_KEYS.VIEWING_APPOINTMENTS,
+        JSON.stringify(viewingAppointments)
+      );
+    } catch {}
+  }, [viewingAppointments]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        STORAGE_KEYS.VIEWING_LOCATIONS,
+        JSON.stringify(viewingLocations)
+      );
+    } catch {}
+  }, [viewingLocations]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        STORAGE_KEYS.BOOKING_CONFIG,
+        JSON.stringify(bookingConfig)
+      );
+    } catch {}
+  }, [bookingConfig]);
 
   const getCategoryFilters = (catKey: string): CategoryFilterState => {
     return categoryFilters[catKey] || { ...DEFAULT_CATEGORY_FILTERS };
@@ -1860,6 +2064,417 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
     showToast('Database restore complete: All collections synced to local state and Firestore');
   };
 
+  // ============================================================================
+  // "Book to View" In-Person Viewing Appointments Implementation
+  // ============================================================================
+
+  const getEffectiveViewingLocation = (product: Product): ViewingLocation => {
+    if (product.viewingLocationId) {
+      const match = viewingLocations.find(
+        (l) => l.id === product.viewingLocationId && l.active
+      );
+      if (match) return match;
+    }
+    const defaultLoc = viewingLocations.find(
+      (l) => l.id === bookingConfig.defaultLocationId && l.active
+    );
+    return (
+      defaultLoc ||
+      viewingLocations.find((l) => l.active) ||
+      viewingLocations[0] ||
+      DEFAULT_VIEWING_LOCATIONS[0]
+    );
+  };
+
+  const isDateBlocked = (dateStr: string): boolean => {
+    if (!dateStr) return true;
+    if (bookingConfig.blockedDates.includes(dateStr)) return true;
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const d = new Date(
+        parseInt(parts[0], 10),
+        parseInt(parts[1], 10) - 1,
+        parseInt(parts[2], 10)
+      );
+      const dayOfWeek = d.getDay();
+      if (!bookingConfig.workingDays.includes(dayOfWeek)) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const getAvailableSlotsForDate = (
+    dateStr: string,
+    locationId?: string,
+    excludeAppointmentId?: string
+  ): string[] => {
+    if (!bookingConfig.enabled || !dateStr) return [];
+    if (isDateBlocked(dateStr)) return [];
+
+    const todayNairobi = getNairobiDateString(0);
+    if (dateStr < todayNairobi) return [];
+
+    const allSlots = generateDayTimeSlots(
+      bookingConfig.startHour,
+      bookingConfig.endHour,
+      bookingConfig.appointmentDurationMinutes
+    );
+
+    const currentTime = getCurrentNairobiTime();
+    const isToday = dateStr === currentTime.dateStr;
+    const minNoticeMinutes = isToday
+      ? currentTime.hour * 60 +
+        currentTime.minute +
+        bookingConfig.minNoticeHours * 60
+      : -1;
+
+    const targetLocId = locationId || bookingConfig.defaultLocationId;
+
+    return allSlots.filter((slot) => {
+      // 1. Notice period filter for today
+      if (isToday) {
+        const slotMin = parseSlotToMinutes(slot);
+        if (slotMin < minNoticeMinutes) return false;
+      }
+
+      // 2. Explicitly blocked slots in config
+      const isBlockedSlot = bookingConfig.blockedSlots.some(
+        (b) => b.date === dateStr && b.timeSlot === slot
+      );
+      if (isBlockedSlot) return false;
+
+      // 3. Concurrency check based on saved active appointments
+      const concurrentBookings = viewingAppointments.filter((app) => {
+        if (excludeAppointmentId && app.id === excludeAppointmentId) return false;
+        if (app.status === 'Cancelled' || app.status === 'No-show') return false;
+        if (app.viewingDate !== dateStr || app.viewingTimeSlot !== slot) return false;
+        if (targetLocId && app.locationId !== targetLocId) return false;
+        return true;
+      });
+
+      return concurrentBookings.length < bookingConfig.maxConcurrentPerSlot;
+    });
+  };
+
+  const isSlotAvailable = (
+    dateStr: string,
+    timeSlot: string,
+    locationId?: string,
+    excludeAppointmentId?: string
+  ): boolean => {
+    const available = getAvailableSlotsForDate(
+      dateStr,
+      locationId,
+      excludeAppointmentId
+    );
+    return available.includes(timeSlot);
+  };
+
+  const createViewingAppointment = async (
+    data: Omit<
+      ViewingAppointment,
+      'id' | 'bookingReference' | 'status' | 'auditTrail' | 'createdAt' | 'updatedAt'
+    >
+  ): Promise<{ ok: boolean; appointment?: ViewingAppointment; error?: string }> => {
+    if (!data.customerName || data.customerName.trim().length < 2) {
+      return { ok: false, error: 'Please enter your full legal name.' };
+    }
+    if (!isValidKenyanPhone(data.customerPhone)) {
+      return {
+        ok: false,
+        error:
+          'Please provide a valid Kenyan mobile number (e.g. 0712 345 678, 0110 123 456, or +254 7XX XXX XXX).',
+      };
+    }
+    if (!data.viewingDate || !data.viewingTimeSlot) {
+      return {
+        ok: false,
+        error: 'Please select an appointment date and preferred time slot.',
+      };
+    }
+
+    // Live slot capacity validation
+    if (
+      !isSlotAvailable(data.viewingDate, data.viewingTimeSlot, data.locationId)
+    ) {
+      return {
+        ok: false,
+        error:
+          'This viewing slot was just reserved or is no longer available. Please select another time slot.',
+      };
+    }
+
+    let generatedReference = '';
+
+    // Backend endpoint concurrency check
+    try {
+      const resp = await fetch('/api/bookings/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName: data.customerName,
+          customerPhone: data.customerPhone,
+          customerEmail: data.customerEmail,
+          viewingDate: data.viewingDate,
+          viewingTimeSlot: data.viewingTimeSlot,
+          productId: data.productId,
+          productName: data.productName,
+          locationId: data.locationId,
+        }),
+      });
+
+      if (resp.status === 409) {
+        return {
+          ok: false,
+          error:
+            'This appointment slot was just reserved by another customer. Please choose another convenient time.',
+        };
+      }
+
+      if (!resp.ok) {
+        const errJson = await resp.json().catch(() => ({}));
+        return {
+          ok: false,
+          error: errJson.error || 'Failed to validate appointment slot.',
+        };
+      }
+
+      const okJson = await resp.json().catch(() => ({}));
+      if (okJson.bookingReference) {
+        generatedReference = okJson.bookingReference;
+      }
+    } catch {
+      // Local fallback if offline
+    }
+
+    if (!generatedReference) {
+      const year = new Date().getFullYear();
+      const rand = Math.floor(1000 + Math.random() * 9000);
+      generatedReference = `TSV-${year}-${rand}`;
+    }
+
+    const now = new Date().toISOString();
+    const initialStatus: ViewingBookingStatus = bookingConfig.requireApproval
+      ? 'Pending Confirmation'
+      : 'Confirmed';
+
+    const cleanPhone = normalizeKenyanPhone(data.customerPhone);
+
+    const newAppointment: ViewingAppointment = {
+      ...data,
+      id: `viewing-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      bookingReference: generatedReference,
+      customerPhone: cleanPhone,
+      status: initialStatus,
+      auditTrail: [
+        {
+          timestamp: now,
+          action: 'Booking Created',
+          newStatus: initialStatus,
+          actor: data.customerName || 'customer',
+          note: `Physical viewing reserved for ${data.productName} on ${formatViewingDateDisplay(
+            data.viewingDate
+          )} at ${data.viewingTimeSlot}.`,
+        },
+      ],
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    setViewingAppointments((prev) => [newAppointment, ...prev]);
+    saveViewingAppointmentToFirestore(newAppointment).catch(() => {});
+
+    analyticsService.track('booking_completed', {
+      bookingReference: newAppointment.bookingReference,
+      productId: newAppointment.productId,
+      productName: newAppointment.productName,
+      status: newAppointment.status,
+    });
+
+    showToast(`Appointment booked! Reference: ${newAppointment.bookingReference}`);
+    return { ok: true, appointment: newAppointment };
+  };
+
+  const updateViewingAppointmentStatus = (
+    id: string,
+    status: ViewingBookingStatus,
+    reasonOrNote?: string,
+    actor = 'admin'
+  ) => {
+    const now = new Date().toISOString();
+    setViewingAppointments((prev) =>
+      prev.map((app) => {
+        if (app.id !== id) return app;
+        const auditEntry: ViewingAuditLog = {
+          timestamp: now,
+          action: `Status updated to ${status}`,
+          previousStatus: app.status,
+          newStatus: status,
+          actor,
+          note: reasonOrNote,
+        };
+        const updated: ViewingAppointment = {
+          ...app,
+          status,
+          cancellationReason:
+            status === 'Cancelled'
+              ? reasonOrNote || app.cancellationReason
+              : app.cancellationReason,
+          auditTrail: [auditEntry, ...app.auditTrail],
+          updatedAt: now,
+        };
+        saveViewingAppointmentToFirestore(updated).catch(() => {});
+        return updated;
+      })
+    );
+    showToast(`Appointment status updated to ${status}`);
+  };
+
+  const rescheduleViewingAppointment = (
+    id: string,
+    newDate: string,
+    newTimeSlot: string,
+    actor = 'admin',
+    note?: string
+  ) => {
+    const now = new Date().toISOString();
+    setViewingAppointments((prev) =>
+      prev.map((app) => {
+        if (app.id !== id) return app;
+        const prevDate = app.viewingDate;
+        const prevSlot = app.viewingTimeSlot;
+        const auditEntry: ViewingAuditLog = {
+          timestamp: now,
+          action: `Rescheduled from ${prevDate} ${prevSlot} to ${formatViewingDateDisplay(
+            newDate
+          )} at ${newTimeSlot}`,
+          previousStatus: app.status,
+          newStatus: 'Confirmed',
+          actor,
+          note,
+        };
+        const updated: ViewingAppointment = {
+          ...app,
+          viewingDate: newDate,
+          viewingTimeSlot: newTimeSlot,
+          status: 'Confirmed',
+          auditTrail: [auditEntry, ...app.auditTrail],
+          updatedAt: now,
+        };
+        saveViewingAppointmentToFirestore(updated).catch(() => {});
+        return updated;
+      })
+    );
+    showToast(
+      `Appointment rescheduled to ${formatViewingDateDisplay(newDate)} at ${newTimeSlot}`
+    );
+  };
+
+  const addViewingInternalNote = (id: string, note: string) => {
+    const now = new Date().toISOString();
+    setViewingAppointments((prev) =>
+      prev.map((app) => {
+        if (app.id !== id) return app;
+        const updated = {
+          ...app,
+          internalNotes: note,
+          updatedAt: now,
+        };
+        saveViewingAppointmentToFirestore(updated).catch(() => {});
+        return updated;
+      })
+    );
+    showToast('Internal note saved');
+  };
+
+  const assignViewingStaff = (id: string, staffName: string) => {
+    const now = new Date().toISOString();
+    setViewingAppointments((prev) =>
+      prev.map((app) => {
+        if (app.id !== id) return app;
+        const auditEntry: ViewingAuditLog = {
+          timestamp: now,
+          action: `Assigned to ${staffName}`,
+          actor: 'admin',
+        };
+        const updated = {
+          ...app,
+          assignedStaff: staffName,
+          auditTrail: [auditEntry, ...app.auditTrail],
+          updatedAt: now,
+        };
+        saveViewingAppointmentToFirestore(updated).catch(() => {});
+        return updated;
+      })
+    );
+    showToast(`Assigned to ${staffName}`);
+  };
+
+  const assignViewingLocation = (id: string, locationId: string) => {
+    const loc =
+      viewingLocations.find((l) => l.id === locationId) ||
+      DEFAULT_VIEWING_LOCATIONS[0];
+    const now = new Date().toISOString();
+    setViewingAppointments((prev) =>
+      prev.map((app) => {
+        if (app.id !== id) return app;
+        const updated = {
+          ...app,
+          locationId: loc.id,
+          locationSnapshot: loc,
+          updatedAt: now,
+        };
+        saveViewingAppointmentToFirestore(updated).catch(() => {});
+        return updated;
+      })
+    );
+    showToast(`Assigned viewing location: ${loc.name}`);
+  };
+
+  const updateViewingLocation = (
+    id: string,
+    updates: Partial<ViewingLocation>
+  ) => {
+    setViewingLocations((prev) =>
+      prev.map((l) => {
+        if (l.id !== id) return l;
+        const updated = { ...l, ...updates };
+        saveViewingLocationToFirestore(updated).catch(() => {});
+        return updated;
+      })
+    );
+    showToast('Viewing location updated');
+  };
+
+  const addViewingLocation = (
+    loc: Omit<ViewingLocation, 'id'>
+  ): ViewingLocation => {
+    const newLoc: ViewingLocation = {
+      ...loc,
+      id: `loc-${Date.now()}`,
+    };
+    setViewingLocations((prev) => [newLoc, ...prev]);
+    saveViewingLocationToFirestore(newLoc).catch(() => {});
+    showToast(`Added viewing location: ${newLoc.name}`);
+    return newLoc;
+  };
+
+  const deleteViewingLocation = (id: string) => {
+    setViewingLocations((prev) => prev.filter((l) => l.id !== id));
+    deleteViewingLocationFromFirestore(id).catch(() => {});
+    showToast('Viewing location deleted');
+  };
+
+  const updateBookingConfig = (updates: Partial<BookingConfig>) => {
+    setBookingConfig((prev) => {
+      const next = { ...prev, ...updates };
+      saveBookingConfigToFirestore(next).catch(() => {});
+      return next;
+    });
+    showToast('Booking configuration saved');
+  };
+
   return (
     <StoreContext.Provider
       value={{
@@ -1943,6 +2558,27 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
         updateCategory,
         resetDemoData,
         restoreDatabase,
+        viewingAppointments,
+        viewingLocations,
+        bookingConfig,
+        isBookViewingModalOpen,
+        bookViewingTargetProduct,
+        openBookViewingModal,
+        closeBookViewingModal,
+        createViewingAppointment,
+        updateViewingAppointmentStatus,
+        rescheduleViewingAppointment,
+        addViewingInternalNote,
+        assignViewingStaff,
+        assignViewingLocation,
+        updateViewingLocation,
+        addViewingLocation,
+        deleteViewingLocation,
+        updateBookingConfig,
+        getEffectiveViewingLocation,
+        getAvailableSlotsForDate,
+        isDateBlocked,
+        isSlotAvailable,
       }}
     >
       {children}

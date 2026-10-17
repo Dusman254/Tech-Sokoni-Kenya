@@ -128,6 +128,20 @@ service cloud.firestore {
       allow create, update: if isValidId(settingId);
     }
 
+    // Viewing Appointments (Physical Laptop Inspection Bookings)
+    match /viewing_appointments/{appointmentId} {
+      allow get: if isValidId(appointmentId);
+      allow list: if true;
+      allow create: if isValidId(appointmentId);
+      allow update, delete: if isValidId(appointmentId);
+    }
+
+    // Viewing Locations & Inspection Points
+    match /viewing_locations/{locationId} {
+      allow get, list: if isValidId(locationId);
+      allow create, update, delete: if isValidId(locationId);
+    }
+
     match /test/{docId} {
       allow get: if isValidId(docId);
     }

@@ -15,7 +15,10 @@ export type FunnelStep =
   | 'checkout_step_3_review'
   | 'order_completed'
   | 'client_login'
-  | 'client_signup';
+  | 'client_signup'
+  | 'book_to_view_clicked'
+  | 'booking_form_started'
+  | 'booking_completed';
 
 export interface AnalyticsEvent {
   id: string;

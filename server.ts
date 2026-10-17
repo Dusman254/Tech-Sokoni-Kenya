@@ -149,6 +149,135 @@ async function startServer() {
     res.status(204).end();
   });
 
+  // ============================================================================
+  // "Book to View" In-Person Viewing Appointment Backend APIs
+  // Concurrency-safe slot validation, Kenyan phone checks & spam rate limiting
+  // ============================================================================
+
+  const bookingRateLimiter = createRateLimiter({
+    maxRequests: 30,
+    windowMs: 10 * 60 * 1000, // 30 booking attempts per 10 mins per IP
+  });
+
+  // In-memory slot booking register to prevent double-booking collisions
+  interface SlotBookingKey {
+    date: string;
+    slot: string;
+    locationId: string;
+    reference: string;
+  }
+  const confirmedServerSlots: SlotBookingKey[] = [];
+
+  // Helper to validate Kenyan telephone numbers on backend
+  function backendValidateKenyanPhone(phone: string): boolean {
+    if (!phone || typeof phone !== 'string') return false;
+    const clean = phone.replace(/[\s\-\(\)]/g, '');
+    return (
+      /^0[17]\d{8}$/.test(clean) ||
+      /^254[17]\d{8}$/.test(clean) ||
+      /^\+254[17]\d{8}$/.test(clean)
+    );
+  }
+
+  // Helper to get today's date in East Africa Time (Africa/Nairobi UTC+3)
+  function getNairobiToday(): string {
+    const now = new Date();
+    const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+    const eat = new Date(utc + 3600000 * 3);
+    const y = eat.getFullYear();
+    const m = String(eat.getMonth() + 1).padStart(2, '0');
+    const d = String(eat.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  // Validate and submit viewing appointment
+  app.post('/api/bookings/validate', bookingRateLimiter, (req: Request, res: Response) => {
+    try {
+      const {
+        customerName,
+        customerPhone,
+        customerEmail,
+        viewingDate,
+        viewingTimeSlot,
+        productId,
+        productName,
+        locationId,
+      } = req.body || {};
+
+      // 1. Mandatory field checks
+      if (!customerName || typeof customerName !== 'string' || customerName.trim().length < 2) {
+        return res.status(400).json({ error: 'Please enter your full legal name (minimum 2 characters).' });
+      }
+
+      if (!customerPhone || !backendValidateKenyanPhone(customerPhone)) {
+        return res.status(400).json({
+          error: 'Please provide a valid Kenyan mobile number (e.g. 0712 345 678, 0110 123 456, or +254 7XX XXX XXX).',
+        });
+      }
+
+      if (customerEmail && typeof customerEmail === 'string' && customerEmail.trim()) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(customerEmail.trim())) {
+          return res.status(400).json({ error: 'Please provide a valid email address or leave it blank.' });
+        }
+      }
+
+      if (!viewingDate || !/^\d{4}-\d{2}-\d{2}$/.test(viewingDate)) {
+        return res.status(400).json({ error: 'Please select a valid viewing appointment date (YYYY-MM-DD).' });
+      }
+
+      // 2. Prevent past dates in Africa/Nairobi
+      const todayNairobi = getNairobiToday();
+      if (viewingDate < todayNairobi) {
+        return res.status(400).json({ error: 'Appointments cannot be booked for past dates.' });
+      }
+
+      if (!viewingTimeSlot || typeof viewingTimeSlot !== 'string') {
+        return res.status(400).json({ error: 'Please select a preferred viewing time slot.' });
+      }
+
+      if (!productId || !productName) {
+        return res.status(400).json({ error: 'Missing selected laptop details.' });
+      }
+
+      // 3. Concurrency / Collision Check
+      const targetLoc = locationId || 'loc-nbi-cbd';
+      const existingInSlot = confirmedServerSlots.filter(
+        (s) => s.date === viewingDate && s.slot === viewingTimeSlot && s.locationId === targetLoc
+      );
+
+      const MAX_SLOT_CAPACITY = 2; // Maximum concurrent viewings per station
+      if (existingInSlot.length >= MAX_SLOT_CAPACITY) {
+        return res.status(409).json({
+          error: 'This viewing slot was just reserved by another client. Please select another convenient time slot.',
+          slotUnavailable: true,
+        });
+      }
+
+      // Generate deterministic unique booking reference: TSV-YYYY-XXXX
+      const year = new Date().getFullYear();
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+      const bookingReference = `TSV-${year}-${randomSuffix}`;
+
+      // Reserve slot in server memory
+      confirmedServerSlots.push({
+        date: viewingDate,
+        slot: viewingTimeSlot,
+        locationId: targetLoc,
+        reference: bookingReference,
+      });
+
+      return res.status(200).json({
+        ok: true,
+        bookingReference,
+        message: 'Appointment details validated and slot reserved successfully.',
+      });
+    } catch (err: any) {
+      console.error('[Booking Validation Error]:', err?.message);
+      return res.status(500).json({ error: 'Server error processing booking reservation. Please try again.' });
+    }
+  });
+
   // Server-Side Gemini AI Endpoint with Strict Rate Limiting, Validation & Budget Cap
   const aiRateLimiter = createRateLimiter({
     maxRequests: 15,

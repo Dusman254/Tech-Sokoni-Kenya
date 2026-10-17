@@ -34,6 +34,9 @@ import {
   Order,
   Product,
   SiteSettings,
+  BookingConfig,
+  ViewingAppointment,
+  ViewingLocation,
 } from '../types/store';
 
 // User's Tech Sokoni Firebase configuration
@@ -356,12 +359,78 @@ export async function saveSettingsToFirestore(settings: SiteSettings): Promise<v
 }
 
 export async function saveClientToFirestore(client: ClientAccount): Promise<void> {
-  if (!firestoreWriteAllowed && !auth.currentUser) return;
   const path = `clients/${client.id}`;
   try {
     await setDoc(doc(db, 'clients', client.id), sanitizeForFirestore(client), {
       merge: true,
     });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path, false);
+  }
+}
+
+export async function saveViewingAppointmentToFirestore(
+  appointment: ViewingAppointment
+): Promise<void> {
+  const path = `viewing_appointments/${appointment.id}`;
+  try {
+    await setDoc(
+      doc(db, 'viewing_appointments', appointment.id),
+      sanitizeForFirestore(appointment),
+      { merge: true }
+    );
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path, false);
+  }
+}
+
+export async function deleteViewingAppointmentFromFirestore(
+  appointmentId: string
+): Promise<void> {
+  const path = `viewing_appointments/${appointmentId}`;
+  try {
+    await deleteDoc(doc(db, 'viewing_appointments', appointmentId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path, false);
+  }
+}
+
+export async function saveViewingLocationToFirestore(
+  location: ViewingLocation
+): Promise<void> {
+  const path = `viewing_locations/${location.id}`;
+  try {
+    await setDoc(
+      doc(db, 'viewing_locations', location.id),
+      sanitizeForFirestore(location),
+      { merge: true }
+    );
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path, false);
+  }
+}
+
+export async function deleteViewingLocationFromFirestore(
+  locationId: string
+): Promise<void> {
+  const path = `viewing_locations/${locationId}`;
+  try {
+    await deleteDoc(doc(db, 'viewing_locations', locationId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path, false);
+  }
+}
+
+export async function saveBookingConfigToFirestore(
+  config: BookingConfig
+): Promise<void> {
+  const path = 'settings/booking_config';
+  try {
+    await setDoc(
+      doc(db, 'settings', 'booking_config'),
+      sanitizeForFirestore(config),
+      { merge: true }
+    );
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path, false);
   }
