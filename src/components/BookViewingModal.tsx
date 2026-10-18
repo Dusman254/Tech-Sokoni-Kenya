@@ -7,14 +7,9 @@ import {
   Copy,
   MessageCircle,
   Phone,
-  ShieldCheck,
-  X,
-  AlertCircle,
+  ArrowLeft,
   ExternalLink,
-  Users,
-  ChevronRight,
   Info,
-  Sparkles,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { Product, ViewingAppointment, ViewingLocation } from '../types/store';
@@ -29,23 +24,19 @@ import {
 import { StudioImage } from './StudioImage';
 import { analyticsService } from '../services/analyticsService';
 
-interface BookViewingModalProps {
+interface BookViewingProps {
   product?: Product | null;
   onClose?: () => void;
   standalonePage?: boolean;
 }
 
-export const BookViewingModal: React.FC<BookViewingModalProps> = ({
+export const BookViewingModal: React.FC<BookViewingProps> = ({
   product: propProduct,
-  onClose: propOnClose,
-  standalonePage = false,
 }) => {
   const {
     products,
     bookingConfig,
-    isBookViewingModalOpen,
     bookViewingTargetProduct,
-    closeBookViewingModal,
     createViewingAppointment,
     getEffectiveViewingLocation,
     getAvailableSlotsForDate,
@@ -53,25 +44,39 @@ export const BookViewingModal: React.FC<BookViewingModalProps> = ({
     settings,
     navigate,
     showToast,
+    route,
   } = useStore();
 
-  const activeProduct: Product | null =
-    propProduct || bookViewingTargetProduct || (products.length > 0 ? products[0] : null);
+  const activeProduct: Product | null = useMemo(() => {
+    if (propProduct) return propProduct;
+    if (bookViewingTargetProduct) return bookViewingTargetProduct;
+    if (route.page === 'book-viewing' && route.productId) {
+      const match = products.find((p) => p.id === route.productId);
+      if (match) return match;
+    }
+    const firstLaptop = products.find(
+      (p) =>
+        p.category === 'laptops' ||
+        p.name.toLowerCase().includes('laptop') ||
+        p.name.toLowerCase().includes('macbook') ||
+        p.name.toLowerCase().includes('thinkpad')
+    );
+    return firstLaptop || products[0] || null;
+  }, [propProduct, bookViewingTargetProduct, route, products]);
 
   const effectiveLocation: ViewingLocation | null = activeProduct
     ? getEffectiveViewingLocation(activeProduct)
     : null;
 
-  // Form State
+  // Form State (No attendee counts or specific test checkboxes)
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
-  const [attendeeCount, setAttendeeCount] = useState<number>(1);
   const [preferredContact, setPreferredContact] = useState<'whatsapp' | 'phone'>('whatsapp');
   const [customerNotes, setCustomerNotes] = useState('');
   const [confirmedAttendance, setConfirmedAttendance] = useState(false);
 
-  // Date and Time selection
+  // Date and Time selection in Africa/Nairobi
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedSlot, setSelectedSlot] = useState<string>('');
 
@@ -90,8 +95,6 @@ export const BookViewingModal: React.FC<BookViewingModalProps> = ({
       isToday: boolean;
       blocked: boolean;
     }> = [];
-
-    const currentTime = getCurrentNairobiTime();
 
     for (let i = 0; i < (bookingConfig.maxAdvanceDays || 14); i++) {
       const dateStr = getNairobiDateString(i);
@@ -137,18 +140,6 @@ export const BookViewingModal: React.FC<BookViewingModalProps> = ({
     }
   }, [availableSlots, selectedSlot]);
 
-  // Handle modal closing
-  const handleClose = () => {
-    if (propOnClose) {
-      propOnClose();
-    } else {
-      closeBookViewingModal();
-      if (standalonePage) {
-        navigate({ page: 'home' });
-      }
-    }
-  };
-
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,7 +151,7 @@ export const BookViewingModal: React.FC<BookViewingModalProps> = ({
     }
 
     if (!customerName.trim() || customerName.trim().length < 2) {
-      setFormError('Please enter your full legal name (minimum 2 characters).');
+      setFormError('Please enter your full name.');
       return;
     }
 
@@ -174,7 +165,7 @@ export const BookViewingModal: React.FC<BookViewingModalProps> = ({
     if (customerEmail.trim()) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(customerEmail.trim())) {
-        setFormError('Please enter a valid email address or leave it empty.');
+        setFormError('Please enter a valid email address or leave it blank.');
         return;
       }
     }
@@ -211,7 +202,7 @@ export const BookViewingModal: React.FC<BookViewingModalProps> = ({
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
         customerEmail: customerEmail.trim() || undefined,
-        attendeeCount: Number(attendeeCount) || 1,
+        attendeeCount: 1, // Standard default
         preferredContact,
         customerNotes: customerNotes.trim() || undefined,
         viewingDate: selectedDate,
@@ -221,20 +212,20 @@ export const BookViewingModal: React.FC<BookViewingModalProps> = ({
       });
 
       if (!res.ok || !res.appointment) {
-        setFormError(res.error || 'Failed to reserve viewing appointment. Please try another time.');
+        setFormError(res.error || 'Failed to reserve viewing appointment. Please choose another time slot.');
         setIsSubmitting(false);
         return;
       }
 
       setConfirmedBooking(res.appointment);
       setIsSubmitting(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
       setFormError(err?.message || 'An unexpected error occurred while booking. Please try again.');
       setIsSubmitting(false);
     }
   };
 
-  // Copy booking reference to clipboard
   const handleCopyReference = () => {
     if (!confirmedBooking) return;
     const textToCopy = `Tech Sokoni Viewing Appointment
@@ -250,546 +241,505 @@ Status: ${confirmedBooking.status}`;
     setTimeout(() => setCopiedRef(false), 2500);
   };
 
-  if (!standalonePage && !isBookViewingModalOpen && !propProduct) {
-    return null;
-  }
-
   if (!activeProduct) {
-    return null;
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-16 text-center">
+        <h2 className="font-editorial text-2xl text-[#141413]">No laptop selected</h2>
+        <p className="text-xs text-[#6E6D68] mt-2">Please select a laptop from our catalog to book a viewing.</p>
+        <button
+          onClick={() => navigate({ page: 'category', categoryId: 'laptops' })}
+          className="mt-4 px-5 py-2.5 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase"
+        >
+          View Laptops
+        </button>
+      </div>
+    );
   }
 
   return (
-    <div
-      className={
-        standalonePage
-          ? 'min-h-[80vh] py-8 px-4 sm:px-6 max-w-4xl mx-auto'
-          : 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-[#141413]/70 backdrop-blur-sm overflow-y-auto'
-      }
-    >
-      <div
-        className={`w-full max-w-3xl bg-[#F4F3EF] border border-[#141413]/20 shadow-2xl relative flex flex-col my-auto transition-all ${
-          standalonePage ? 'border-2 border-[#141413]/15' : 'max-h-[92vh] overflow-y-auto'
-        }`}
-      >
-        {/* Modal Header */}
-        <div className="bg-[#141413] text-[#F4F3EF] px-5 sm:px-7 py-4 flex items-center justify-between border-b border-[#C5A028]/30 sticky top-0 z-20">
-          <div className="flex items-center gap-2.5">
-            <span className="w-2.5 h-2.5 bg-[#C5A028] shrink-0" />
-            <div>
-              <h2 className="text-sm sm:text-base font-semibold tracking-wide uppercase font-mono-num text-[#F4F3EF]">
-                Book Physical Laptop Viewing
-              </h2>
-              <p className="text-[11px] text-[#A6A5A0] hidden sm:block">
-                Inspect, test & verify specs in person before purchase · Zero advance payment required
-              </p>
-            </div>
+    <div className="min-h-[85vh] py-8 sm:py-12 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
+      {/* Navigation Breadcrumb */}
+      <div className="mb-6 flex items-center justify-between">
+        <button
+          onClick={() => {
+            if (activeProduct) {
+              navigate({ page: 'product', productId: activeProduct.id });
+            } else {
+              navigate({ page: 'category', categoryId: 'laptops' });
+            }
+          }}
+          className="inline-flex items-center gap-2 text-xs font-mono-num uppercase tracking-wider text-[#6E6D68] hover:text-[#141413] cursor-pointer"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back to Product</span>
+        </button>
+
+        <span className="text-[11px] font-mono-num text-[#8E8D87]">
+          Nairobi Showroom Viewing
+        </span>
+      </div>
+
+      {confirmedBooking ? (
+        /* =================================================================== */
+        /* CLEAN BOOKING CONFIRMATION SCREEN                                   */
+        /* =================================================================== */
+        <div className="bg-[#F4F3EF] border border-[#141413]/15 p-6 sm:p-10 space-y-6">
+          <div className="border-b border-[#141413]/10 pb-6">
+            <span className="text-[11px] font-mono-num uppercase tracking-widest text-[#C5A028] font-bold block mb-1">
+              Appointment Reserved
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-bold text-[#141413] font-editorial">
+              Viewing Reference: {confirmedBooking.bookingReference}
+            </h1>
+            <p className="text-xs text-[#5E5D59] mt-2">
+              Your laptop viewing appointment is registered on our showroom schedule.
+              Our technicians will have the unit prepared for you. No advance payment is required.
+            </p>
           </div>
 
-          <button
-            onClick={handleClose}
-            aria-label="Close booking modal"
-            className="w-8 h-8 flex items-center justify-center text-[#A6A5A0] hover:text-[#F4F3EF] hover:bg-[#2B2B28] transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Content Body */}
-        <div className="p-5 sm:p-7 space-y-6">
-          {confirmedBooking ? (
-            /* ================================================================ */
-            /* SUCCESS CONFIRMATION SCREEN                                      */
-            /* ================================================================ */
-            <div className="space-y-6 animate-in fade-in duration-300">
-              {/* Gold Ribbon Banner */}
-              <div className="bg-[#C5A028]/15 border border-[#C5A028] p-4 sm:p-5 flex items-start gap-3.5">
-                <div className="w-9 h-9 rounded-full bg-[#C5A028] text-[#141413] flex items-center justify-center shrink-0 mt-0.5 font-bold">
-                  <Check className="w-5 h-5 stroke-[2.5]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <span className="text-[11px] font-mono-num uppercase tracking-wider text-[#B38F22] font-semibold block">
-                    Appointment Reserved Successfully
-                  </span>
-                  <h3 className="text-xl sm:text-2xl font-bold text-[#141413] mt-0.5">
-                    Viewing Reference: {confirmedBooking.bookingReference}
-                  </h3>
-                  <p className="text-xs text-[#5E5D59] mt-1">
-                    {confirmedBooking.status === 'Confirmed'
-                      ? 'Your physical viewing is confirmed on our showroom schedule. Our technicians will pre-stage the laptop for your arrival.'
-                      : 'Your appointment is pending manual verification. Our showroom concierge will confirm within 15 minutes.'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Product & Appointment Snapshot Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Product Snapshot Card */}
-                <div className="border border-[#141413]/15 bg-white p-4 space-y-3">
-                  <span className="text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68] block">
-                    Reserved Laptop Unit
-                  </span>
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-[#EAE9E4] p-1.5 shrink-0 flex items-center justify-center">
-                      <StudioImage
-                        src={confirmedBooking.productImage}
-                        alt={confirmedBooking.productName}
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-semibold text-[#141413] leading-snug truncate">
-                        {confirmedBooking.productName}
-                      </h4>
-                      <p className="text-[11px] font-mono-num text-[#6E6D68] mt-0.5">
-                        SKU: {confirmedBooking.productSku} · {confirmedBooking.productCondition}
-                      </p>
-                      <p className="text-sm font-bold font-mono-num text-[#141413] mt-1.5">
-                        {settings.currencySymbol}
-                        {confirmedBooking.productPrice.toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-[#6E6D68] border-t border-[#141413]/8 pt-2 line-clamp-2">
-                    {confirmedBooking.productShortSpec}
-                  </p>
-                </div>
-
-                {/* Viewing Time & Location Card */}
-                <div className="border border-[#141413]/15 bg-white p-4 space-y-3">
-                  <span className="text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68] block">
-                    Date & Location Details
-                  </span>
-
-                  <div className="flex items-start gap-2.5">
-                    <Calendar className="w-4 h-4 text-[#C5A028] shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-xs font-semibold text-[#141413]">
-                        {formatViewingDateDisplay(confirmedBooking.viewingDate)}
-                      </p>
-                      <p className="text-xs font-mono-num text-[#5E5D59]">
-                        {confirmedBooking.viewingTimeSlot} (East Africa Time)
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-2.5 border-t border-[#141413]/8 pt-2.5">
-                    <MapPin className="w-4 h-4 text-[#C5A028] shrink-0 mt-0.5" />
-                    <div className="text-xs text-[#5E5D59] space-y-0.5">
-                      <p className="font-semibold text-[#141413]">
-                        {confirmedBooking.locationSnapshot.name}
-                      </p>
-                      <p>{confirmedBooking.locationSnapshot.address}</p>
-                      <p>
-                        {confirmedBooking.locationSnapshot.building},{' '}
-                        {confirmedBooking.locationSnapshot.floor}
-                        {confirmedBooking.locationSnapshot.room
-                          ? ` · ${confirmedBooking.locationSnapshot.room}`
-                          : ''}
-                      </p>
-                    </div>
-                  </div>
-
-                  <a
-                    href={confirmedBooking.locationSnapshot.mapsUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-[11px] font-mono-num uppercase tracking-wider text-[#141413] hover:underline font-semibold pt-1"
-                  >
-                    <span>Open in Google Maps</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-              </div>
-
-              {/* Visitor Instructions & Contact */}
-              <div className="bg-[#EAE9E4]/60 border border-[#141413]/10 p-4 space-y-2 text-xs text-[#5E5D59]">
-                <p className="font-semibold text-[#141413] flex items-center gap-1.5">
-                  <Info className="w-3.5 h-3.5 text-[#C5A028]" />
-                  <span>Showroom Instructions for Your Visit:</span>
-                </p>
-                <p className="text-[11px] leading-relaxed">
-                  {confirmedBooking.locationSnapshot.visitorInstructions}
-                </p>
-                <div className="pt-2 border-t border-[#141413]/8 flex flex-wrap items-center justify-between gap-2 text-[11px]">
-                  <span>Registered Name: <strong className="text-[#141413]">{confirmedBooking.customerName}</strong></span>
-                  <span>Contact Phone: <strong className="text-[#141413]">{confirmedBooking.customerPhone}</strong></span>
-                  <span>Attendees: <strong className="text-[#141413]">{confirmedBooking.attendeeCount}</strong></span>
-                </div>
-              </div>
-
-              {/* Action Buttons: WhatsApp Concierge + Copy + Close */}
-              <div className="space-y-2.5 pt-2">
-                <a
-                  href={buildBookingWhatsAppUrl({
-                    productName: confirmedBooking.productName,
-                    bookingReference: confirmedBooking.bookingReference,
-                    viewingDate: confirmedBooking.viewingDate,
-                    viewingTimeSlot: confirmedBooking.viewingTimeSlot,
-                    whatsappNumber: confirmedBooking.locationSnapshot.whatsapp,
-                    locationName: confirmedBooking.locationSnapshot.name,
-                  })}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full py-3.5 px-4 bg-[#1F6F43] text-white hover:bg-[#185835] font-mono-num uppercase tracking-wider text-xs font-semibold flex items-center justify-center gap-2 transition-colors shadow-md"
-                >
-                  <MessageCircle className="w-4 h-4 shrink-0" />
-                  <span>Chat on WhatsApp to Confirm Appointment</span>
-                </a>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <button
-                    onClick={handleCopyReference}
-                    className="py-3 px-4 border border-[#141413]/30 bg-white hover:bg-[#EAE9E4] text-[#141413] font-mono-num uppercase tracking-wider text-xs font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                  >
-                    {copiedRef ? (
-                      <>
-                        <Check className="w-4 h-4 text-green-600" />
-                        <span>Copied to Clipboard!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-4 h-4" />
-                        <span>Copy Booking Details</span>
-                      </>
-                    )}
-                  </button>
-
-                  <button
-                    onClick={handleClose}
-                    className="py-3 px-4 bg-[#141413] text-[#F4F3EF] hover:bg-[#2B2B28] font-mono-num uppercase tracking-wider text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                  >
-                    <span>Back to Showroom</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            /* ================================================================ */
-            /* BOOKING FORM                                                     */
-            /* ================================================================ */
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Product Snapshot Header */}
-              <div className="border border-[#141413]/15 bg-white p-3.5 sm:p-4 flex items-center gap-3.5 sm:gap-4">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-[#EAE9E4] p-1.5 shrink-0 flex items-center justify-center">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Laptop Unit Card */}
+            <div className="bg-white border border-[#141413]/10 p-5 space-y-3">
+              <span className="text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68] block">
+                Reserved Laptop
+              </span>
+              <div className="flex items-start gap-4">
+                <div className="w-20 h-20 bg-[#EAE9E4] p-2 shrink-0 flex items-center justify-center">
                   <StudioImage
-                    src={activeProduct.images[0]}
-                    alt={activeProduct.name}
+                    src={confirmedBooking.productImage}
+                    alt={confirmedBooking.productName}
                     className="w-full h-full object-contain"
                   />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 text-[10px] sm:text-[11px] font-mono-num text-[#6E6D68]">
-                    <span className="uppercase text-[#141413] font-semibold">{activeProduct.brand}</span>
-                    <span aria-hidden="true">·</span>
-                    <span>{activeProduct.condition}</span>
-                    <span aria-hidden="true">·</span>
-                    <span>SKU: {activeProduct.sku}</span>
-                  </div>
-                  <h3 className="text-sm sm:text-base font-semibold text-[#141413] truncate mt-0.5">
-                    {activeProduct.name}
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-[#141413]">
+                    {confirmedBooking.productName}
                   </h3>
-                  <div className="flex items-baseline gap-2 mt-1">
-                    <span className="text-sm sm:text-base font-bold font-mono-num text-[#141413]">
+                  <p className="text-xs font-mono-num text-[#6E6D68] mt-0.5">
+                    SKU: {confirmedBooking.productSku}
+                  </p>
+                  <p className="text-sm font-bold font-mono-num text-[#141413] mt-2">
+                    {settings.currencySymbol}
+                    {confirmedBooking.productPrice.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Viewing Date & Time Card */}
+            <div className="bg-white border border-[#141413]/10 p-5 space-y-3">
+              <span className="text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68] block">
+                Appointment Schedule
+              </span>
+              <div className="space-y-2 text-xs">
+                <p className="flex items-center gap-2 text-[#141413] font-medium">
+                  <Calendar className="w-4 h-4 text-[#C5A028]" />
+                  <span>{formatViewingDateDisplay(confirmedBooking.viewingDate)}</span>
+                </p>
+                <p className="flex items-center gap-2 text-[#5E5D59] font-mono-num">
+                  <Clock className="w-4 h-4 text-[#C5A028]" />
+                  <span>{confirmedBooking.viewingTimeSlot} (East Africa Time)</span>
+                </p>
+                <p className="flex items-start gap-2 text-[#5E5D59] pt-1">
+                  <MapPin className="w-4 h-4 text-[#C5A028] shrink-0 mt-0.5" />
+                  <span>
+                    <strong className="text-[#141413]">{confirmedBooking.locationSnapshot.name}</strong>
+                    <br />
+                    {confirmedBooking.locationSnapshot.building}, {confirmedBooking.locationSnapshot.floor}
+                    {confirmedBooking.locationSnapshot.room ? ` · ${confirmedBooking.locationSnapshot.room}` : ''}
+                    <br />
+                    {confirmedBooking.locationSnapshot.address}
+                  </span>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Showroom Directions */}
+          <div className="bg-[#EAE9E4]/60 border border-[#141413]/10 p-4 text-xs text-[#5E5D59] space-y-1">
+            <p className="font-semibold text-[#141413]">Showroom Visitor Instructions:</p>
+            <p>{confirmedBooking.locationSnapshot.visitorInstructions}</p>
+            {confirmedBooking.locationSnapshot.mapsUrl && (
+              <p className="pt-1">
+                <a
+                  href={confirmedBooking.locationSnapshot.mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-[#141413] font-semibold hover:underline"
+                >
+                  <span>Open Directions in Google Maps</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </p>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
+            <a
+              href={buildBookingWhatsAppUrl({
+                productName: confirmedBooking.productName,
+                bookingReference: confirmedBooking.bookingReference,
+                viewingDate: confirmedBooking.viewingDate,
+                viewingTimeSlot: confirmedBooking.viewingTimeSlot,
+                whatsappNumber: confirmedBooking.locationSnapshot.whatsapp,
+                locationName: confirmedBooking.locationSnapshot.name,
+              })}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full sm:flex-1 py-3 px-5 bg-[#1F6F43] hover:bg-[#185835] text-white text-xs font-mono-num uppercase tracking-wider font-semibold flex items-center justify-center gap-2 transition-colors"
+            >
+              <MessageCircle className="w-4 h-4" />
+              <span>Confirm on WhatsApp</span>
+            </a>
+
+            <button
+              onClick={handleCopyReference}
+              className="w-full sm:w-auto py-3 px-5 bg-white border border-[#141413]/20 hover:border-[#141413] text-[#141413] text-xs font-mono-num uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-colors"
+            >
+              {copiedRef ? (
+                <>
+                  <Check className="w-4 h-4 text-emerald-600" />
+                  <span>Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4" />
+                  <span>Copy Details</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={() => navigate({ page: 'category', categoryId: 'laptops' })}
+              className="w-full sm:w-auto py-3 px-5 bg-[#141413] hover:bg-[#2B2B28] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-wider cursor-pointer transition-colors"
+            >
+              Browse Laptops
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* =================================================================== */
+        /* CLEAN BOOKING FORM (STANDALONE PAGE)                                */
+        /* =================================================================== */
+        <div className="space-y-8">
+          <div>
+            <span className="text-[11px] font-mono-num uppercase tracking-widest text-[#C5A028] font-bold block mb-1">
+              Physical Showroom Viewing
+            </span>
+            <h1 className="text-3xl sm:text-4xl font-bold font-editorial text-[#141413]">
+              Book to View in Nairobi
+            </h1>
+            <p className="text-xs text-[#5E5D59] mt-2 max-w-2xl leading-relaxed">
+              Inspect the laptop, verify specifications, test the keyboard and display in person at our
+              Kenyatta Avenue showroom. Zero advance payment required — purchase only if you are completely satisfied.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* Left Column: Selected Laptop & Location Details (5 cols) */}
+            <div className="lg:col-span-5 space-y-5">
+              {/* Laptop Card */}
+              <div className="bg-white border border-[#141413]/15 p-5 space-y-4">
+                <span className="text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68] block">
+                  Selected Laptop
+                </span>
+
+                <div className="flex gap-4 items-center">
+                  <div className="w-24 h-24 bg-[#EAE9E4] p-2 shrink-0 flex items-center justify-center">
+                    <StudioImage
+                      src={activeProduct.images[0]}
+                      alt={activeProduct.name}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-mono-num text-[#8E8D87] uppercase">
+                      {activeProduct.brand} · {activeProduct.condition}
+                    </p>
+                    <h3 className="text-sm font-semibold text-[#141413] leading-snug">
+                      {activeProduct.name}
+                    </h3>
+                    <p className="text-xs font-mono-num text-[#6E6D68] mt-1">
+                      SKU: {activeProduct.sku}
+                    </p>
+                    <p className="text-base font-bold font-mono-num text-[#141413] mt-2">
                       {settings.currencySymbol}
                       {activeProduct.price.toLocaleString()}
-                    </span>
-                    <span className="text-[11px] text-[#2B8A3E] font-medium font-mono-num">
-                      · Zero advance payment required
-                    </span>
+                    </p>
                   </div>
                 </div>
-              </div>
 
-              {/* Trust Bar */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-[#5E5D59] bg-[#EAE9E4]/60 p-2.5 border border-[#141413]/10">
-                <div className="flex items-center gap-1.5">
-                  <Check className="w-3.5 h-3.5 text-[#C5A028] shrink-0" />
-                  <span>Inspect in person</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Check className="w-3.5 h-3.5 text-[#C5A028] shrink-0" />
-                  <span>Test battery & screen</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Check className="w-3.5 h-3.5 text-[#C5A028] shrink-0" />
-                  <span>No advance payment</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Check className="w-3.5 h-3.5 text-[#C5A028] shrink-0" />
-                  <span>Buy only if satisfied</span>
+                <div className="border-t border-[#141413]/10 pt-3 text-xs text-[#5E5D59]">
+                  <p className="line-clamp-2">{activeProduct.shortSpec}</p>
                 </div>
               </div>
 
-              {/* Step 1: Date Selection (Africa/Nairobi Time) */}
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-mono-num uppercase tracking-wider text-[#141413] font-semibold flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-[#C5A028]" />
-                    <span>1. Select Viewing Date (Africa / Nairobi)</span>
-                  </label>
-                  <span className="text-[10px] font-mono-num text-[#6E6D68]">EAT Time Zone</span>
-                </div>
-
-                <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
-                  {dateOptions.slice(0, 7).map((d) => {
-                    const isSelected = selectedDate === d.dateStr;
-                    return (
-                      <button
-                        type="button"
-                        key={d.dateStr}
-                        disabled={d.blocked}
-                        onClick={() => setSelectedDate(d.dateStr)}
-                        className={`p-2 sm:p-2.5 text-center border transition-all cursor-pointer ${
-                          d.blocked
-                            ? 'opacity-35 bg-[#EAE9E4] border-[#141413]/10 cursor-not-allowed text-[#8E8D87]'
-                            : isSelected
-                            ? 'bg-[#141413] text-[#F4F3EF] border-[#141413] shadow-sm'
-                            : 'bg-white text-[#141413] border-[#141413]/20 hover:border-[#C5A028]'
-                        }`}
-                      >
-                        <span className="text-[10px] font-mono-num uppercase tracking-wider block opacity-75">
-                          {d.displayDay}
-                        </span>
-                        <span className="text-xs font-bold font-mono-num block mt-0.5">
-                          {d.displayDate}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Step 2: Time Slot Selection (Live capacity in EAT) */}
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-mono-num uppercase tracking-wider text-[#141413] font-semibold flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-[#C5A028]" />
-                    <span>2. Select Appointment Time Slot</span>
-                  </label>
-                  <span className="text-[10px] font-mono-num text-[#2B8A3E] font-medium">
-                    ● Real-Time Showroom Availability
+              {/* Viewing Location Information */}
+              {effectiveLocation && (
+                <div className="bg-white border border-[#141413]/15 p-5 space-y-3">
+                  <span className="text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68] block">
+                    Designated Viewing Point
                   </span>
-                </div>
 
-                {availableSlots.length === 0 ? (
-                  <div className="p-4 bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
-                    <span>
-                      No available slots remaining for this date or showroom is closed. Please select
-                      another date above.
-                    </span>
+                  <div>
+                    <h4 className="text-sm font-semibold text-[#141413]">
+                      {effectiveLocation.name}
+                    </h4>
+                    <p className="text-xs text-[#5E5D59] mt-1 leading-relaxed">
+                      {effectiveLocation.building}, Floor {effectiveLocation.floor}
+                      {effectiveLocation.room ? ` · ${effectiveLocation.room}` : ''}
+                      <br />
+                      {effectiveLocation.address}
+                    </p>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {availableSlots.map((slot) => {
-                      const isSelected = selectedSlot === slot;
-                      return (
-                        <button
-                          type="button"
-                          key={slot}
-                          onClick={() => setSelectedSlot(slot)}
-                          className={`py-2 px-3 text-xs font-mono-num font-medium border text-center transition-colors cursor-pointer ${
-                            isSelected
-                              ? 'bg-[#C5A028] text-[#141413] border-[#B38F22] font-bold shadow-xs'
-                              : 'bg-white text-[#141413] border-[#141413]/20 hover:border-[#141413]'
-                          }`}
-                        >
-                          {slot}
-                        </button>
-                      );
-                    })}
+
+                  <p className="text-xs text-[#6E6D68] pt-1">
+                    {effectiveLocation.visitorInstructions}
+                  </p>
+
+                  {effectiveLocation.mapsUrl && (
+                    <a
+                      href={effectiveLocation.mapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs text-[#141413] font-semibold hover:underline pt-1"
+                    >
+                      <MapPin className="w-3.5 h-3.5 text-[#C5A028]" />
+                      <span>Google Maps Location</span>
+                      <ExternalLink className="w-3 h-3 text-[#6E6D68]" />
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Right Column: Reservation Form (7 cols) */}
+            <div className="lg:col-span-7 bg-white border border-[#141413]/15 p-6 sm:p-8">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {formError && (
+                  <div className="p-3.5 bg-red-50 border border-red-200 text-red-800 text-xs leading-relaxed">
+                    {formError}
                   </div>
                 )}
-              </div>
 
-              {/* Step 3: Customer Contact Information */}
-              <div className="space-y-3 pt-2 border-t border-[#141413]/10">
-                <label className="text-xs font-mono-num uppercase tracking-wider text-[#141413] font-semibold block">
-                  3. Your Contact Details (No Account Required)
-                </label>
+                {/* 1. Contact Info */}
+                <div className="space-y-4">
+                  <h3 className="text-xs font-mono-num uppercase tracking-wider text-[#141413] font-bold border-b border-[#141413]/10 pb-2">
+                    1. Your Contact Details
+                  </h3>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[11px] font-mono-num text-[#5E5D59] mb-1">
-                      Full Legal Name <span className="text-red-500">*</span>
+                    <label className="block text-xs font-medium text-[#141413] mb-1">
+                      Full Name *
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder="e.g. John Kamau Mwangi"
+                      placeholder="e.g. David Mwangi"
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
-                      className="w-full h-10 px-3 text-xs bg-white border border-[#141413]/25 focus:border-[#C5A028] focus:outline-none"
+                      className="w-full h-11 px-3.5 text-xs bg-[#F4F3EF] border border-[#141413]/20 focus:border-[#141413] focus:outline-none"
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] font-mono-num text-[#5E5D59] mb-1">
-                      Kenyan Mobile Number <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="tel"
-                      required
-                      placeholder="e.g. 0712 345 678 or +254 7XX XXX XXX"
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
-                      className="w-full h-10 px-3 text-xs bg-white border border-[#141413]/25 focus:border-[#C5A028] focus:outline-none"
-                    />
-                  </div>
-                </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-[#141413] mb-1">
+                        Kenyan Phone Number *
+                      </label>
+                      <input
+                        type="tel"
+                        required
+                        placeholder="0712 345 678 or 0110 123 456"
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value)}
+                        className="w-full h-11 px-3.5 text-xs font-mono-num bg-[#F4F3EF] border border-[#141413]/20 focus:border-[#141413] focus:outline-none"
+                      />
+                      <span className="text-[10px] text-[#6E6D68] mt-1 block">
+                        We send your appointment confirmation via SMS or WhatsApp
+                      </span>
+                    </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-mono-num text-[#5E5D59] mb-1">
-                      Email Address (Optional)
-                    </label>
-                    <input
-                      type="email"
-                      placeholder="client@example.com"
-                      value={customerEmail}
-                      onChange={(e) => setCustomerEmail(e.target.value)}
-                      className="w-full h-10 px-3 text-xs bg-white border border-[#141413]/25 focus:border-[#C5A028] focus:outline-none"
-                    />
+                    <div>
+                      <label className="block text-xs font-medium text-[#141413] mb-1">
+                        Email Address (Optional)
+                      </label>
+                      <input
+                        type="email"
+                        placeholder="david@example.com"
+                        value={customerEmail}
+                        onChange={(e) => setCustomerEmail(e.target.value)}
+                        className="w-full h-11 px-3.5 text-xs bg-[#F4F3EF] border border-[#141413]/20 focus:border-[#141413] focus:outline-none"
+                      />
+                    </div>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-mono-num text-[#5E5D59] mb-1">
-                      Preferred Contact Method
+                    <label className="block text-xs font-medium text-[#141413] mb-1.5">
+                      Preferred Contact Channel:
                     </label>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setPreferredContact('whatsapp')}
-                        className={`h-10 text-[11px] font-mono-num flex items-center justify-center gap-1.5 border transition-colors cursor-pointer ${
+                    <div className="grid grid-cols-2 gap-3">
+                      <label
+                        className={`p-3 border flex items-center justify-center gap-2 cursor-pointer text-xs font-mono-num transition-colors ${
                           preferredContact === 'whatsapp'
                             ? 'bg-[#141413] text-[#F4F3EF] border-[#141413]'
-                            : 'bg-white text-[#141413] border-[#141413]/20 hover:border-[#141413]'
+                            : 'bg-[#F4F3EF] text-[#141413] border-[#141413]/15'
                         }`}
                       >
-                        <MessageCircle className="w-3.5 h-3.5 text-[#C5A028]" />
+                        <input
+                          type="radio"
+                          name="contactMethod"
+                          value="whatsapp"
+                          checked={preferredContact === 'whatsapp'}
+                          onChange={() => setPreferredContact('whatsapp')}
+                          className="sr-only"
+                        />
+                        <MessageCircle className="w-3.5 h-3.5" />
                         <span>WhatsApp</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPreferredContact('phone')}
-                        className={`h-10 text-[11px] font-mono-num flex items-center justify-center gap-1.5 border transition-colors cursor-pointer ${
+                      </label>
+
+                      <label
+                        className={`p-3 border flex items-center justify-center gap-2 cursor-pointer text-xs font-mono-num transition-colors ${
                           preferredContact === 'phone'
                             ? 'bg-[#141413] text-[#F4F3EF] border-[#141413]'
-                            : 'bg-white text-[#141413] border-[#141413]/20 hover:border-[#141413]'
+                            : 'bg-[#F4F3EF] text-[#141413] border-[#141413]/15'
                         }`}
                       >
+                        <input
+                          type="radio"
+                          name="contactMethod"
+                          value="phone"
+                          checked={preferredContact === 'phone'}
+                          onChange={() => setPreferredContact('phone')}
+                          className="sr-only"
+                        />
                         <Phone className="w-3.5 h-3.5" />
-                        <span>Call</span>
-                      </button>
+                        <span>Phone Call</span>
+                      </label>
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-mono-num text-[#5E5D59] mb-1">
-                      Attendees
-                    </label>
-                    <select
-                      value={attendeeCount}
-                      onChange={(e) => setAttendeeCount(Number(e.target.value))}
-                      className="w-full h-10 px-3 text-xs bg-white border border-[#141413]/25 focus:border-[#C5A028] focus:outline-none font-mono-num"
-                    >
-                      <option value={1}>1 Person (Just Me)</option>
-                      <option value={2}>2 People (+ Colleague / Friend)</option>
-                      <option value={3}>3 People (Team)</option>
-                    </select>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-mono-num text-[#5E5D59] mb-1">
-                    Specific Test or Question for Showroom Staff (Optional)
+                {/* 2. Viewing Date Selection */}
+                <div className="space-y-3 pt-2">
+                  <h3 className="text-xs font-mono-num uppercase tracking-wider text-[#141413] font-bold border-b border-[#141413]/10 pb-2">
+                    2. Select Viewing Date (East Africa Time)
+                  </h3>
+
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2">
+                    {dateOptions.slice(0, 14).map((d) => (
+                      <button
+                        key={d.dateStr}
+                        type="button"
+                        disabled={d.blocked}
+                        onClick={() => setSelectedDate(d.dateStr)}
+                        className={`p-2.5 text-center border text-xs cursor-pointer transition-colors ${
+                          selectedDate === d.dateStr
+                            ? 'bg-[#141413] text-[#F4F3EF] border-[#141413]'
+                            : d.blocked
+                            ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-50'
+                            : 'bg-[#F4F3EF] text-[#141413] border-[#141413]/15 hover:border-[#141413]'
+                        }`}
+                      >
+                        <span className="block font-mono-num text-[10px] uppercase text-[#6E6D68]">
+                          {d.displayDay}
+                        </span>
+                        <span className="block font-bold text-xs mt-0.5">
+                          {d.displayDate}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 3. Viewing Time Slot Selection */}
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between border-b border-[#141413]/10 pb-2">
+                    <h3 className="text-xs font-mono-num uppercase tracking-wider text-[#141413] font-bold">
+                      3. Select Time Slot
+                    </h3>
+                    <span className="text-[10px] font-mono-num text-[#6E6D68]">
+                      Viewing duration: 30 mins
+                    </span>
+                  </div>
+
+                  {availableSlots.length === 0 ? (
+                    <p className="text-xs text-amber-700 bg-amber-50 p-3 border border-amber-200">
+                      No available appointment slots for this date. Please pick another date above.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                      {availableSlots.map((slot) => (
+                        <button
+                          key={slot}
+                          type="button"
+                          onClick={() => setSelectedSlot(slot)}
+                          className={`py-2 px-3 text-xs font-mono-num border transition-colors cursor-pointer ${
+                            selectedSlot === slot
+                              ? 'bg-[#C5A028] text-[#141413] border-[#B38F22] font-bold shadow-xs'
+                              : 'bg-[#F4F3EF] text-[#141413] border-[#141413]/15 hover:border-[#141413]'
+                          }`}
+                        >
+                          {slot}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 4. Optional Question / Note */}
+                <div className="space-y-2 pt-2">
+                  <label className="block text-xs font-medium text-[#141413]">
+                    Optional Question or Note
                   </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Please verify Adobe Premiere render performance or battery cycle count"
+                  <textarea
+                    rows={2}
+                    placeholder="e.g. Any questions or specific things you would like us to check?"
                     value={customerNotes}
                     onChange={(e) => setCustomerNotes(e.target.value)}
-                    className="w-full h-10 px-3 text-xs bg-white border border-[#141413]/25 focus:border-[#C5A028] focus:outline-none"
+                    className="w-full p-3 text-xs bg-[#F4F3EF] border border-[#141413]/20 focus:border-[#141413] focus:outline-none"
                   />
                 </div>
-              </div>
 
-              {/* Step 4: Viewing Location Confirmation */}
-              {effectiveLocation && (
-                <div className="bg-[#EAE9E4]/60 border border-[#141413]/15 p-4 space-y-3">
-                  <div className="flex items-start gap-2.5">
-                    <MapPin className="w-4 h-4 text-[#C5A028] shrink-0 mt-0.5" />
-                    <div>
-                      <span className="text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68] block">
-                        Designated Viewing Point
-                      </span>
-                      <h4 className="text-xs sm:text-sm font-bold text-[#141413]">
-                        {effectiveLocation.name}
-                      </h4>
-                      <p className="text-xs text-[#5E5D59] mt-0.5">
-                        {effectiveLocation.address} · {effectiveLocation.building}, Floor{' '}
-                        {effectiveLocation.floor}
-                        {effectiveLocation.room ? `, ${effectiveLocation.room}` : ''}
-                      </p>
-                      <p className="text-[11px] text-[#6E6D68] mt-1.5 leading-relaxed">
-                        {effectiveLocation.visitorInstructions}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Attendance Checkbox */}
-                  <label className="flex items-start gap-2.5 pt-2 border-t border-[#141413]/10 cursor-pointer select-none">
+                {/* 5. Physical Visit Confirmation Checkbox */}
+                <div className="pt-2">
+                  <label className="flex items-start gap-2.5 cursor-pointer text-xs text-[#141413] leading-relaxed">
                     <input
                       type="checkbox"
+                      required
                       checked={confirmedAttendance}
                       onChange={(e) => setConfirmedAttendance(e.target.checked)}
-                      className="mt-0.5 h-4 w-4 rounded-none accent-[#C5A028] border-[#141413]/30 cursor-pointer"
+                      className="mt-0.5 accent-[#C5A028] w-4 h-4 shrink-0"
                     />
-                    <span className="text-xs text-[#141413] font-medium">
-                      I confirm that I can physically visit{' '}
-                      <strong>{effectiveLocation.name}</strong> on the selected date and time to
-                      inspect this laptop.
+                    <span>
+                      I confirm that I will visit{' '}
+                      <strong>{effectiveLocation?.name || 'the Tech Sokoni Showroom'}</strong> on{' '}
+                      <strong>{selectedDate ? formatViewingDateDisplay(selectedDate) : 'the selected date'}</strong> at{' '}
+                      <strong>{selectedSlot || 'selected time'}</strong>.
                     </span>
                   </label>
                 </div>
-              )}
 
-              {/* Error Message */}
-              {formError && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-800 text-xs flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-                  <span>{formError}</span>
+                {/* Submit CTA */}
+                <div className="pt-4 border-t border-[#141413]/10 space-y-2">
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || !selectedSlot}
+                    className="w-full py-4 px-6 bg-[#C5A028] hover:bg-[#B38F22] text-[#141413] text-xs font-mono-num uppercase tracking-widest font-bold border border-[#B38F22] shadow-sm transition-colors cursor-pointer disabled:opacity-40"
+                  >
+                    {isSubmitting ? 'Reserving Viewing Slot...' : 'Confirm Viewing Reservation'}
+                  </button>
+
+                  <p className="text-[11px] text-[#6E6D68] text-center">
+                    Zero advance payment required · Inspect laptop before deciding
+                  </p>
                 </div>
-              )}
-
-              {/* Submit CTA */}
-              <div className="space-y-2 pt-2">
-                <button
-                  type="submit"
-                  disabled={isSubmitting || availableSlots.length === 0}
-                  className="w-full py-3.5 px-6 bg-[#C5A028] hover:bg-[#B38F22] text-[#141413] font-mono-num uppercase tracking-[0.16em] text-xs font-bold border border-[#B38F22] transition-colors flex items-center justify-center gap-2 shadow-sm cursor-pointer disabled:opacity-40"
-                >
-                  {isSubmitting ? (
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 border-2 border-[#141413] border-t-transparent animate-spin rounded-full" />
-                      <span>Checking Availability & Securing Slot...</span>
-                    </div>
-                  ) : (
-                    <>
-                      <span>Confirm & Book Physical Viewing</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
-
-                <p className="text-[11px] text-center text-[#6E6D68]">
-                  Zero advance payment · Inspect first, decide later · Real-time Nairobi schedule
-                </p>
-              </div>
-            </form>
-          )}
+              </form>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

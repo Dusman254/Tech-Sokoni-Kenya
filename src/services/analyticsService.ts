@@ -87,6 +87,9 @@ class AnalyticsService {
       order_completed: 0,
       client_login: 0,
       client_signup: 0,
+      book_to_view_clicked: 0,
+      booking_form_started: 0,
+      booking_completed: 0,
     };
 
     this.events.forEach((e) => {

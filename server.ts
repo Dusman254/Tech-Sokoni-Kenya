@@ -4,6 +4,25 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
+import {
+  initServerDatabase,
+  getPublicStorefrontData,
+  getFullAdminData,
+  addProduct,
+  updateProduct,
+  deleteProduct,
+  restoreProduct,
+  addOrder,
+  updateOrderStatus,
+  trackOrder,
+  addViewingAppointment,
+  updateViewingAppointment,
+  addViewingLocation,
+  updateViewingLocation,
+  deleteViewingLocation,
+  updateBookingConfig,
+  updateSiteSettings,
+} from './serverDb';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -111,6 +130,170 @@ async function startServer() {
   });
 
   app.use(express.json({ limit: '10mb' }));
+
+  // Initialize persistent server database (loads from disk or seeds initial catalog)
+  initServerDatabase();
+
+  // Admin Authentication Middleware (Protecting admin-only data and mutations)
+  function requireAdmin(req: Request, res: Response, next: NextFunction) {
+    const adminKey = req.headers['x-admin-key'];
+    if (adminKey === '1940') {
+      return next();
+    }
+    return res.status(401).json({ error: 'Unauthorized: Admin authentication required.' });
+  }
+
+  // 1. Data synchronization endpoint across all devices and browsers
+  app.get('/api/db/sync', (req, res) => {
+    const isAdmin = req.headers['x-admin-key'] === '1940';
+    if (isAdmin) {
+      return res.json(getFullAdminData());
+    }
+    return res.json(getPublicStorefrontData());
+  });
+
+  // 2. Product Management (Admin-Protected, Synchronized Permanently)
+  app.get('/api/products', (_req, res) => {
+    const data = getPublicStorefrontData();
+    res.json(data.products);
+  });
+
+  app.post('/api/products', requireAdmin, (req, res) => {
+    try {
+      const product = addProduct(req.body);
+      res.status(201).json(product);
+    } catch (err: any) {
+      res.status(400).json({ error: err?.message || 'Failed to add product' });
+    }
+  });
+
+  app.put('/api/products/:id', requireAdmin, (req, res) => {
+    try {
+      const updated = updateProduct(req.params.id, req.body);
+      if (!updated) return res.status(404).json({ error: 'Product not found' });
+      res.json(updated);
+    } catch (err: any) {
+      res.status(400).json({ error: err?.message || 'Failed to update product' });
+    }
+  });
+
+  app.delete('/api/products/:id', requireAdmin, (req, res) => {
+    const permanent = req.query.permanent === 'true';
+    const success = deleteProduct(req.params.id, permanent);
+    if (!success) return res.status(404).json({ error: 'Product not found' });
+    res.json({ ok: true, message: permanent ? 'Permanently deleted' : 'Moved to recycle bin' });
+  });
+
+  app.post('/api/products/:id/restore', requireAdmin, (req, res) => {
+    const restored = restoreProduct(req.params.id);
+    if (!restored) return res.status(404).json({ error: 'Product not found in recycle bin' });
+    res.json(restored);
+  });
+
+  // 3. Customer Orders & Details (Placed by customers, viewed/managed by admin)
+  app.post('/api/orders', (req, res) => {
+    try {
+      const { customerName, customerPhone, shippingAddress, items } = req.body || {};
+      if (!customerName || !customerPhone || !shippingAddress || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: 'Please provide full delivery and customer contact details.' });
+      }
+      const order = addOrder(req.body);
+      res.status(201).json({ ok: true, order });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Failed to record order' });
+    }
+  });
+
+  app.get('/api/orders', requireAdmin, (_req, res) => {
+    const db = getFullAdminData();
+    res.json(db.orders);
+  });
+
+  app.put('/api/orders/:id', requireAdmin, (req, res) => {
+    const { status, trackingNote } = req.body || {};
+    const updated = updateOrderStatus(req.params.id, status, trackingNote);
+    if (!updated) return res.status(404).json({ error: 'Order not found' });
+    res.json(updated);
+  });
+
+  // Public Order Tracking Endpoint (Does not expose private details of other clients)
+  app.get('/api/orders/track', (req, res) => {
+    const query = req.query.query as string;
+    if (!query) return res.status(400).json({ error: 'Order reference or phone number is required.' });
+    const order = trackOrder(query);
+    if (!order) return res.status(404).json({ error: 'No order found matching the provided reference or phone number.' });
+    res.json({
+      id: order.id,
+      orderNumber: order.orderNumber,
+      status: order.status,
+      customerName: order.customerName,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+      shippingAddress: order.shippingAddress,
+      city: order.city,
+      trackingNote: order.trackingNote,
+      paymentMethod: order.paymentMethod,
+      mpesaStatus: order.mpesaStatus,
+      total: order.total,
+      items: order.items.map((i) => ({
+        productName: i.productName,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        image: i.image,
+      })),
+    });
+  });
+
+  // 4. Viewing Appointments
+  app.get('/api/viewings', requireAdmin, (_req, res) => {
+    const db = getFullAdminData();
+    res.json(db.viewingAppointments);
+  });
+
+  app.post('/api/viewings', (req, res) => {
+    try {
+      const appt = addViewingAppointment(req.body);
+      res.status(201).json({ ok: true, appointment: appt });
+    } catch (err: any) {
+      res.status(400).json({ error: err?.message || 'Failed to record appointment' });
+    }
+  });
+
+  app.put('/api/viewings/:id', requireAdmin, (req, res) => {
+    const { auditNote, actor, ...updates } = req.body || {};
+    const updated = updateViewingAppointment(req.params.id, updates, auditNote, actor);
+    if (!updated) return res.status(404).json({ error: 'Appointment not found' });
+    res.json(updated);
+  });
+
+  // Viewing Locations & Config
+  app.post('/api/viewings/locations', requireAdmin, (req, res) => {
+    const loc = addViewingLocation(req.body);
+    res.status(201).json(loc);
+  });
+
+  app.put('/api/viewings/locations/:id', requireAdmin, (req, res) => {
+    const updated = updateViewingLocation(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ error: 'Location not found' });
+    res.json(updated);
+  });
+
+  app.delete('/api/viewings/locations/:id', requireAdmin, (req, res) => {
+    const success = deleteViewingLocation(req.params.id);
+    if (!success) return res.status(404).json({ error: 'Location not found' });
+    res.json({ ok: true });
+  });
+
+  app.put('/api/viewings/config', requireAdmin, (req, res) => {
+    const updated = updateBookingConfig(req.body);
+    res.json(updated);
+  });
+
+  // Site Settings
+  app.put('/api/settings', requireAdmin, (req, res) => {
+    const updated = updateSiteSettings(req.body);
+    res.json(updated);
+  });
 
   // Health check endpoint
   app.get('/api/health', (_req, res) => {

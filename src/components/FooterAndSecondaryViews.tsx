@@ -6,6 +6,7 @@ import {
   MapPin,
   MessageCircle,
   Phone,
+  Truck,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { ProductCard } from './ProductCard';
@@ -228,6 +229,7 @@ export const Footer: React.FC = () => {
   const { settings, navigate, showToast } = useStore();
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [footerTrackingQuery, setFooterTrackingQuery] = useState('');
 
   const handleNewsletterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -241,6 +243,12 @@ export const Footer: React.FC = () => {
     showToast(
       `Subscribed (${email}) to Tech Sokoni Hardware Dispatches & Privileges`
     );
+  };
+
+  const handleFooterTrack = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!footerTrackingQuery.trim()) return;
+    navigate({ page: 'track-shipment', orderId: footerTrackingQuery.trim() });
   };
 
   return (
@@ -307,6 +315,40 @@ export const Footer: React.FC = () => {
                 )}
               </button>
             </div>
+          </form>
+        </div>
+
+        {/* ORDER TRACKING ON FOOTER */}
+        <div className="py-4 px-4 bg-[#EAE9E4]/70 border border-[#141413]/12 my-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-[#1F6F43] text-[#F4F3EF] flex items-center justify-center shrink-0">
+              <Truck className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="text-xs font-mono-num uppercase tracking-wider font-bold text-[#141413] block">
+                Track Your Order &amp; Delivery
+              </span>
+              <span className="text-[11px] text-[#6E6D68]">
+                Check real-time dispatch status using your order number (e.g. TS-2026-1001) or phone
+              </span>
+            </div>
+          </div>
+
+          <form onSubmit={handleFooterTrack} className="flex items-stretch gap-2 w-full md:w-auto">
+            <input
+              type="text"
+              required
+              placeholder="Order Number / Phone..."
+              value={footerTrackingQuery}
+              onChange={(e) => setFooterTrackingQuery(e.target.value)}
+              className="flex-1 md:w-64 bg-white border border-[#141413]/20 px-3.5 py-2 text-xs text-[#141413] focus:outline-none focus:border-[#141413]"
+            />
+            <button
+              type="submit"
+              className="px-5 py-2 bg-[#1F6F43] hover:bg-[#185835] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-wider font-semibold whitespace-nowrap cursor-pointer transition-colors"
+            >
+              Track Order
+            </button>
           </form>
         </div>
 

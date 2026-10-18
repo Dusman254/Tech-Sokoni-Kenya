@@ -20,6 +20,7 @@ import { TrackShipmentView } from './components/TrackShipmentView';
 import { CompareFloatingBar, CompareView } from './components/CompareView';
 import { SearchOverlay } from './components/SearchOverlay';
 import { CartAndCheckout } from './components/CartAndCheckout';
+import { BookViewingModal } from './components/BookViewingModal';
 import {
   Footer,
   InfoSectionView,
@@ -109,6 +110,10 @@ const StorefrontRouter: React.FC = () => {
                 <InfoSectionView section={route.section} />
               )}
 
+              {route.page === 'book-viewing' && (
+                <BookViewingModal standalonePage />
+              )}
+
               {/* 404 Route Fallback */}
               {![
                 'home',
@@ -117,6 +122,7 @@ const StorefrontRouter: React.FC = () => {
                 'product',
                 'client-portal',
                 'track-shipment',
+                'book-viewing',
                 'compare',
                 'wishlist',
                 'admin',

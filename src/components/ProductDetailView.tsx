@@ -2,8 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
   ArrowLeftRight,
+  Building2,
+  Calendar,
   Check,
   Heart,
+  Info,
   MapPin,
   MessageCircle,
   Minus,
@@ -11,6 +14,7 @@ import {
   ShieldCheck,
   ShoppingBag,
   Star,
+  Store,
   Truck,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
@@ -37,6 +41,9 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
     setIsCheckoutOpen,
     getEffectivePricing,
     addProductReview,
+    openBookViewingModal,
+    getEffectiveViewingLocation,
+    bookingConfig,
   } = useStore();
 
   const product = products.find((p) => p.id === productId) || products[0];
@@ -116,6 +123,23 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
   const specEntries = Object.entries(product.specs).filter(
     ([_, val]) => Boolean(val)
   );
+
+  const isLaptop =
+    product.category === 'laptops' ||
+    Boolean(
+      product.specs?.processor ||
+        product.shortSpec?.toLowerCase().includes('ram') ||
+        product.name.toLowerCase().includes('laptop') ||
+        product.name.toLowerCase().includes('thinkpad') ||
+        product.name.toLowerCase().includes('macbook') ||
+        product.name.toLowerCase().includes('xps')
+    );
+
+  const canBookViewing =
+    isLaptop && (product.stock > 0 || Boolean(product.allowSampleViewing));
+  const isOutOfStockNoSample =
+    isLaptop && product.stock <= 0 && !product.allowSampleViewing;
+  const effectiveLocation = getEffectiveViewingLocation(product);
 
   const handleBuyNow = () => {
     addToCart(
@@ -455,6 +479,36 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
               >
                 Buy Now — Express Checkout
               </button>
+
+              {/* Row 3: Book to View Laptop Button (Prominent Gold Brand Accent) */}
+              {isLaptop && (
+                <div className="space-y-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => openBookViewingModal(product)}
+                    disabled={isOutOfStockNoSample}
+                    className="w-full h-12 bg-[#C5A028] hover:bg-[#B38F22] text-[#141413] font-mono-num uppercase tracking-[0.18em] text-xs font-bold border border-[#B38F22] shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40"
+                  >
+                    <Calendar className="w-4 h-4 text-[#141413] shrink-0" />
+                    <span>
+                      {isOutOfStockNoSample
+                        ? 'Physical Viewing Unavailable (Out of Stock)'
+                        : product.allowSampleViewing && product.stock <= 0
+                        ? 'Book Sample Unit Viewing'
+                        : 'Book to View in Person'}
+                    </span>
+                  </button>
+
+                  {/* Short Trust Message directly near the button */}
+                  <p className="text-[11px] text-[#5E5D59] leading-relaxed bg-[#C5A028]/10 border border-[#C5A028]/30 p-2.5 flex items-start gap-2">
+                    <Info className="w-3.5 h-3.5 text-[#B38F22] shrink-0 mt-0.5" />
+                    <span>
+                      Want to see it before you buy? Book a viewing, inspect the laptop in person, and decide with confidence. No advance payment required.
+                    </span>
+                  </p>
+                </div>
+              )}
+
 
               {/* Row 3: Compare & Wishlist Side-by-Side with Clear Labels & Generous Spacing */}
               <div className="grid grid-cols-2 gap-3">

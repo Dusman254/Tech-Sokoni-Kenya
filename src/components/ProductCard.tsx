@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeftRight, ArrowUpRight, Heart, ShoppingBag } from 'lucide-react';
+import { ArrowLeftRight, ArrowUpRight, Calendar, Heart, ShoppingBag } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { Product } from '../types/store';
 import { StudioImage } from './StudioImage';
@@ -22,11 +22,24 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     toggleWishlist,
     toggleCompare,
     getEffectivePricing,
+    openBookViewingModal,
   } = useStore();
 
   const pricing = getEffectivePricing(product);
   const isWishlisted = wishlist.includes(product.id);
   const isCompared = compareIds.includes(product.id);
+
+  const isLaptop =
+    product.category === 'laptops' ||
+    Boolean(
+      product.specs?.processor &&
+        (product.name.toLowerCase().includes('laptop') ||
+          product.name.toLowerCase().includes('thinkpad') ||
+          product.name.toLowerCase().includes('macbook') ||
+          product.name.toLowerCase().includes('xps'))
+    );
+
+  const isOutOfStockNoSample = isLaptop && product.stock <= 0 && !product.allowSampleViewing;
 
   // Determine a single quiet status text indicator (Zero-Pill discipline)
   const statusLabel = pricing.hasDiscount
@@ -138,13 +151,37 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             )}
           </div>
 
-          <button
-            onClick={() => addToCart(product.id, 1, true)}
-            disabled={product.stock <= 0}
-            className="px-3 py-1.5 bg-[#141413] text-[#F4F3EF] text-[10px] sm:text-[11px] font-mono-num uppercase tracking-wider hover:bg-[#2B2B28] disabled:opacity-40 transition-colors cursor-pointer whitespace-nowrap shrink-0"
-          >
-            + Add
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {isLaptop && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openBookViewingModal(product);
+                }}
+                disabled={isOutOfStockNoSample}
+                title={
+                  isOutOfStockNoSample
+                    ? 'Viewing unavailable for out-of-stock item'
+                    : 'Book physical viewing without payment'
+                }
+                className="px-2.5 py-1.5 bg-[#C5A028] text-[#141413] text-[10px] sm:text-[11px] font-mono-num uppercase tracking-wider font-bold hover:bg-[#B38F22] disabled:opacity-40 transition-colors cursor-pointer whitespace-nowrap border border-[#B38F22]"
+              >
+                {isOutOfStockNoSample
+                  ? 'No View'
+                  : product.allowSampleViewing && product.stock <= 0
+                  ? 'Sample View'
+                  : 'Book to View'}
+              </button>
+            )}
+
+            <button
+              onClick={() => addToCart(product.id, 1, true)}
+              disabled={product.stock <= 0}
+              className="px-3 py-1.5 bg-[#141413] text-[#F4F3EF] text-[10px] sm:text-[11px] font-mono-num uppercase tracking-wider hover:bg-[#2B2B28] disabled:opacity-40 transition-colors cursor-pointer whitespace-nowrap"
+            >
+              + Add
+            </button>
+          </div>
         </div>
       </div>
     </article>
@@ -228,23 +265,36 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             </div>
 
             {/* Subtle Hover Action Bar (Slides in smoothly on hover on desktop) */}
-            <div className="hidden lg:flex absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-[#EAE9E4] via-[#EAE9E4]/95 to-transparent translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-200 items-center justify-between gap-2">
+            <div className="hidden lg:flex absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-[#EAE9E4] via-[#EAE9E4]/95 to-transparent translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-200 items-center justify-between gap-1.5">
               <button
                 onClick={() =>
                   navigate({ page: 'product', productId: product.id })
                 }
-                className="flex-1 py-2 px-3 border border-[#141413]/25 bg-[#F4F3EF]/90 text-[#141413] text-[11px] font-mono-num uppercase tracking-[0.14em] hover:border-[#141413] transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+                className="flex-1 py-2 px-2.5 border border-[#141413]/25 bg-[#F4F3EF]/90 text-[#141413] text-[10px] font-mono-num uppercase tracking-[0.12em] hover:border-[#141413] transition-colors flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap"
               >
                 <span>View</span>
-                <ArrowUpRight className="w-3.5 h-3.5" />
+                <ArrowUpRight className="w-3 h-3" />
               </button>
+              {isLaptop && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openBookViewingModal(product);
+                  }}
+                  disabled={isOutOfStockNoSample}
+                  className="flex-1 py-2 px-2.5 bg-[#C5A028] text-[#141413] text-[10px] font-mono-num uppercase tracking-[0.12em] font-bold hover:bg-[#B38F22] disabled:opacity-40 transition-colors flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap border border-[#B38F22]"
+                >
+                  <Calendar className="w-3 h-3" />
+                  <span>{isOutOfStockNoSample ? 'No View' : 'Book View'}</span>
+                </button>
+              )}
               <button
                 onClick={() => addToCart(product.id, 1, true)}
                 disabled={product.stock <= 0}
-                className="flex-1 py-2 px-3 bg-[#141413] text-[#F4F3EF] text-[11px] font-mono-num uppercase tracking-[0.14em] hover:bg-[#2B2B28] disabled:opacity-40 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+                className="flex-1 py-2 px-2.5 bg-[#141413] text-[#F4F3EF] text-[10px] font-mono-num uppercase tracking-[0.12em] hover:bg-[#2B2B28] disabled:opacity-40 transition-colors flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap"
               >
-                <ShoppingBag className="w-3.5 h-3.5" />
-                <span>Add to Cart</span>
+                <ShoppingBag className="w-3 h-3" />
+                <span>+ Cart</span>
               </button>
             </div>
           </div>
@@ -315,6 +365,29 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             {isCompared ? '✓ Comparing' : '+ Compare'}
           </button>
         </div>
+
+        {/* Desktop Book to View Direct Action for Laptops */}
+        {isLaptop && (
+          <div className="mt-2.5">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                openBookViewingModal(product);
+              }}
+              disabled={isOutOfStockNoSample}
+              className="w-full py-2 px-3 bg-[#C5A028]/15 hover:bg-[#C5A028] text-[#141413] border border-[#C5A028] text-[11px] font-mono-num uppercase tracking-wider font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40"
+            >
+              <Calendar className="w-3.5 h-3.5 text-[#141413]" />
+              <span>
+                {isOutOfStockNoSample
+                  ? 'Viewing Unavailable'
+                  : product.allowSampleViewing && product.stock <= 0
+                  ? 'Book Sample Viewing'
+                  : 'Book to View in Nairobi'}
+              </span>
+            </button>
+          </div>
+        )}
       </article>
     </>
   );

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   Activity,
   ArrowLeft,
+  Calendar,
   Check,
   CheckCircle2,
   ChevronLeft,
@@ -53,9 +54,11 @@ import {
   validateAndParseBackup,
 } from '../services/backupService';
 import { StudioImage } from './StudioImage';
+import { AdminViewingsSection } from './AdminViewingsSection';
 
 type AdminTab =
   | 'orders'
+  | 'viewings'
   | 'mpesa'
   | 'products'
   | 'inventory'
@@ -100,6 +103,8 @@ export const AdminDashboard: React.FC = () => {
     updateCategory,
     resetDemoData,
     restoreDatabase,
+    viewingAppointments,
+    viewingLocations,
     showToast,
   } = useStore();
 
@@ -260,6 +265,10 @@ export const AdminDashboard: React.FC = () => {
     featured: boolean;
     isNewArrival: boolean;
     inShowroomRail: boolean;
+    allowSampleViewing: boolean;
+    viewingLocationId: string;
+    isPartnerInventory: boolean;
+    vendorName: string;
   }>({
     name: '',
     sku: 'TS-NEW-001',
@@ -290,6 +299,10 @@ export const AdminDashboard: React.FC = () => {
     featured: true,
     isNewArrival: true,
     inShowroomRail: true,
+    allowSampleViewing: false,
+    viewingLocationId: '',
+    isPartnerInventory: false,
+    vendorName: '',
   });
 
   // Offer Modal State
@@ -572,6 +585,10 @@ export const AdminDashboard: React.FC = () => {
       featured: true,
       isNewArrival: true,
       inShowroomRail: true,
+      allowSampleViewing: false,
+      viewingLocationId: '',
+      isPartnerInventory: false,
+      vendorName: '',
     });
     setIsProductModalOpen(true);
   };
@@ -611,6 +628,10 @@ export const AdminDashboard: React.FC = () => {
       featured: product.featured,
       isNewArrival: product.isNewArrival,
       inShowroomRail: product.inShowroomRail,
+      allowSampleViewing: Boolean(product.allowSampleViewing),
+      viewingLocationId: product.viewingLocationId || '',
+      isPartnerInventory: Boolean(product.isPartnerInventory),
+      vendorName: product.vendorName || '',
     });
     setIsProductModalOpen(true);
   };
@@ -650,6 +671,10 @@ export const AdminDashboard: React.FC = () => {
       featured: prodForm.featured,
       isNewArrival: prodForm.isNewArrival,
       inShowroomRail: prodForm.inShowroomRail,
+      allowSampleViewing: prodForm.allowSampleViewing,
+      viewingLocationId: prodForm.viewingLocationId || undefined,
+      isPartnerInventory: prodForm.isPartnerInventory,
+      vendorName: prodForm.vendorName?.trim() || undefined,
       rating: 5.0,
       reviewCount: 1,
       reviews: [],
@@ -828,6 +853,29 @@ export const AdminDashboard: React.FC = () => {
       badge: orders.length,
       badgeHighlight: activeOrdersCount > 0,
       icon: ShoppingBag,
+    },
+    {
+      id: 'viewings',
+      label: 'Bookings & Viewings',
+      shortLabel: 'Viewings',
+      badge:
+        viewingAppointments.filter(
+          (v) =>
+            v.status === 'Pending Confirmation' ||
+            v.status === 'Reschedule Requested'
+        ).length > 0
+          ? viewingAppointments.filter(
+              (v) =>
+                v.status === 'Pending Confirmation' ||
+                v.status === 'Reschedule Requested'
+            ).length
+          : viewingAppointments.length,
+      badgeHighlight: viewingAppointments.some(
+        (v) =>
+          v.status === 'Pending Confirmation' ||
+          v.status === 'Reschedule Requested'
+      ),
+      icon: Calendar,
     },
     {
       id: 'mpesa',
@@ -1941,6 +1989,15 @@ export const AdminDashboard: React.FC = () => {
               )}
             </>
           )}
+          </div>
+        )}
+
+        {/* ===================================================================
+            TAB 5A: LAPTOP VIEWINGS & SHOWROOM RESERVATIONS
+           =================================================================== */}
+        {activeTab === 'viewings' && (
+          <div className="py-8">
+            <AdminViewingsSection />
           </div>
         )}
 
@@ -3138,6 +3195,87 @@ export const AdminDashboard: React.FC = () => {
                 />
                 <span>Mark as New Release</span>
               </label>
+            </div>
+
+            {/* IN-PERSON VIEWING & PARTNER INVENTORY RULES */}
+            <div className="p-4 bg-[#EAE9E4]/60 border border-[#141413]/15 space-y-3 text-xs">
+              <span className="font-mono-num uppercase tracking-wider text-[11px] font-bold text-[#141413] flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-[#C5A028]" />
+                <span>In-Person Viewing & Partner Inventory Rules</span>
+              </span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={prodForm.allowSampleViewing}
+                    onChange={(e) =>
+                      setProdForm({ ...prodForm, allowSampleViewing: e.target.checked })
+                    }
+                    className="mt-0.5 accent-[#C5A028]"
+                  />
+                  <div>
+                    <span className="font-semibold text-[#141413] block">
+                      Permit Viewing Even When Out of Stock
+                    </span>
+                    <span className="text-[11px] text-[#6E6D68] block">
+                      Allows customers to book a viewing for a showroom display or sample unit.
+                    </span>
+                  </div>
+                </label>
+
+                <div>
+                  <label className="block text-[11px] font-mono-num text-[#5E5D59] mb-1">
+                    Designated Inspection Point (Location)
+                  </label>
+                  <select
+                    value={prodForm.viewingLocationId}
+                    onChange={(e) =>
+                      setProdForm({ ...prodForm, viewingLocationId: e.target.value })
+                    }
+                    className="w-full h-8 px-2 bg-white border border-[#141413]/20 text-xs font-mono-num"
+                  >
+                    <option value="">Default Showroom (Pioneer CBD)</option>
+                    {viewingLocations.map((loc) => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.name} ({loc.building})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Partner Vendor Attribution */}
+              <div className="pt-2 border-t border-[#141413]/10 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={prodForm.isPartnerInventory}
+                    onChange={(e) =>
+                      setProdForm({ ...prodForm, isPartnerInventory: e.target.checked })
+                    }
+                    className="accent-[#C5A028]"
+                  />
+                  <span className="font-semibold text-[#141413]">Partner Vendor Consignment</span>
+                </label>
+
+                {prodForm.isPartnerInventory && (
+                  <div>
+                    <label className="block text-[11px] font-mono-num text-[#5E5D59] mb-1">
+                      Partner Vendor Name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Westlands Silicon Hub"
+                      value={prodForm.vendorName}
+                      onChange={(e) =>
+                        setProdForm({ ...prodForm, vendorName: e.target.value })
+                      }
+                      className="w-full h-8 px-2 bg-white border border-[#141413]/20 text-xs"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="pt-4 border-t border-[#141413]/10 flex justify-end gap-3">
