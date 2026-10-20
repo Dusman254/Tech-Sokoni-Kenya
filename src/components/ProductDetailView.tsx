@@ -498,14 +498,6 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
                         : 'Book to View in Person'}
                     </span>
                   </button>
-
-                  {/* Short Trust Message directly near the button */}
-                  <p className="text-[11px] text-[#5E5D59] leading-relaxed bg-[#C5A028]/10 border border-[#C5A028]/30 p-2.5 flex items-start gap-2">
-                    <Info className="w-3.5 h-3.5 text-[#B38F22] shrink-0 mt-0.5" />
-                    <span>
-                      Want to see it before you buy? Book a viewing, inspect the laptop in person, and decide with confidence. No advance payment required.
-                    </span>
-                  </p>
                 </div>
               )}
 

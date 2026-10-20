@@ -1,0 +1,546 @@
+{
+  "version": 1,
+  "lastUpdated": "2026-10-20T10:08:39.221Z",
+  "products": [
+    {
+      "name": "HP EliteBook 840 G10 (Test Sync)",
+      "brand": "HP",
+      "category": "laptops",
+      "condition": "New",
+      "price": 145000,
+      "stock": 4,
+      "sku": "HP-EB840-G10-SYNC",
+      "shortSpec": "Core i7 13th Gen · 16GB DDR5 · 512GB NVMe",
+      "images": [
+        "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=800"
+      ],
+      "id": "prod-1792490891419-ibu1"
+    },
+    {
+      "id": "prod-macbook-pro-16-m3",
+      "sku": "TS-MBP-16-M3P",
+      "name": "Apple MacBook Pro 16\" (M3 Pro, 18GB, 512GB)",
+      "brand": "Apple",
+      "category": "laptops",
+      "price": 345000,
+      "salePrice": 335000,
+      "stock": 5,
+      "condition": "New",
+      "shortSpec": "Apple M3 Pro · 18GB Unified · 512GB SSD · 16.2\" Liquid Retina XDR · Space Black",
+      "shortDescription": "Pro performance powerhouse with 12-core CPU, 18-core GPU, up to 22 hours battery life, and studio-grade audio.",
+      "description": "Engineered for developers, audio engineers, and creative directors. Features Liquid Retina XDR display with 1,600 nits peak HDR brightness, three Thunderbolt 4 ports, MagSafe 3, HDMI, and SDXC card reader. 100% genuine Apple serial verified with 1-Year Local & Manufacturer Warranty.",
+      "images": [
+        "/src/assets/images/product_laptop_pro_1790801590092.jpg"
+      ],
+      "specs": {
+        "processor": "Apple M3 Pro (12-Core CPU, 18-Core GPU)",
+        "ram": "18GB Unified Memory",
+        "storage": "512GB High-Speed PCIe SSD",
+        "screenSize": "16.2-inch Liquid Retina XDR (3456 x 2234)",
+        "color": "Space Black",
+        "os": "macOS Sonoma",
+        "battery": "100Wh Lithium-Polymer (up to 22h)",
+        "weight": "2.14 kg",
+        "warranty": "1-Year Official Apple Warranty"
+      },
+      "variations": [
+        {
+          "id": "var-storage",
+          "name": "Storage",
+          "options": [
+            {
+              "id": "opt-512gb",
+              "label": "512GB SSD",
+              "priceDelta": 0,
+              "inStock": true
+            },
+            {
+              "id": "opt-1tb",
+              "label": "1TB SSD",
+              "priceDelta": 35000,
+              "inStock": true
+            }
+          ]
+        },
+        {
+          "id": "var-ram",
+          "name": "Unified RAM",
+          "options": [
+            {
+              "id": "opt-18gb",
+              "label": "18GB Unified",
+              "priceDelta": 0,
+              "inStock": true
+            },
+            {
+              "id": "opt-36gb",
+              "label": "36GB Unified",
+              "priceDelta": 50000,
+              "inStock": true
+            }
+          ]
+        }
+      ],
+      "featured": true,
+      "isNewArrival": true,
+      "inShowroomRail": true,
+      "rating": 5,
+      "reviewCount": 14,
+      "reviews": [],
+      "deliveryInfo": "Same-day 2-hour courier across Nairobi or in-person viewing at Kenyatta Pioneer Shop 514.",
+      "allowSampleViewing": true
+    },
+    {
+      "id": "prod-dell-xps-15-9530",
+      "sku": "TS-XPS-15-9530",
+      "name": "Dell XPS 15 9530 (Core i7-13700H, 32GB, 1TB, RTX 4060)",
+      "brand": "Dell",
+      "category": "laptops",
+      "price": 215000,
+      "stock": 3,
+      "condition": "Refurbished",
+      "shortSpec": "Core i7-13700H · 32GB DDR5 · 1TB NVMe · 15.6\" 3.5K OLED Touch · RTX 4060 8GB",
+      "shortDescription": "CNC machined aluminum executive workstation with stunning InfinityEdge 3.5K OLED touchscreen and discrete NVIDIA GeForce graphics.",
+      "description": "Premium creator workstation with 14-core Intel Core i7, 32GB DDR5 dual-channel memory, and calibrated OLED panel with 100% DCI-P3 color gamut. Fully diagnostic-tested with 100% battery health and clean cosmetic chassis. 1-Year Tech Sokoni Local Warranty.",
+      "images": [
+        "/src/assets/images/product_laptop_pro_1790801590092.jpg"
+      ],
+      "specs": {
+        "processor": "Intel Core i7-13700H (14 Cores, 20 Threads, up to 5.0GHz)",
+        "ram": "32GB DDR5 4800MHz",
+        "storage": "1TB PCIe 4.0 NVMe SSD",
+        "screenSize": "15.6-inch 3.5K (3456 x 2160) OLED Touch",
+        "graphics": "NVIDIA GeForce RTX 4060 8GB GDDR6",
+        "color": "Platinum Silver exterior / Black carbon fiber palmrest",
+        "os": "Windows 11 Pro",
+        "battery": "86Wh (Excellent Health)",
+        "weight": "1.92 kg",
+        "warranty": "1-Year Tech Sokoni Showroom Warranty"
+      },
+      "featured": true,
+      "isNewArrival": false,
+      "inShowroomRail": true,
+      "rating": 4.9,
+      "reviewCount": 9,
+      "reviews": [],
+      "deliveryInfo": "In-person inspection encouraged at Kenyatta Avenue showroom before payment.",
+      "allowSampleViewing": true
+    },
+    {
+      "id": "prod-hp-elitebook-840-g10",
+      "sku": "TS-HP-840-G10",
+      "name": "HP EliteBook 840 G10 (Core i7-1365U, 16GB, 512GB)",
+      "brand": "HP",
+      "category": "laptops",
+      "price": 148000,
+      "salePrice": 142000,
+      "stock": 8,
+      "condition": "New",
+      "shortSpec": "Core i7-1365U vPro · 16GB DDR5 · 512GB Gen4 SSD · 14\" WUXGA Anti-Glare · Silver",
+      "shortDescription": "Enterprise executive standard with HP Wolf Security, ultra-light magnesium chassis, 5MP IR webcam, and Bang & Olufsen audio.",
+      "description": "Built for heavy commercial and corporate workflows. Features HP Sure Start self-healing BIOS, backlit spill-resistant keyboard, Wi-Fi 6E, and all-day battery life. Brand new sealed unit with 1-Year Local Kenya Warranty.",
+      "images": [
+        "/src/assets/images/product_laptop_pro_1790801590092.jpg"
+      ],
+      "specs": {
+        "processor": "Intel Core i7-1365U (10 Cores, 12 Threads, vPro Enterprise)",
+        "ram": "16GB DDR5 5200MHz",
+        "storage": "512GB PCIe Gen4 NVMe TLC SSD",
+        "screenSize": "14.0-inch WUXGA (1920 x 1200) IPS 400 nits",
+        "color": "Pike Silver Aluminum",
+        "os": "Windows 11 Pro Licensed",
+        "battery": "51Wh Long Life (Fast charge 50% in 30 mins)",
+        "weight": "1.36 kg",
+        "warranty": "1-Year HP Kenya & Tech Sokoni Warranty"
+      },
+      "featured": false,
+      "isNewArrival": true,
+      "inShowroomRail": true,
+      "rating": 4.8,
+      "reviewCount": 11,
+      "reviews": [],
+      "deliveryInfo": "Available for in-person testing at Kenyatta Pioneer Shop 514 or Same-Day Delivery.",
+      "allowSampleViewing": true
+    },
+    {
+      "id": "prod-lenovo-thinkpad-x1-carbon-gen11",
+      "sku": "TS-LEN-X1C-G11",
+      "name": "Lenovo ThinkPad X1 Carbon Gen 11 (Core i7, 16GB, 512GB)",
+      "brand": "Lenovo",
+      "category": "laptops",
+      "price": 175000,
+      "stock": 4,
+      "condition": "Refurbished",
+      "shortSpec": "Core i7-1355U · 16GB LPDDR5 · 512GB NVMe · 14\" 2.8K OLED · Deep Black",
+      "shortDescription": "Ultra-durable carbon-fiber flagship with legendary ThinkPad keyboard, 2.8K OLED display, and MIL-STD 810H military certification.",
+      "description": "The gold standard in portable corporate computing. Certified against 12 military-grade requirements and more than 200 quality checks. Includes fingerprint reader, Windows Hello facial recognition, and dual Thunderbolt 4 ports. 1-Year Showroom Warranty.",
+      "images": [
+        "/src/assets/images/product_laptop_pro_1790801590092.jpg"
+      ],
+      "specs": {
+        "processor": "Intel Core i7-1355U (10 Cores, 12 Threads)",
+        "ram": "16GB Soldered LPDDR5 6400MHz",
+        "storage": "512GB M.2 2280 PCIe 4.0 SSD",
+        "screenSize": "14.0-inch 2.8K (2880 x 1800) OLED 400 nits 100% DCI-P3",
+        "color": "Deep Black Carbon Fiber weave",
+        "os": "Windows 11 Pro",
+        "battery": "57Wh (Rapid Charge)",
+        "weight": "1.12 kg",
+        "warranty": "1-Year Tech Sokoni Warranty"
+      },
+      "featured": false,
+      "isNewArrival": false,
+      "inShowroomRail": true,
+      "rating": 5,
+      "reviewCount": 8,
+      "reviews": [],
+      "deliveryInfo": "Test keyboard, display, and battery health at our Kenyatta Avenue showroom.",
+      "allowSampleViewing": true
+    }
+  ],
+  "orders": [
+    {
+      "customerName": "Grace Wanjiku",
+      "customerPhone": "+254 712 999 888",
+      "customerEmail": "grace.wanjiku@test.co.ke",
+      "shippingAddress": "Delta Corner, Westlands",
+      "city": "Nairobi",
+      "paymentMethod": "Payment on Delivery",
+      "total": 145000,
+      "items": [
+        {
+          "productId": "prod-1792490891419-ibu1",
+          "productName": "HP EliteBook 840 G10 (Test Sync)",
+          "unitPrice": 145000,
+          "quantity": 1,
+          "sku": "HP-EB840-G10-SYNC"
+        }
+      ],
+      "id": "ord-1792490900805-7vcf",
+      "orderNumber": "TS-2026-1001",
+      "status": "Processing",
+      "trackingNote": "Order logged for Payment on Delivery. Package prepared for courier dispatch.",
+      "createdAt": "2026-10-20T10:08:20.805Z",
+      "updatedAt": "2026-10-20T10:08:20.805Z"
+    }
+  ],
+  "categories": [
+    {
+      "id": "laptops",
+      "name": "Laptops",
+      "shortLabel": "Laptops",
+      "tagline": "Work. Create. Perform.",
+      "editorialHeadline": "Portable power for business, studio and everyday computing.",
+      "description": "MacBook Pro, HP EliteBook, Dell XPS, Lenovo ThinkPad, and professional notebooks stocked at our Nairobi CBD showroom.",
+      "image": "/src/assets/images/product_laptop_pro_1790801590092.jpg",
+      "startingPrice": 45000
+    },
+    {
+      "id": "phones",
+      "name": "Phones",
+      "shortLabel": "Phones",
+      "tagline": "Stay connected.",
+      "editorialHeadline": "Flagship smartphones with official warranty.",
+      "description": "iPhone, Samsung Galaxy Ultra, and Google Pixel devices with genuine local & manufacturer coverage.",
+      "image": "/src/assets/images/product_smartphone_ultra_1790801601802.jpg",
+      "startingPrice": 35000
+    },
+    {
+      "id": "desktops",
+      "name": "Desktops",
+      "shortLabel": "Desktops",
+      "tagline": "Built for productivity.",
+      "editorialHeadline": "Desktops, All-in-Ones, and studio workstations.",
+      "description": "High-sustained performance towers, compact mini PCs, and enterprise desktop systems.",
+      "image": "/src/assets/images/product_desktop_workstation_1790801612830.jpg",
+      "startingPrice": 55000
+    },
+    {
+      "id": "monitors",
+      "name": "Monitors",
+      "shortLabel": "Monitors",
+      "tagline": "See every detail.",
+      "editorialHeadline": "4K, 5K & 6K studio and office displays.",
+      "description": "Color-accurate IPS Black, OLED, and Ultrawide displays for creators, engineers, and corporate desks.",
+      "image": "/src/assets/images/product_monitor_studio_1790801622847.jpg",
+      "startingPrice": 28000
+    },
+    {
+      "id": "printers",
+      "name": "Printers",
+      "shortLabel": "Printers",
+      "tagline": "Print with confidence.",
+      "editorialHeadline": "LaserJet, EcoTank & commercial multifunction printers.",
+      "description": "High-yield office printers, wireless scanners, and genuine toner supplies.",
+      "image": "/src/assets/images/product_printer_laser_1790801643724.jpg",
+      "startingPrice": 24000
+    },
+    {
+      "id": "tablets",
+      "name": "Tablets",
+      "shortLabel": "Tablets",
+      "tagline": "Sketch. Note. Present.",
+      "editorialHeadline": "iPad Pro, Galaxy Tab & portable creative slates.",
+      "description": "Ultra-thin OLED and Liquid Retina tablets engineered for design, field operations, and executive mobility.",
+      "image": "/src/assets/images/product_tablet_pro_1790801656180.jpg",
+      "startingPrice": 42000
+    },
+    {
+      "id": "accessories",
+      "name": "Accessories",
+      "shortLabel": "Accessories",
+      "tagline": "Complete your setup.",
+      "editorialHeadline": "Studio audio, mechanical keyboards, docks & power.",
+      "description": "ANC headphones, Thunderbolt 4 docks, ergonomic mice, and genuine adapters.",
+      "image": "/src/assets/images/product_headphones_anc_1790801633558.jpg",
+      "startingPrice": 3500
+    },
+    {
+      "id": "networking",
+      "name": "Networking",
+      "shortLabel": "Networking",
+      "tagline": "Multi-gigabit Wi-Fi 7 mesh.",
+      "editorialHeadline": "Enterprise routers, switches, and access points.",
+      "description": "High-throughput Wi-Fi 7 mesh systems, MikroTik, Ubiquiti UniFi, and office networking hardware.",
+      "image": "/src/assets/images/product_networking_router_1790801665360.jpg",
+      "startingPrice": 8500
+    },
+    {
+      "id": "storage",
+      "name": "Storage",
+      "shortLabel": "Storage",
+      "tagline": "High-speed NVMe & NAS.",
+      "editorialHeadline": "Portable NVMe SSDs, enterprise drives & backup.",
+      "description": "Rugged Thunderbolt external SSDs, internal M.2 NVMe modules, and multi-bay NAS storage.",
+      "image": "/src/assets/images/product_desktop_workstation_1790801612830.jpg",
+      "startingPrice": 9500
+    },
+    {
+      "id": "gaming",
+      "name": "Gaming",
+      "shortLabel": "Gaming",
+      "tagline": "High-refresh performance.",
+      "editorialHeadline": "Consoles, RTX gaming rigs & pro peripherals.",
+      "description": "PlayStation 5, high-refresh gaming laptops, and custom-cooled graphics systems.",
+      "image": "/src/assets/images/product_laptop_pro_1790801590092.jpg",
+      "startingPrice": 65000
+    }
+  ],
+  "offers": [],
+  "mpesaTransactions": [],
+  "clients": [
+    {
+      "id": "client-1792490900805",
+      "name": "Grace Wanjiku",
+      "email": "grace.wanjiku@test.co.ke",
+      "phone": "+254 712 999 888",
+      "defaultAddress": "Delta Corner, Westlands",
+      "city": "Nairobi",
+      "createdAt": "2026-10-20T10:08:20.805Z"
+    },
+    {
+      "id": "client-brian-mwangi",
+      "name": "Brian Mwangi",
+      "email": "brian.mwangi@techfirm.co.ke",
+      "phone": "+254 722 410 932",
+      "defaultAddress": "Riverside Drive, Westlands",
+      "city": "Nairobi",
+      "createdAt": "2026-03-01T08:00:00Z"
+    }
+  ],
+  "settings": {
+    "heroHeadline": "Technology that moves you.",
+    "heroSupportingText": "Discover laptops, phones, desktops, printers and accessories selected for work, creativity, gaming and everyday life.",
+    "tickerMessages": [
+      "TECH SOKONI KENYA — KENYATTA PIONEER BUILDING, 5TH FLOOR, SHOP 514",
+      "ORDERS & WHATSAPP HOTLINE: +254 792 620 789",
+      "INSPECT PACKAGE UPON ARRIVAL BEFORE PAYING VIA CASH OR M-PESA",
+      "LIPA NA M-PESA BUY GOODS TILL NO: 9309020",
+      "100% FREE NATIONWIDE SHIPPING & 2-HOUR NAIROBI EXPRESS DELIVERY"
+    ],
+    "currencySymbol": "KSh ",
+    "freeShippingThreshold": 0,
+    "supportPhone": "+254 792 620 789",
+    "supportEmail": "shop@techsokoni.com",
+    "showroomAddress": "Kenyatta Pioneer Building, 5th Floor, Shop 514, Kenyatta Avenue (Next to I&M Building), Nairobi CBD, Kenya"
+  },
+  "viewingAppointments": [
+    {
+      "productId": "prod-thinkpad-x1-carbon-gen11",
+      "productName": "Lenovo ThinkPad X1 Carbon Gen 11",
+      "customerName": "Kamau Njoroge",
+      "customerPhone": "+254 722 000 111",
+      "customerEmail": "kamau@njoroge.co.ke",
+      "viewingDate": "2026-10-25",
+      "viewingTimeSlot": "11:00 AM",
+      "locationId": "loc-nairobi-cbd-pioneer",
+      "id": "viewing-1792490919221-1yae",
+      "bookingReference": "TSV-2026-7785",
+      "status": "Confirmed",
+      "auditTrail": [
+        {
+          "timestamp": "2026-10-20T10:08:39.221Z",
+          "action": "Booking Created",
+          "newStatus": "Confirmed",
+          "actor": "Kamau Njoroge",
+          "note": "Physical viewing booked for Lenovo ThinkPad X1 Carbon Gen 11 on 2026-10-25 at 11:00 AM."
+        }
+      ],
+      "createdAt": "2026-10-20T10:08:39.221Z",
+      "updatedAt": "2026-10-20T10:08:39.221Z"
+    },
+    {
+      "id": "viewing-tsv-2026-0001",
+      "bookingReference": "TSV-2026-0001",
+      "productId": "prod-thinkpad-x1-carbon-gen11",
+      "productName": "Lenovo ThinkPad X1 Carbon Gen 11",
+      "productBrand": "Lenovo",
+      "productSku": "LN-X1C11-1370P",
+      "productImage": "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?auto=format&fit=crop&w=900&q=80",
+      "productPrice": 245000,
+      "productCondition": "New",
+      "productShortSpec": "Core i7-1370P · 32GB LPDDR5 · 1TB NVMe · 14\" 2.8K OLED 400-nit · 1.12kg",
+      "customerName": "Brian Mwangi",
+      "customerPhone": "+254 722 410 932",
+      "customerEmail": "brian.mwangi@techfirm.co.ke",
+      "attendeeCount": 1,
+      "preferredContact": "whatsapp",
+      "customerNotes": "I want to physically test keyboard travel, trackpoint sensitivity, and verify the OLED display for color grading.",
+      "viewingDate": "2026-10-21",
+      "viewingTimeSlot": "11:00 AM",
+      "locationId": "loc-nbi-cbd",
+      "locationSnapshot": {
+        "id": "loc-nbi-cbd",
+        "name": "Tech Sokoni Flagship Showroom",
+        "address": "Kenyatta Avenue, Nairobi CBD, Kenya",
+        "building": "Kenyatta Pioneer Building (Next to I&M Building)",
+        "floor": "5th Floor",
+        "room": "Shop 514",
+        "mapsUrl": "https://maps.google.com/?q=Kenyatta+Pioneer+Building+Nairobi",
+        "phone": "+254 792 620 789",
+        "whatsapp": "+254 792 620 789",
+        "visitorInstructions": "Take the passenger lifts to Floor 5, turn right down the boutique gallery corridor to Shop 514. Inform our showroom concierge of your booking reference.",
+        "active": true
+      },
+      "status": "Confirmed",
+      "internalNotes": "Client verified on WhatsApp. Unit pre-staged in Pioneer Shop 514 inspection booth.",
+      "assignedStaff": "Kevin Oduor (Showroom Lead)",
+      "auditTrail": [
+        {
+          "timestamp": "2026-10-20T05:55:23.645Z",
+          "action": "Booking Created",
+          "newStatus": "Pending Confirmation",
+          "actor": "customer",
+          "note": "Customer submitted appointment online."
+        },
+        {
+          "timestamp": "2026-10-20T07:55:23.645Z",
+          "action": "Appointment Confirmed",
+          "previousStatus": "Pending Confirmation",
+          "newStatus": "Confirmed",
+          "actor": "Kevin Oduor",
+          "note": "Slot confirmed and laptop pre-staged in Showroom booth."
+        }
+      ],
+      "createdAt": "2026-10-20T05:55:23.645Z",
+      "updatedAt": "2026-10-20T07:55:23.645Z"
+    },
+    {
+      "id": "viewing-tsv-2026-0002",
+      "bookingReference": "TSV-2026-0002",
+      "productId": "prod-macbook-pro-16-m3-max",
+      "productName": "Apple MacBook Pro 16\" M3 Max",
+      "productBrand": "Apple",
+      "productSku": "AP-MBP16-M3MAX",
+      "productImage": "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=900&q=80",
+      "productPrice": 485000,
+      "productCondition": "New",
+      "productShortSpec": "M3 Max 16-Core CPU / 40-Core GPU · 64GB Unified · 1TB SSD · Space Black",
+      "customerName": "Amina Hassan",
+      "customerPhone": "+254 711 890 234",
+      "customerEmail": "amina.hassan@studio.or.ke",
+      "attendeeCount": 2,
+      "preferredContact": "phone",
+      "customerNotes": "Need to inspect Space Black finish, battery cycle count, and official Apple 1-Year warranty activation.",
+      "viewingDate": "2026-10-22",
+      "viewingTimeSlot": "02:30 PM",
+      "locationId": "loc-nbi-cbd",
+      "locationSnapshot": {
+        "id": "loc-nbi-cbd",
+        "name": "Tech Sokoni Flagship Showroom",
+        "address": "Kenyatta Avenue, Nairobi CBD, Kenya",
+        "building": "Kenyatta Pioneer Building (Next to I&M Building)",
+        "floor": "5th Floor",
+        "room": "Shop 514",
+        "mapsUrl": "https://maps.google.com/?q=Kenyatta+Pioneer+Building+Nairobi",
+        "phone": "+254 792 620 789",
+        "whatsapp": "+254 792 620 789",
+        "visitorInstructions": "Take the passenger lifts to Floor 5, turn right down the boutique gallery corridor to Shop 514. Inform our showroom concierge of your booking reference.",
+        "active": true
+      },
+      "status": "Pending Confirmation",
+      "internalNotes": "Customer requested phone call prior to visiting.",
+      "assignedStaff": "Grace Wanjiku",
+      "auditTrail": [
+        {
+          "timestamp": "2026-10-20T08:55:23.645Z",
+          "action": "Booking Created",
+          "newStatus": "Pending Confirmation",
+          "actor": "customer",
+          "note": "Customer submitted appointment online."
+        }
+      ],
+      "createdAt": "2026-10-20T08:55:23.645Z",
+      "updatedAt": "2026-10-20T08:55:23.645Z"
+    }
+  ],
+  "viewingLocations": [
+    {
+      "id": "loc-nbi-cbd",
+      "name": "Tech Sokoni Flagship Showroom",
+      "address": "Kenyatta Avenue, Nairobi CBD, Kenya",
+      "building": "Kenyatta Pioneer Building (Next to I&M Building)",
+      "floor": "5th Floor",
+      "room": "Shop 514",
+      "mapsUrl": "https://maps.google.com/?q=Kenyatta+Pioneer+Building+Nairobi",
+      "phone": "+254 792 620 789",
+      "whatsapp": "+254 792 620 789",
+      "visitorInstructions": "Take the passenger lifts to Floor 5, turn right down the boutique gallery corridor to Shop 514. Inform our showroom concierge of your booking reference.",
+      "active": true
+    },
+    {
+      "id": "loc-westlands",
+      "name": "Tech Sokoni Westlands Inspection Point",
+      "address": "Waiyaki Way & Mpaka Road Junction, Westlands, Nairobi",
+      "building": "The Mirage Tower 2",
+      "floor": "3rd Floor",
+      "room": "Suite 308",
+      "mapsUrl": "https://maps.google.com/?q=The+Mirage+Waiyaki+Way+Nairobi",
+      "phone": "+254 792 620 789",
+      "whatsapp": "+254 792 620 789",
+      "visitorInstructions": "Visitor parking available in basement B1. Security will guide you to Tower 2 elevators, 3rd floor executive lounge.",
+      "active": true
+    }
+  ],
+  "bookingConfig": {
+    "enabled": true,
+    "appointmentDurationMinutes": 30,
+    "startHour": 9,
+    "endHour": 18,
+    "workingDays": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "maxAdvanceDays": 14,
+    "minNoticeHours": 2,
+    "maxConcurrentPerSlot": 2,
+    "blockedDates": [],
+    "blockedSlots": [],
+    "defaultLocationId": "loc-nbi-cbd",
+    "requireApproval": false
+  }
+}

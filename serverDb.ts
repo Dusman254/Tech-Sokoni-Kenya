@@ -291,14 +291,17 @@ export function addOrder(orderData: Omit<Order, 'id' | 'orderNumber' | 'createdA
   if (newOrder.mpesaCode || newOrder.paymentMethod === 'M-Pesa Express') {
     const mpesaTx: MpesaTransaction = {
       id: `tx-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      mpesaCode: newOrder.mpesaCode || `PENDING-${newOrder.orderNumber}`,
-      amount: newOrder.total,
+      orderId: newOrder.id,
+      orderNumber: newOrder.orderNumber,
       customerName: newOrder.customerName,
       customerPhone: newOrder.customerPhone,
-      timestamp: nowIso,
-      verified: false,
-      orderId: newOrder.id,
-      notes: newOrder.mpesaMessage,
+      customerEmail: newOrder.customerEmail || '',
+      amount: newOrder.total,
+      tillNumber: '9309020',
+      mpesaCode: newOrder.mpesaCode || `PENDING-${newOrder.orderNumber}`,
+      mpesaMessage: newOrder.mpesaMessage || `M-Pesa payment for ${newOrder.orderNumber}`,
+      status: newOrder.mpesaStatus || 'Pending Verification',
+      createdAt: nowIso,
     };
     db.mpesaTransactions.unshift(mpesaTx);
   }

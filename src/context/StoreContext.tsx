@@ -402,7 +402,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   >(() => loadFromStorage(STORAGE_KEYS.CATEGORY_FILTERS, {}));
 
   const [isAdminAuthenticated, setIsAdminAuthenticated] =
-    useState<boolean>(false);
+    useState<boolean>(() => {
+      try {
+        return sessionStorage.getItem('tech_sokoni_admin_auth') === '1';
+      } catch {
+        return false;
+      }
+    });
   const [isFirebaseConnected, setIsFirebaseConnected] =
     useState<boolean>(false);
 
@@ -436,7 +442,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const openBookViewingModal = (product: Product) => {
     setBookViewingTargetProduct(product);
-    setIsBookViewingModalOpen(true);
+    navigate({ page: 'book-viewing', productId: product.id });
     analyticsService.track('booking_form_started', {
       productId: product.id,
       productName: product.name,
@@ -447,6 +453,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   const closeBookViewingModal = () => {
     setIsBookViewingModalOpen(false);
     setBookViewingTargetProduct(null);
+    if (route.page === 'book-viewing') {
+      navigate({ page: 'home' });
+    }
   };
 
   // Detect password reset link from email (e.g., /?mode=resetPassword&oobCode=... or /?oobCode=...)
@@ -486,6 +495,81 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
     () => allProducts.filter((p) => Boolean(p.deletedAt)),
     [allProducts]
   );
+
+  // ============================================================================
+  // Permanent Server Database Synchronization (Cross-Device & Cross-Browser)
+  // ============================================================================
+  const syncWithServerDatabase = async (overrideAdmin?: boolean) => {
+    const adminMode = overrideAdmin !== undefined ? overrideAdmin : isAdminAuthenticated;
+    try {
+      const headers: Record<string, string> = {};
+      if (adminMode) {
+        headers['x-admin-key'] = '1940';
+      }
+      const res = await fetch('/api/db/sync', { headers });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data) return;
+
+      if (adminMode && Array.isArray(data.allProducts) && data.allProducts.length > 0) {
+        setAllProducts(data.allProducts);
+      } else if (Array.isArray(data.products) && data.products.length > 0) {
+        setAllProducts((prev) => {
+          const deleted = prev.filter((p) => p.deletedAt);
+          const remoteIds = new Set(data.products.map((p: any) => p.id));
+          const keptDeleted = deleted.filter((p) => !remoteIds.has(p.id));
+          return [...data.products, ...keptDeleted];
+        });
+      }
+
+      if (adminMode && Array.isArray(data.orders)) {
+        setOrders(data.orders);
+      }
+      if (adminMode && Array.isArray(data.viewingAppointments)) {
+        setViewingAppointments(data.viewingAppointments);
+      }
+      if (adminMode && Array.isArray(data.clients)) {
+        setClients(data.clients);
+      }
+      if (adminMode && Array.isArray(data.mpesaTransactions)) {
+        setMpesaTransactions(data.mpesaTransactions);
+      }
+      if (Array.isArray(data.categories)) {
+        setCategories(data.categories);
+      }
+      if (Array.isArray(data.offers)) {
+        setOffers(data.offers);
+      }
+      if (Array.isArray(data.viewingLocations)) {
+        setViewingLocations(data.viewingLocations);
+      }
+      if (data.bookingConfig) {
+        setBookingConfig(data.bookingConfig);
+      }
+      if (data.settings) {
+        setSiteSettings((prev) => ({ ...prev, ...data.settings }));
+      }
+    } catch {
+      // Offline fallback
+    }
+  };
+
+  // Immediate and polling synchronization to reflect live additions across all browsers
+  useEffect(() => {
+    syncWithServerDatabase();
+
+    const onFocus = () => syncWithServerDatabase();
+    window.addEventListener('focus', onFocus);
+
+    const interval = setInterval(() => {
+      syncWithServerDatabase();
+    }, 4000);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      clearInterval(interval);
+    };
+  }, [isAdminAuthenticated]);
 
   // Connect to Firebase Firestore & Auth on boot (gated by permission probe to prevent permission-denied errors)
   useEffect(() => {
@@ -1314,6 +1398,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   const authenticateAdmin = (code: string): boolean => {
     if (code.trim() === '1940') {
       setIsAdminAuthenticated(true);
+      try {
+        sessionStorage.setItem('tech_sokoni_admin_auth', '1');
+      } catch {}
+      syncWithServerDatabase(true);
       showToast('Admin Console unlocked');
       return true;
     }
@@ -1322,6 +1410,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const logoutAdmin = () => {
     setIsAdminAuthenticated(false);
+    try {
+      sessionStorage.removeItem('tech_sokoni_admin_auth');
+    } catch {}
     navigate({ page: 'home' });
   };
 
@@ -1580,6 +1671,30 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       updatedAt: nowIso,
     };
     setOrders((prev) => [newOrder, ...prev]);
+    try {
+      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify([newOrder, ...orders]));
+    } catch {}
+
+    // Persist order and customer details to permanent server database
+    fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newOrder),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then((data) => {
+        if (data?.order) {
+          setOrders((prev) => {
+            const filtered = prev.filter((o) => o.id !== newOrder.id && o.id !== data.order.id);
+            return [data.order, ...filtered];
+          });
+        }
+      })
+      .catch((err) => console.warn('Failed to sync order to server:', err));
+
     saveOrderToFirestore(newOrder).catch(() => {});
 
     // Automatically log M-Pesa transaction message for Admin Dashboard when M-Pesa Express is selected or code/message provided
@@ -1659,7 +1774,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
     showToast('Review published. Thank you.');
   };
 
-  // Admin Product & 30-Day Recycle Bin Management (Synced to Firestore & Local Storage)
+  // Admin Product & 30-Day Recycle Bin Management (Synced to Server Database & Firestore)
   const addProduct = (productData: Omit<Product, 'id'>): Product => {
     const created: Product = {
       ...productData,
@@ -1672,8 +1787,32 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       } catch {}
       return next;
     });
+
+    // Save permanently to server database (appears across all devices & browsers)
+    fetch('/api/products', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-key': '1940',
+      },
+      body: JSON.stringify(created),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then((saved) => {
+        if (saved && saved.id) {
+          setAllProducts((prev) => {
+            const filtered = prev.filter((p) => p.id !== created.id && p.id !== saved.id);
+            return [saved, ...filtered];
+          });
+        }
+      })
+      .catch((err) => console.warn('Failed to sync product to server:', err));
+
     saveProductToFirestore(created).catch(() => {});
-    showToast(`Published ${created.name} to Storefront & Firestore`);
+    showToast(`Published ${created.name} to live website`);
     return created;
   };
 
@@ -1690,6 +1829,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       } catch {}
       return next;
     });
+
+    // Persist to server database
+    fetch(`/api/products/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-key': '1940',
+      },
+      body: JSON.stringify(updates),
+    }).catch((err) => console.warn('Failed to update product on server:', err));
+
     // If stock was adjusted below cart quantity, cap cart items at available stock
     if (updates.stock !== undefined) {
       const nextStock = updates.stock;
@@ -1699,7 +1849,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
           .filter((c) => (c.productId === id && nextStock <= 0 ? false : true))
       );
     }
-    showToast('Synced product changes to Storefront & Firestore');
+    showToast('Synced product changes to live website');
   };
 
   const deleteProduct = (id: string) => {
@@ -1713,6 +1863,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       })
     );
     setCart((prev) => prev.filter((c) => c.productId !== id));
+
+    fetch(`/api/products/${id}`, {
+      method: 'DELETE',
+      headers: { 'x-admin-key': '1940' },
+    }).catch((err) => console.warn('Failed to delete product on server:', err));
+
     showToast('Moved product to Recycle Bin (retained for 30 days)');
   };
 
@@ -1725,13 +1881,25 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
         return updatedProd;
       })
     );
+
+    fetch(`/api/products/${id}/restore`, {
+      method: 'POST',
+      headers: { 'x-admin-key': '1940' },
+    }).catch((err) => console.warn('Failed to restore product on server:', err));
+
     showToast('Restored product to live Storefront');
   };
 
   const permanentlyDeleteProduct = (id: string) => {
     setAllProducts((prev) => prev.filter((p) => p.id !== id));
     removeProductFromFirestore(id).catch(() => {});
-    showToast('Permanently purged product from Recycle Bin & Firestore');
+
+    fetch(`/api/products/${id}?permanent=true`, {
+      method: 'DELETE',
+      headers: { 'x-admin-key': '1940' },
+    }).catch((err) => console.warn('Failed to purge product on server:', err));
+
+    showToast('Permanently purged product from database');
   };
 
   const getDaysRemainingInRecycleBin = (deletedAt?: string): number => {
@@ -1753,6 +1921,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
     };
     setAllProducts((prev) => [copy, ...prev]);
     saveProductToFirestore(copy).catch(() => {});
+
+    fetch('/api/products', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-key': '1940',
+      },
+      body: JSON.stringify(copy),
+    }).catch((err) => console.warn('Failed to duplicate product on server:', err));
+
     showToast(`Duplicated ${source.name}`);
     return copy;
   };
@@ -1807,6 +1985,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
         return updatedOrder;
       })
     );
+    fetch(`/api/orders/${orderId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-key': '1940',
+      },
+      body: JSON.stringify({ status, trackingNote }),
+    }).catch((err) => console.warn('Failed to update order status on server:', err));
+
     showToast(`Order status updated to ${status}`);
   };
 
@@ -2285,6 +2472,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
     setViewingAppointments((prev) => [newAppointment, ...prev]);
     saveViewingAppointmentToFirestore(newAppointment).catch(() => {});
 
+    // Persist to server database
+    fetch('/api/viewings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newAppointment),
+    }).catch((err) => console.warn('Failed to save viewing appointment on server:', err));
+
     analyticsService.track('booking_completed', {
       bookingReference: newAppointment.bookingReference,
       productId: newAppointment.productId,
@@ -2325,6 +2519,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
           updatedAt: now,
         };
         saveViewingAppointmentToFirestore(updated).catch(() => {});
+        fetch(`/api/viewings/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': '1940',
+          },
+          body: JSON.stringify({ status, auditNote: reasonOrNote, actor }),
+        }).catch((err) => console.warn('Failed to update viewing on server:', err));
         return updated;
       })
     );
@@ -2363,6 +2565,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
           updatedAt: now,
         };
         saveViewingAppointmentToFirestore(updated).catch(() => {});
+        fetch(`/api/viewings/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': '1940',
+          },
+          body: JSON.stringify({
+            viewingDate: newDate,
+            viewingTimeSlot: newTimeSlot,
+            status: 'Confirmed',
+            auditNote: note,
+            actor,
+          }),
+        }).catch((err) => console.warn('Failed to reschedule viewing on server:', err));
         return updated;
       })
     );

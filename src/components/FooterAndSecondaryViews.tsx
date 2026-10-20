@@ -482,7 +482,7 @@ export const Footer: React.FC = () => {
                     onClick={() => navigate({ page: 'track-shipment' })}
                     className="hover:text-[#141413] text-[#1F6F43] font-semibold transition-colors cursor-pointer"
                   >
-                    Track Shipment
+                    Track Order
                   </button>
                 </li>
                 <li>
