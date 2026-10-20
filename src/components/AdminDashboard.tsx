@@ -55,6 +55,7 @@ import {
 } from '../services/backupService';
 import { StudioImage } from './StudioImage';
 import { AdminViewingsSection } from './AdminViewingsSection';
+import { uploadProductImage } from '../services/firebase';
 
 type AdminTab =
   | 'orders'
@@ -105,6 +106,7 @@ export const AdminDashboard: React.FC = () => {
     restoreDatabase,
     viewingAppointments,
     viewingLocations,
+    isFirebaseConnected,
     showToast,
   } = useStore();
 
@@ -520,7 +522,7 @@ export const AdminDashboard: React.FC = () => {
     }));
   };
 
-  // Handle Simultaneous Multi-Image Upload (Up to 5 images at the same time)
+  // Handle Simultaneous Multi-Image Upload (Uploads to Firebase Storage if active, or falls back to data URL)
   const handleMultipleImageUpload = async (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -528,27 +530,36 @@ export const AdminDashboard: React.FC = () => {
     if (!fileList || fileList.length === 0) return;
 
     const files = Array.from(fileList).slice(0, 5);
-    const readFileAsDataUrl = (file: File): Promise<string> =>
-      new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+
+    showToast('Uploading images...');
+    const uploadSingleImage = async (file: File): Promise<string> => {
+      try {
+        const firebaseUrl = await uploadProductImage(file);
+        return firebaseUrl;
+      } catch (storageErr) {
+        // Fallback to local Data URL if Firebase Storage is not yet configured in Firebase console
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+    };
 
     try {
-      const uploadedDataUrls = await Promise.all(files.map(readFileAsDataUrl));
+      const uploadedUrls = await Promise.all(files.map(uploadSingleImage));
       setProdForm((prev) => {
-        const combined = [...uploadedDataUrls, ...prev.images].slice(0, 5);
+        const combined = [...uploadedUrls, ...prev.images].slice(0, 5);
         return { ...prev, images: combined };
       });
       showToast(
-        `Uploaded ${uploadedDataUrls.length} image${
-          uploadedDataUrls.length > 1 ? 's' : ''
-        } (max 5)`
+        `Uploaded ${uploadedUrls.length} image${
+          uploadedUrls.length > 1 ? 's' : ''
+        } to product gallery`
       );
     } catch {
-      showToast('Could not read one or more image files');
+      showToast('Could not process one or more image files');
     }
     e.target.value = '';
   };
@@ -2426,6 +2437,47 @@ export const AdminDashboard: React.FC = () => {
                   </div>
                 );
               })()}
+            </div>
+
+            {/* Firebase & Cloud Firestore Integration Status */}
+            <div className="bg-[#EAE9E4]/60 border border-[#141413]/12 p-6 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <span className="font-mono-num text-xs font-semibold uppercase tracking-wider text-[#141413] flex items-center gap-2">
+                    <Database className="w-4 h-4 text-[#1F6F43]" />
+                    <span>Firebase Cloud Firestore & Storage Status</span>
+                  </span>
+                  <p className="text-xs text-[#6E6D68] mt-0.5">
+                    Connected Project: <strong className="text-[#141413]">techsokonikenya</strong>
+                  </p>
+                </div>
+                <span
+                  className={`self-start sm:self-auto px-2.5 py-1 text-[11px] font-mono-num uppercase tracking-wider font-semibold border ${
+                    isFirebaseConnected
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                      : 'bg-amber-50 text-amber-800 border-amber-300'
+                  }`}
+                >
+                  {isFirebaseConnected ? '● Firestore Connected' : '○ Standby / Checking'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono-num text-xs">
+                <div className="p-3 bg-[#F4F3EF] border border-[#141413]/10">
+                  <span className="text-[10px] text-[#6E6D68] uppercase block">Project ID</span>
+                  <strong className="text-[#141413] mt-1 block">techsokonikenya</strong>
+                </div>
+                <div className="p-3 bg-[#F4F3EF] border border-[#141413]/10">
+                  <span className="text-[10px] text-[#6E6D68] uppercase block">Storage Bucket</span>
+                  <strong className="text-[#141413] mt-1 block truncate">
+                    techsokonikenya.firebasestorage.app
+                  </strong>
+                </div>
+                <div className="p-3 bg-[#F4F3EF] border border-[#141413]/10">
+                  <span className="text-[10px] text-[#6E6D68] uppercase block">Primary Admin</span>
+                  <strong className="text-[#141413] mt-1 block">sirdusman@gmail.com</strong>
+                </div>
+              </div>
             </div>
 
             {/* 2. Database Backup & Test Restore */}

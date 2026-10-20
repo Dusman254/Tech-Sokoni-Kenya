@@ -1222,14 +1222,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
           typeof window !== 'undefined' ? window.location.hostname : '';
         return {
           ok: false,
-          error: `Google Sign-In requires "${domain}" to be added under Firebase Console (tech-sokoni) → Authentication → Settings → Authorized domains.`,
+          error: `Google Sign-In requires "${domain}" to be added under Firebase Console (techsokonikenya) → Authentication → Settings → Authorized domains.`,
         };
       }
       if (code === 'auth/operation-not-allowed' || code === 'auth/configuration-not-found') {
         return {
           ok: false,
           error:
-            'Please enable the Google Sign-In provider in your Firebase Console (tech-sokoni → Authentication → Sign-in method → Google).',
+            'Please enable the Google Sign-In provider in your Firebase Console (techsokonikenya → Authentication → Sign-in method → Google).',
         };
       }
       return {

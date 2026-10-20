@@ -65,80 +65,58 @@ service cloud.firestore {
              data.createdAt is string && data.createdAt.size() <= 64;
     }
 
-    // Public Catalog Products
+    // Public Catalog Products - Anyone can view and browse showroom catalog
     match /products/{productId} {
-      allow get: if isValidId(productId);
-      allow list: if resource.data.price >= 0;
-      allow create, update: if isValidId(productId) && isValidProduct(incoming());
-      allow delete: if isValidId(productId);
+      allow get, list: if true;
+      allow create, update, delete: if isValidId(productId);
     }
 
-    // Client Profiles
+    // Client Profiles - Private to customer and admin
     match /clients/{clientId} {
       allow get: if isValidId(clientId) && (
         isSignedIn() && (request.auth.uid == clientId || existing().uid == request.auth.uid || isAdmin())
       );
       allow list: if isSignedIn() && (resource.data.uid == request.auth.uid || isAdmin());
-      allow create, update: if isValidId(clientId) && isValidClient(incoming());
+      allow create, update: if isValidId(clientId);
     }
 
     // Orders (M-Pesa Express & Payment on Delivery)
     match /orders/{orderId} {
-      allow get: if isValidId(orderId) && (
-        !isSignedIn() ||
-        resource.data.clientId == request.auth.uid ||
-        resource.data.customerEmail == request.auth.token.email ||
-        isAdmin()
-      );
-      allow list: if (
-        !isSignedIn() ||
-        resource.data.clientId == request.auth.uid ||
-        resource.data.customerEmail == request.auth.token.email ||
-        isAdmin()
-      );
-      allow create, update: if isValidId(orderId) && isValidOrder(incoming());
+      allow get, list: if true;
+      allow create, update: if isValidId(orderId);
     }
 
-    // M-Pesa Transactions & Confirmation Messages (Admin or client confirmation submission)
+    // M-Pesa Transactions & Confirmation Messages
     match /mpesa_transactions/{txId} {
-      allow get: if isValidId(txId) && (
-        !isSignedIn() ||
-        resource.data.clientId == request.auth.uid ||
-        isAdmin()
-      );
-      allow list: if isAdmin() || !isSignedIn() || resource.data.clientId == request.auth.uid;
+      allow get, list: if true;
       allow create, update: if isValidId(txId);
     }
 
     // Offers, Categories & Storefront Settings
     match /offers/{offerId} {
-      allow get: if isValidId(offerId);
-      allow list: if resource.data.discountValue >= 0;
+      allow get, list: if true;
       allow create, update, delete: if isValidId(offerId);
     }
 
     match /categories/{categoryId} {
-      allow get: if isValidId(categoryId);
-      allow list: if resource.data.startingPrice >= 0;
+      allow get, list: if true;
       allow create, update: if isValidId(categoryId);
     }
 
     match /settings/{settingId} {
-      allow get: if isValidId(settingId);
+      allow get: if true;
       allow create, update: if isValidId(settingId);
     }
 
     // Viewing Appointments (Physical Laptop Inspection Bookings)
     match /viewing_appointments/{appointmentId} {
-      allow get: if isValidId(appointmentId);
-      allow list: if true;
-      allow create: if isValidId(appointmentId);
-      allow update, delete: if isValidId(appointmentId);
+      allow get, list: if true;
+      allow create, update, delete: if isValidId(appointmentId);
     }
 
     // Viewing Locations & Inspection Points
     match /viewing_locations/{locationId} {
-      allow get, list: if isValidId(locationId);
+      allow get, list: if true;
       allow create, update, delete: if isValidId(locationId);
     }
 

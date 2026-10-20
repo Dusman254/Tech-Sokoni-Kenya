@@ -27,6 +27,12 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import {
+  getStorage,
+  ref as storageRef,
+  uploadBytes,
+  getDownloadURL,
+} from 'firebase/storage';
+import {
   CategoryInfo,
   ClientAccount,
   MpesaTransaction,
@@ -41,13 +47,13 @@ import {
 
 // User's Tech Sokoni Firebase configuration
 export const firebaseConfig = {
-  apiKey: 'AIzaSyDIwfvGzc18vxAJIB_kcxsDiNWwnh1Sj-w',
-  authDomain: 'tech-sokoni.firebaseapp.com',
-  projectId: 'tech-sokoni',
-  storageBucket: 'tech-sokoni.firebasestorage.app',
-  messagingSenderId: '767706157093',
-  appId: '1:767706157093:web:925e029f36812380bdefcc',
-  measurementId: 'G-42LQWWN2YY',
+  apiKey: "AIzaSyBMyReihYiYY1JDiWyH1LEgOYtQbmeuAGs",
+  authDomain: "techsokonikenya.firebaseapp.com",
+  projectId: "techsokonikenya",
+  storageBucket: "techsokonikenya.firebasestorage.app",
+  messagingSenderId: "720907830049",
+  appId: "1:720907830049:web:e18eb6a1e861c64753b460",
+  measurementId: "G-2PC5T8BSCP"
 };
 
 // Initialize Firebase App
@@ -69,13 +75,33 @@ if (typeof window !== 'undefined') {
 
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+export const storage = getStorage(app);
 export { sendPasswordResetEmail, confirmPasswordReset, verifyPasswordResetCode };
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
   prompt: 'select_account',
 });
 
-// Tracks whether the external `tech-sokoni` Firestore rules currently allow read/write for the current auth session
+/**
+ * Uploads a product image directly to Firebase Storage bucket (techsokonikenya.firebasestorage.app)
+ * and returns the public, CDN-cached download URL.
+ */
+export async function uploadProductImage(
+  file: File | Blob,
+  customFileName?: string
+): Promise<string> {
+  const ext = (file as File).name?.split('.').pop() || 'jpg';
+  const filename =
+    customFileName ||
+    `prod-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
+  const sRef = storageRef(storage, `products/${filename}`);
+  const result = await uploadBytes(sRef, file, {
+    contentType: (file as File).type || 'image/jpeg',
+  });
+  return await getDownloadURL(result.ref);
+}
+
+// Tracks whether the external `techsokonikenya` Firestore rules currently allow read/write for the current auth session
 let firestoreReadAllowed = true;
 let firestoreWriteAllowed = true;
 
@@ -189,6 +215,7 @@ export function sanitizeForFirestore<T>(input: T): T {
 export async function probeFirestoreAccess(): Promise<{
   connected: boolean;
   canRead: boolean;
+  errorMessage?: string;
 }> {
   try {
     await getDocs(collection(db, 'products'));
@@ -197,11 +224,19 @@ export async function probeFirestoreAccess(): Promise<{
     return { connected: true, canRead: true };
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    if (msg.includes('the client is offline')) {
-      return { connected: false, canRead: false };
+    if (msg.includes('the client is offline') || msg.includes('offline')) {
+      return { connected: false, canRead: false, errorMessage: 'Offline mode active.' };
     }
-    // Return connected and maintain optimistic sync
-    return { connected: true, canRead: true };
+    if (msg.includes('permissions') || msg.includes('permission-denied')) {
+      firestoreReadAllowed = false;
+      firestoreWriteAllowed = false;
+      return {
+        connected: true,
+        canRead: false,
+        errorMessage: 'Firestore security rules reject read access. Publish firestore.rules in Firebase Console (techsokonikenya).',
+      };
+    }
+    return { connected: true, canRead: false, errorMessage: msg };
   }
 }
 
@@ -270,34 +305,40 @@ export async function seedFirestoreIfEmpty(seedData: {
 // Firestore Persistence Helpers (Guarded by permission probe)
 // ============================================================================
 
-export async function saveProductToFirestore(product: Product): Promise<void> {
+export async function saveProductToFirestore(product: Product): Promise<{ ok: boolean; error?: string }> {
   const path = `products/${product.id}`;
   try {
     await setDoc(doc(db, 'products', product.id), sanitizeForFirestore(product), {
       merge: true,
     });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path, false);
+    return { ok: true };
+  } catch (error: any) {
+    const errInfo = handleFirestoreError(error, OperationType.WRITE, path, false);
+    return { ok: false, error: errInfo.error };
   }
 }
 
-export async function removeProductFromFirestore(productId: string): Promise<void> {
+export async function removeProductFromFirestore(productId: string): Promise<{ ok: boolean; error?: string }> {
   const path = `products/${productId}`;
   try {
     await deleteDoc(doc(db, 'products', productId));
-  } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path, false);
+    return { ok: true };
+  } catch (error: any) {
+    const errInfo = handleFirestoreError(error, OperationType.DELETE, path, false);
+    return { ok: false, error: errInfo.error };
   }
 }
 
-export async function saveOrderToFirestore(order: Order): Promise<void> {
+export async function saveOrderToFirestore(order: Order): Promise<{ ok: boolean; error?: string }> {
   const path = `orders/${order.id}`;
   try {
     await setDoc(doc(db, 'orders', order.id), sanitizeForFirestore(order), {
       merge: true,
     });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path, false);
+    return { ok: true };
+  } catch (error: any) {
+    const errInfo = handleFirestoreError(error, OperationType.WRITE, path, false);
+    return { ok: false, error: errInfo.error };
   }
 }
 
