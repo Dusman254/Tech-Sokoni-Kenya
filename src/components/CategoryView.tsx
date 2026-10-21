@@ -101,7 +101,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
       Array.from(
         new Set(
           baseProducts
-            .map((p) => p.specs.ram)
+            .map((p) => p.specs?.ram)
             .filter((v): v is string => Boolean(v))
         )
       ),
@@ -113,7 +113,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
       Array.from(
         new Set(
           baseProducts
-            .map((p) => p.specs.storage)
+            .map((p) => p.specs?.storage)
             .filter((v): v is string => Boolean(v))
         )
       ),
@@ -125,7 +125,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
       Array.from(
         new Set(
           baseProducts
-            .map((p) => p.specs.os)
+            .map((p) => p.specs?.os)
             .filter((v): v is string => Boolean(v))
         )
       ),
@@ -140,10 +140,10 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
       if (selectedCondition !== 'all' && p.condition !== selectedCondition)
         return false;
       if (inStockOnly && p.stock <= 0) return false;
-      if (selectedRam !== 'all' && p.specs.ram !== selectedRam) return false;
-      if (selectedStorage !== 'all' && p.specs.storage !== selectedStorage)
+      if (selectedRam !== 'all' && p.specs?.ram !== selectedRam) return false;
+      if (selectedStorage !== 'all' && p.specs?.storage !== selectedStorage)
         return false;
-      if (selectedOs !== 'all' && p.specs.os !== selectedOs) return false;
+      if (selectedOs !== 'all' && p.specs?.os !== selectedOs) return false;
 
       if (selectedPriceBand === 'under-25k' && pricing.finalPrice >= 25000)
         return false;

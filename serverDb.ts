@@ -98,9 +98,33 @@ export function initServerDatabase(): TechSokoniDatabase {
       const raw = fs.readFileSync(DB_FILE, 'utf-8');
       const parsed = JSON.parse(raw) as TechSokoniDatabase;
       if (parsed && Array.isArray(parsed.products) && Array.isArray(parsed.orders)) {
+        parsed.products.forEach((p) => {
+          if (!p.specs) {
+            p.specs = {
+              processor: '',
+              ram: '',
+              storage: '',
+              screenSize: '',
+              color: '',
+              os: '',
+              graphics: '',
+              ports: '',
+              battery: '',
+              weight: '',
+              warranty: '1 Year Official Warranty',
+            };
+          }
+          if (!Array.isArray(p.reviews)) {
+            p.reviews = [];
+          }
+          if (!Array.isArray(p.images)) {
+            p.images = [];
+          }
+        });
         dbMemory = parsed;
+        persistDatabaseSync();
         console.log(
-          `[Server Database]: Loaded ${dbMemory.products.length} products, ${dbMemory.orders.length} orders from ${DB_FILE}`
+          `[Server Database]: Loaded and normalized ${dbMemory.products.length} products, ${dbMemory.orders.length} orders from ${DB_FILE}`
         );
         return dbMemory;
       }
@@ -199,6 +223,26 @@ export function addProduct(productData: Omit<Product, 'id'>): Product {
     stock: Number(productData.stock) || 0,
     price: Number(productData.price) || 0,
     salePrice: productData.salePrice ? Number(productData.salePrice) : undefined,
+    specs: productData.specs || {
+      processor: '',
+      ram: '',
+      storage: '',
+      screenSize: '',
+      color: '',
+      os: '',
+      graphics: '',
+      ports: '',
+      battery: '',
+      weight: '',
+      warranty: '1 Year Official Warranty',
+    },
+    reviews: Array.isArray(productData.reviews) ? productData.reviews : [],
+    images:
+      Array.isArray(productData.images) && productData.images.length > 0
+        ? productData.images
+        : [
+            'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=800',
+          ],
   };
 
   db.products.unshift(newProduct);

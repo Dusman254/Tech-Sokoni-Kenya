@@ -14,7 +14,20 @@
       "images": [
         "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=800"
       ],
-      "id": "prod-1792510772392-akqa"
+      "id": "prod-1792510772392-akqa",
+      "specs": {
+        "processor": "M4 Max 16-Core",
+        "ram": "48GB Unified RAM",
+        "storage": "1TB NVMe",
+        "screenSize": "16.2 Liquid Retina XDR",
+        "color": "Space Black",
+        "os": "macOS / Windows 11 Pro",
+        "graphics": "Integrated / Dedicated GPU",
+        "ports": "Thunderbolt 4, HDMI, USB-C, Audio Jack",
+        "battery": "All-Day Battery",
+        "weight": "1.4 kg",
+        "warranty": "1 Year Official Warranty"
+      }
     },
     {
       "name": "HP EliteBook 840 G10 (Test Sync)",
@@ -28,7 +41,20 @@
       "images": [
         "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=800"
       ],
-      "id": "prod-1792490891419-ibu1"
+      "id": "prod-1792490891419-ibu1",
+      "specs": {
+        "processor": "Core i7 13th Gen",
+        "ram": "16GB DDR5",
+        "storage": "512GB NVMe",
+        "screenSize": "",
+        "color": "Space Black",
+        "os": "macOS / Windows 11 Pro",
+        "graphics": "Integrated / Dedicated GPU",
+        "ports": "Thunderbolt 4, HDMI, USB-C, Audio Jack",
+        "battery": "All-Day Battery",
+        "weight": "1.4 kg",
+        "warranty": "1 Year Official Warranty"
+      }
     },
     {
       "id": "prod-macbook-pro-16-m3",

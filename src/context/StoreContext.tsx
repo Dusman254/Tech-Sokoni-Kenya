@@ -336,6 +336,27 @@ function loadFromStorage<T>(key: string, fallback: T): T {
   }
 }
 
+function normalizeProduct(p: any): Product {
+  return {
+    ...p,
+    specs: p.specs || {
+      processor: '',
+      ram: '',
+      storage: '',
+      screenSize: '',
+      color: '',
+      os: '',
+      graphics: '',
+      ports: '',
+      battery: '',
+      weight: '',
+      warranty: '1 Year Official Warranty',
+    },
+    reviews: Array.isArray(p.reviews) ? p.reviews : [],
+    images: Array.isArray(p.images) && p.images.length > 0 ? p.images : [],
+  };
+}
+
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -346,7 +367,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       INITIAL_PRODUCTS
     );
     const now = Date.now();
-    return loaded.filter((p) => {
+    return loaded.map(normalizeProduct).filter((p) => {
       if (!p.deletedAt) return true;
       const deletedTime = new Date(p.deletedAt).getTime();
       return now - deletedTime < THIRTY_DAYS_MS;
@@ -512,13 +533,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       if (!data) return;
 
       if (adminMode && Array.isArray(data.allProducts) && data.allProducts.length > 0) {
-        setAllProducts(data.allProducts);
+        setAllProducts(data.allProducts.map(normalizeProduct));
       } else if (Array.isArray(data.products) && data.products.length > 0) {
         setAllProducts((prev) => {
           const deleted = prev.filter((p) => p.deletedAt);
           const remoteIds = new Set(data.products.map((p: any) => p.id));
           const keptDeleted = deleted.filter((p) => !remoteIds.has(p.id));
-          return [...data.products, ...keptDeleted];
+          return [...data.products.map(normalizeProduct), ...keptDeleted];
         });
       }
 
@@ -637,8 +658,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
           collection(db, 'products'),
           (snap) => {
             if (!snap.empty) {
-              const remoteProducts = snap.docs.map(
-                (d) => ({ ...d.data(), id: d.id } as Product)
+              const remoteProducts = snap.docs.map((d) =>
+                normalizeProduct({ ...d.data(), id: d.id })
               );
               const now = Date.now();
               setAllProducts(

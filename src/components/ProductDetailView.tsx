@@ -120,7 +120,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
       ? relatedProducts
       : products.filter((p) => p.id !== product.id).slice(0, 3);
 
-  const specEntries = Object.entries(product.specs).filter(
+  const specEntries = Object.entries(product.specs || {}).filter(
     ([_, val]) => Boolean(val)
   );
 
@@ -583,7 +583,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
                 <ShieldCheck className="w-4 h-4 text-[#1F6F43] shrink-0 mt-0.5" />
                 <p className="text-[11px] text-[#6E6D68]">
                   <strong className="text-[#141413]">Warranty:</strong>{' '}
-                  {product.specs.warranty} (100% genuine factory-verified
+                  {product.specs?.warranty || '1 Year Official Warranty'} (100% genuine factory-verified
                   hardware)
                 </p>
               </div>
@@ -672,7 +672,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
             {activeTab === 'warranty' && (
               <div className="space-y-4 text-sm text-[#5E5D59] leading-relaxed">
                 <p className="text-[#141413] font-semibold">
-                  {product.specs.warranty}
+                  {product.specs?.warranty || '1 Year Official Warranty'}
                 </p>
                 <p>
                   Every hardware system sold by Tech Sokoni is 100% genuine,
