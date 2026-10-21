@@ -226,7 +226,7 @@ export const ShowroomStage: React.FC = () => {
                         }`}
                       />
                       <span
-                        className={`mt-3.5 text-[10px] font-mono-num uppercase tracking-[0.16em] text-center leading-tight ${
+                        className={`mt-3.5 text-[10px] font-mono-num uppercase tracking-[0.16em] text-center leading-snug px-1 break-words line-clamp-2 ${
                           isHovered ? 'text-[#F4F3EF]' : 'text-[#141413]'
                         }`}
                       >
@@ -410,16 +410,16 @@ export const ShowroomStage: React.FC = () => {
               role="dialog"
               aria-modal="true"
               aria-label={`Category focus: ${openedCategory.name}`}
-              className="fixed inset-0 z-50 bg-[#EAE9E4]/90 backdrop-blur-xl flex flex-col justify-between p-6 sm:p-10 overflow-y-auto"
+              className="fixed inset-0 z-50 bg-[#EAE9E4]/95 backdrop-blur-xl flex flex-col p-4 sm:p-8 md:p-10 overflow-y-auto"
             >
               {/* Top Bar */}
-              <div className="max-w-[1440px] w-full mx-auto flex items-center justify-between">
-                <span className="text-xs font-mono-num uppercase tracking-[0.2em] text-[#6E6D68]">
+              <div className="max-w-[1440px] w-full mx-auto flex items-center justify-between gap-4 shrink-0 pb-3 border-b border-[#141413]/10">
+                <span className="text-[10px] sm:text-xs font-mono-num uppercase tracking-[0.14em] sm:tracking-[0.2em] text-[#6E6D68] truncate">
                   TECH SOKONI · DEPARTMENT EXHIBITION
                 </span>
                 <button
                   onClick={() => setOpenedCategoryIdx(null)}
-                  className="px-3 py-1.5 text-xs font-mono-num uppercase tracking-[0.2em] text-[#141413] hover:opacity-60 transition-opacity flex items-center gap-1.5 cursor-pointer"
+                  className="px-3 py-1.5 text-xs font-mono-num uppercase tracking-wider text-[#141413] hover:opacity-60 transition-opacity flex items-center gap-1.5 cursor-pointer shrink-0"
                 >
                   <span>Close</span>
                   <X className="w-4 h-4" />
@@ -427,8 +427,8 @@ export const ShowroomStage: React.FC = () => {
               </div>
 
               {/* Animated Category Center Stage */}
-              <div className="my-auto max-w-4xl w-full mx-auto py-6">
-                <div className="flex items-center justify-between gap-4 sm:gap-10">
+              <div className="my-auto max-w-4xl w-full mx-auto py-4 sm:py-6 flex-1 flex flex-col justify-center">
+                <div className="flex items-center justify-between gap-3 sm:gap-8">
                   <button
                     onClick={() =>
                       setOpenedCategoryIdx(
@@ -437,7 +437,7 @@ export const ShowroomStage: React.FC = () => {
                       )
                     }
                     aria-label="Previous category"
-                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border border-[#141413]/25 flex items-center justify-center text-[#141413] hover:bg-[#141413] hover:text-[#F4F3EF] transition-colors shrink-0 cursor-pointer"
+                    className="w-9 h-9 sm:w-12 sm:h-12 rounded-full border border-[#141413]/25 flex items-center justify-center text-[#141413] hover:bg-[#141413] hover:text-[#F4F3EF] transition-colors shrink-0 cursor-pointer"
                   >
                     <ArrowLeft className="w-4 h-4" />
                   </button>
@@ -453,7 +453,7 @@ export const ShowroomStage: React.FC = () => {
                         stiffness: 260,
                         damping: 24,
                       }}
-                      className="flex-1 flex flex-col items-center text-center"
+                      className="flex-1 min-w-0 flex flex-col items-center text-center px-2"
                     >
                       {(() => {
                         const ActiveIcon =
@@ -464,20 +464,20 @@ export const ShowroomStage: React.FC = () => {
 
                         return (
                           <>
-                            <div className="w-24 h-24 sm:w-28 sm:h-28 bg-[#141413] text-[#F4F3EF] flex items-center justify-center shadow-2xl mb-5">
-                              <ActiveIcon className="w-12 h-12 stroke-[1.4]" />
+                            <div className="w-20 h-20 sm:w-28 sm:h-28 bg-[#141413] text-[#F4F3EF] flex items-center justify-center shadow-2xl mb-4 sm:mb-5 shrink-0">
+                              <ActiveIcon className="w-10 h-10 sm:w-12 sm:h-12 stroke-[1.4]" />
                             </div>
 
-                            <p className="text-[11px] font-mono-num text-[#6E6D68] tracking-[0.22em]">
-                              {String(openedCategoryIdx + 1).padStart(2, '0')} /{' '}
+                            <p className="text-[10px] sm:text-[11px] font-mono-num text-[#6E6D68] tracking-widest uppercase">
+                              Department {String(openedCategoryIdx + 1).padStart(2, '0')} /{' '}
                               {String(railCategories.length).padStart(2, '0')}
                             </p>
 
-                            <h2 className="font-editorial text-4xl sm:text-5xl text-[#141413] mt-1">
+                            <h2 className="font-editorial text-2xl sm:text-4xl md:text-5xl text-[#141413] mt-2 mb-2 leading-tight tracking-normal break-words max-w-xl px-2">
                               {openedCategory.name}
                             </h2>
 
-                            <p className="text-xs sm:text-sm text-[#5E5D59] mt-2 max-w-md">
+                            <p className="text-xs sm:text-sm text-[#5E5D59] max-w-md leading-relaxed px-2">
                               {openedCategory.editorialHeadline}
                             </p>
 
@@ -496,7 +496,7 @@ export const ShowroomStage: React.FC = () => {
                                           productId: prod.id,
                                         });
                                       }}
-                                      className="bg-[#F4F3EF] border border-[#141413]/12 p-3 flex sm:flex-col items-center gap-3 text-left sm:text-center hover:border-[#141413] transition-colors cursor-pointer"
+                                      className="bg-[#F4F3EF] border border-[#141413]/12 p-3 flex sm:flex-col items-center gap-3 text-left sm:text-center hover:border-[#141413] transition-colors cursor-pointer overflow-hidden"
                                     >
                                       <div className="w-14 h-14 sm:w-20 sm:h-20 shrink-0 flex items-center justify-center">
                                         <StudioImage
@@ -506,11 +506,11 @@ export const ShowroomStage: React.FC = () => {
                                           className="w-full h-full object-contain"
                                         />
                                       </div>
-                                      <div className="min-w-0">
-                                        <p className="text-xs font-semibold text-[#141413] truncate">
+                                      <div className="min-w-0 flex-1 w-full">
+                                        <p className="text-xs font-semibold text-[#141413] truncate" title={prod.name}>
                                           {prod.name}
                                         </p>
-                                        <p className="text-[11px] font-mono-num text-[#6E6D68]">
+                                        <p className="text-[11px] font-mono-num text-[#6E6D68] mt-0.5">
                                           {settings.currencySymbol}
                                           {pricing.finalPrice.toLocaleString()}
                                         </p>
@@ -557,7 +557,7 @@ export const ShowroomStage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="text-center text-[11px] font-mono-num text-[#6E6D68]">
+              <div className="shrink-0 pt-4 mt-auto text-center text-[10px] sm:text-[11px] font-mono-num text-[#6E6D68]">
                 Use ← → arrows to step through departments · ESC to close
               </div>
             </motion.div>

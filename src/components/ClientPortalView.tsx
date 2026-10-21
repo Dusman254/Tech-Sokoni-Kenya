@@ -1386,7 +1386,7 @@ export const ClientPortalView: React.FC = () => {
                                 : 'Payment on Delivery'}
                             </span>
                           </div>
-                          <p className="text-xs text-[#5E5D59]">
+                          <p className="text-xs text-[#5E5D59] break-words">
                             Deliver to: {order.shippingAddress}, {order.city} ·{' '}
                             {order.customerPhone}
                           </p>
@@ -1643,7 +1643,7 @@ export const ClientPortalView: React.FC = () => {
                             {order.paymentMethod}
                           </span>
                         </div>
-                        <p className="text-xs text-[#5E5D59] mt-1">
+                        <p className="text-xs text-[#5E5D59] mt-1 break-words">
                           Destination: {order.shippingAddress}, {order.city}
                         </p>
                       </div>

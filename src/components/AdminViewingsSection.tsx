@@ -331,9 +331,9 @@ export const AdminViewingsSection: React.FC = () => {
       </div>
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2.5">
         <div className="bg-white p-3 border border-[#141413]/10">
-          <span className="text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68] block">
+          <span className="text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68] block truncate">
             Total Bookings
           </span>
           <span className="text-xl font-bold font-mono-num text-[#141413]">
@@ -342,7 +342,7 @@ export const AdminViewingsSection: React.FC = () => {
         </div>
 
         <div className="bg-amber-50 p-3 border border-amber-200">
-          <span className="text-[10px] font-mono-num uppercase tracking-wider text-amber-700 block">
+          <span className="text-[10px] font-mono-num uppercase tracking-wider text-amber-700 block truncate">
             Pending Approval
           </span>
           <span className="text-xl font-bold font-mono-num text-amber-900">
@@ -351,7 +351,7 @@ export const AdminViewingsSection: React.FC = () => {
         </div>
 
         <div className="bg-emerald-50 p-3 border border-emerald-200">
-          <span className="text-[10px] font-mono-num uppercase tracking-wider text-emerald-700 block">
+          <span className="text-[10px] font-mono-num uppercase tracking-wider text-emerald-700 block truncate">
             Confirmed Slots
           </span>
           <span className="text-xl font-bold font-mono-num text-emerald-900">
@@ -360,7 +360,7 @@ export const AdminViewingsSection: React.FC = () => {
         </div>
 
         <div className="bg-blue-50 p-3 border border-blue-200">
-          <span className="text-[10px] font-mono-num uppercase tracking-wider text-blue-700 block">
+          <span className="text-[10px] font-mono-num uppercase tracking-wider text-blue-700 block truncate">
             Reschedule Req.
           </span>
           <span className="text-xl font-bold font-mono-num text-blue-900">
@@ -369,7 +369,7 @@ export const AdminViewingsSection: React.FC = () => {
         </div>
 
         <div className="bg-gray-50 p-3 border border-gray-200">
-          <span className="text-[10px] font-mono-num uppercase tracking-wider text-gray-700 block">
+          <span className="text-[10px] font-mono-num uppercase tracking-wider text-gray-700 block truncate">
             Completed Visits
           </span>
           <span className="text-xl font-bold font-mono-num text-gray-900">
@@ -378,7 +378,7 @@ export const AdminViewingsSection: React.FC = () => {
         </div>
 
         <div className="bg-rose-50 p-3 border border-rose-200">
-          <span className="text-[10px] font-mono-num uppercase tracking-wider text-rose-700 block">
+          <span className="text-[10px] font-mono-num uppercase tracking-wider text-rose-700 block truncate">
             Cancelled
           </span>
           <span className="text-xl font-bold font-mono-num text-rose-900">
@@ -387,7 +387,7 @@ export const AdminViewingsSection: React.FC = () => {
         </div>
 
         <div className="bg-orange-50 p-3 border border-orange-200">
-          <span className="text-[10px] font-mono-num uppercase tracking-wider text-orange-700 block">
+          <span className="text-[10px] font-mono-num uppercase tracking-wider text-orange-700 block truncate">
             No-Shows
           </span>
           <span className="text-xl font-bold font-mono-num text-orange-900">
@@ -488,16 +488,16 @@ export const AdminViewingsSection: React.FC = () => {
             </div>
           ) : (
             <div className="bg-white border border-[#141413]/10 overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse min-w-[940px]">
                 <thead>
                   <tr className="bg-[#EAE9E4]/60 border-b border-[#141413]/10 text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68]">
-                    <th className="p-3">Reference / Status</th>
-                    <th className="p-3">Customer Contact</th>
-                    <th className="p-3">Reserved Laptop</th>
-                    <th className="p-3">Date & Slot (EAT)</th>
-                    <th className="p-3">Viewing Point</th>
-                    <th className="p-3">Staff</th>
-                    <th className="p-3 text-right">Actions</th>
+                    <th className="p-3 whitespace-nowrap">Reference / Status</th>
+                    <th className="p-3 min-w-[160px]">Customer Contact</th>
+                    <th className="p-3 min-w-[210px]">Reserved Laptop</th>
+                    <th className="p-3 whitespace-nowrap">Date & Slot (EAT)</th>
+                    <th className="p-3 min-w-[150px]">Viewing Point</th>
+                    <th className="p-3 whitespace-nowrap">Staff</th>
+                    <th className="p-3 text-right whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#141413]/8 text-xs">
@@ -522,31 +522,31 @@ export const AdminViewingsSection: React.FC = () => {
                         onClick={() => handleOpenDetail(app)}
                       >
                         {/* Reference & Status */}
-                        <td className="p-3">
+                        <td className="p-3 whitespace-nowrap">
                           <span className="font-mono-num font-bold text-[#141413] block">
                             {app.bookingReference}
                           </span>
                           <span
-                            className={`inline-block mt-1 px-2 py-0.5 text-[10px] font-mono-num border ${statusClass}`}
+                            className={`inline-flex items-center mt-1 px-2 py-0.5 text-[10px] font-mono-num border whitespace-nowrap ${statusClass}`}
                           >
                             {app.status}
                           </span>
                         </td>
 
                         {/* Customer */}
-                        <td className="p-3">
-                          <strong className="text-[#141413] block">{app.customerName}</strong>
-                          <span className="text-[11px] font-mono-num text-[#5E5D59] block">
+                        <td className="p-3 min-w-[160px]">
+                          <strong className="text-[#141413] block truncate max-w-[180px]">{app.customerName}</strong>
+                          <span className="text-[11px] font-mono-num text-[#5E5D59] block whitespace-nowrap">
                             {app.customerPhone}
                           </span>
-                          <span className="text-[10px] text-[#6E6D68]">
+                          <span className="text-[10px] text-[#6E6D68] block whitespace-nowrap">
                             Via {app.preferredContact} · {app.attendeeCount} attendee
                           </span>
                         </td>
 
                         {/* Laptop Product */}
-                        <td className="p-3 max-w-[220px]">
-                          <div className="flex items-center gap-2">
+                        <td className="p-3 min-w-[210px] max-w-[260px]">
+                          <div className="flex items-center gap-2.5">
                             <div className="w-10 h-10 bg-[#EAE9E4] p-1 shrink-0 flex items-center justify-center">
                               <StudioImage
                                 src={app.productImage}
@@ -554,11 +554,11 @@ export const AdminViewingsSection: React.FC = () => {
                                 className="w-full h-full object-contain"
                               />
                             </div>
-                            <div className="truncate">
-                              <span className="text-xs font-semibold text-[#141413] block truncate">
+                            <div className="min-w-0 flex-1">
+                              <span className="text-xs font-semibold text-[#141413] block truncate" title={app.productName}>
                                 {app.productName}
                               </span>
-                              <span className="text-[10px] font-mono-num text-[#6E6D68] block">
+                              <span className="text-[10px] font-mono-num text-[#6E6D68] block whitespace-nowrap">
                                 SKU: {app.productSku}
                               </span>
                             </div>
@@ -566,34 +566,34 @@ export const AdminViewingsSection: React.FC = () => {
                         </td>
 
                         {/* Date & Slot */}
-                        <td className="p-3">
+                        <td className="p-3 whitespace-nowrap">
                           <span className="font-semibold text-[#141413] block">
                             {formatViewingDateDisplay(app.viewingDate)}
                           </span>
-                          <span className="text-[11px] font-mono-num text-[#5E5D59]">
+                          <span className="text-[11px] font-mono-num text-[#5E5D59] block">
                             {app.viewingTimeSlot} (EAT)
                           </span>
                         </td>
 
                         {/* Location */}
-                        <td className="p-3 max-w-[180px]">
-                          <span className="text-xs font-medium text-[#141413] block truncate">
+                        <td className="p-3 min-w-[150px] max-w-[200px]">
+                          <span className="text-xs font-medium text-[#141413] block truncate" title={app.locationSnapshot?.name || app.locationId}>
                             {app.locationSnapshot?.name || app.locationId}
                           </span>
-                          <span className="text-[10px] text-[#6E6D68] block truncate">
+                          <span className="text-[10px] text-[#6E6D68] block truncate" title={app.locationSnapshot?.building}>
                             {app.locationSnapshot?.building}
                           </span>
                         </td>
 
                         {/* Staff */}
-                        <td className="p-3">
+                        <td className="p-3 whitespace-nowrap">
                           <span className="text-xs text-[#5E5D59]">
                             {app.assignedStaff || 'Unassigned'}
                           </span>
                         </td>
 
                         {/* Actions */}
-                        <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
+                        <td className="p-3 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-1.5">
                             {/* WhatsApp Button */}
                             <a
@@ -616,7 +616,7 @@ export const AdminViewingsSection: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => handleOpenDetail(app)}
-                              className="px-2.5 py-1 bg-[#141413] text-[#F4F3EF] hover:bg-[#2B2B28] text-[10px] font-mono-num uppercase tracking-wider"
+                              className="px-2.5 py-1 bg-[#141413] text-[#F4F3EF] hover:bg-[#2B2B28] text-[10px] font-mono-num uppercase tracking-wider cursor-pointer whitespace-nowrap"
                             >
                               Manage
                             </button>
@@ -707,13 +707,13 @@ export const AdminViewingsSection: React.FC = () => {
                       : 'bg-[#F4F3EF]/40 border-[#141413]/10'
                   }`}
                 >
-                  <div className="flex items-center gap-3 w-40 shrink-0">
-                    <Clock className="w-4 h-4 text-[#C5A028]" />
+                  <div className="flex items-center gap-2.5 sm:gap-3 min-w-[260px] shrink-0 whitespace-nowrap">
+                    <Clock className="w-4 h-4 text-[#C5A028] shrink-0" />
                     <span className="font-mono-num text-xs font-bold text-[#141413]">
                       {slot}
                     </span>
                     <span
-                      className={`text-[10px] font-mono-num px-1.5 py-0.5 border ${
+                      className={`text-[10px] font-mono-num px-1.5 py-0.5 border shrink-0 ${
                         isFull
                           ? 'bg-amber-100 text-amber-900 border-amber-300'
                           : slotBookings.length > 0

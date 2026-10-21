@@ -41,20 +41,23 @@ export class PdfReceiptService {
     doc.text(
       'TECHNOLOGY THAT MOVES YOU  ·  OFFICIAL HARDWARE RECEIPT & WARRANTY',
       margin,
-      25
+      25,
+      { maxWidth: 105 }
     );
     doc.text(
       settings.showroomAddress ||
         'Kenyatta Pioneer Building, 5th Floor, Shop 514, Kenyatta Ave (Next to I&M Building), Nairobi CBD',
       margin,
-      31
+      31,
+      { maxWidth: 105 }
     );
     doc.text(
-      `Tel / WhatsApp: ${settings.supportPhone || '+254 792 620 789'}   |   ${
+      `Tel / WA: ${settings.supportPhone || '+254 792 620 789'}   |   ${
         settings.supportEmail || 'shop@techsokoni.com'
-      }   |   M-Pesa Buy Goods Till: 9309020`,
+      }   |   Till: 9309020`,
       margin,
-      37
+      37,
+      { maxWidth: 105 }
     );
 
     // Right side of Header: Receipt Label, Serial & Status
@@ -100,6 +103,7 @@ export class PdfReceiptService {
     doc.rect(margin, y, contentWidth, 35, 'S');
 
     // Left Column: Client & Delivery Destination
+    const colMaxW = 82;
     doc.setTextColor(110, 109, 104);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
@@ -108,16 +112,24 @@ export class PdfReceiptService {
     doc.setTextColor(20, 20, 19);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10.5);
-    doc.text(order.customerName, margin + 5, y + 14.5);
+    doc.text(order.customerName || 'Valued Client', margin + 5, y + 14.5, {
+      maxWidth: colMaxW,
+    });
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
     doc.text(
-      `${order.customerEmail}  ·  ${order.customerPhone}`,
+      `${order.customerEmail || ''}  ·  ${order.customerPhone || ''}`,
       margin + 5,
-      y + 21
+      y + 21,
+      { maxWidth: colMaxW }
     );
-    doc.text(`${order.shippingAddress}, ${order.city}`, margin + 5, y + 27.5);
+    doc.text(
+      `${order.shippingAddress || 'Nairobi CBD'}, ${order.city || 'Nairobi'}`,
+      margin + 5,
+      y + 27.5,
+      { maxWidth: colMaxW }
+    );
 
     // Right Column: Payment & Authenticity Details
     const rightColX = pageWidth / 2 + 8;
@@ -134,19 +146,22 @@ export class PdfReceiptService {
         order.mpesaCode ? ` (${order.mpesaCode})` : ''
       }`,
       rightColX,
-      y + 14.5
+      y + 14.5,
+      { maxWidth: colMaxW }
     );
     doc.text(
       `Receipt Reference: ${order.orderNumber} · ${
         order.mpesaStatus || 'Confirmed'
       }`,
       rightColX,
-      y + 21
+      y + 21,
+      { maxWidth: colMaxW }
     );
     doc.text(
-      `Warranty Coverage: Official Manufacturer + Tech Sokoni Direct`,
+      `Warranty Coverage: Official 1-Yr Tech Sokoni Direct`,
       rightColX,
-      y + 27.5
+      y + 27.5,
+      { maxWidth: colMaxW }
     );
 
     // 4. Itemized Hardware & Selected Variations Table
@@ -189,18 +204,20 @@ export class PdfReceiptService {
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8.5);
-      const title = `${item.brand} ${item.productName}`.slice(0, 48);
-      doc.text(title, margin + 40, y + 7);
+      const brandStr = item.brand && !item.productName.toLowerCase().startsWith(item.brand.toLowerCase())
+        ? `${item.brand} `
+        : '';
+      const title = `${brandStr}${item.productName}`;
+      doc.text(title, margin + 40, y + 7, { maxWidth: 82 });
 
       if (hasVariations) {
         const varSummary = variationEntries
           .map(([k, v]) => `${k}: ${v}`)
-          .join(' · ')
-          .slice(0, 68);
+          .join(' · ');
         doc.setFont('courier', 'normal');
         doc.setFontSize(7.5);
         doc.setTextColor(95, 94, 89);
-        doc.text(varSummary, margin + 40, y + 12.2);
+        doc.text(varSummary, margin + 40, y + 12.2, { maxWidth: 82 });
         doc.setTextColor(20, 20, 19);
       }
 
@@ -231,7 +248,14 @@ export class PdfReceiptService {
     });
 
     // 5. Financial Totals & Official Verification Stamp
-    y += 9;
+    y += 6;
+    if (y + 42 > 255) {
+      doc.addPage();
+      doc.setFillColor(244, 243, 239);
+      doc.rect(0, 0, pageWidth, 297, 'F');
+      y = 25;
+    }
+
     const summaryX = pageWidth - margin - 84;
     doc.setFillColor(234, 233, 228);
     doc.rect(summaryX, y, 84, 39, 'F');
@@ -306,7 +330,7 @@ export class PdfReceiptService {
     );
 
     // 6. Footer Terms & Showroom Guarantee
-    const footerY = 262;
+    const footerY = Math.max(262, y + 44);
     doc.setDrawColor(180, 179, 173);
     doc.setLineWidth(0.2);
     doc.line(margin, footerY, pageWidth - margin, footerY);
