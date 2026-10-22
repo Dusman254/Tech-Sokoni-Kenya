@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   Activity,
+  AlertTriangle,
   ArrowLeft,
   Calendar,
   Check,
@@ -11,6 +12,7 @@ import {
   Database,
   Download,
   Edit3,
+  ExternalLink,
   ImagePlus,
   Loader2,
   Lock,
@@ -55,7 +57,13 @@ import {
 } from '../services/backupService';
 import { StudioImage } from './StudioImage';
 import { AdminViewingsSection } from './AdminViewingsSection';
-import { uploadProductImage } from '../services/firebase';
+import {
+  uploadProductImage,
+  probeFirestoreAccess,
+  testFirestoreWriteAccess,
+  saveProductToFirestore,
+  ensureFirebaseAuth,
+} from '../services/firebase';
 
 type AdminTab =
   | 'orders'
@@ -229,6 +237,80 @@ export const AdminDashboard: React.FC = () => {
     } catch (err: any) {
       setRestoreNotice(`Restore test error: ${err?.message}`);
     }
+  };
+
+  // Firebase Cloud Audit & Rule Management State
+  const [isAuditingCloud, setIsAuditingCloud] = useState(false);
+  const [isSyncingAllCloud, setIsSyncingAllCloud] = useState(false);
+  const [cloudAuditResult, setCloudAuditResult] = useState<{
+    tested: boolean;
+    canRead: boolean;
+    canWrite: boolean;
+    authUid?: string;
+    details: string;
+  } | null>(null);
+
+  const handleAuditCloud = async () => {
+    setIsAuditingCloud(true);
+    try {
+      const fbUser = await ensureFirebaseAuth();
+      const readProbe = await probeFirestoreAccess();
+      const writeProbe = await testFirestoreWriteAccess();
+      setCloudAuditResult({
+        tested: true,
+        canRead: readProbe.canRead,
+        canWrite: writeProbe.ok,
+        authUid: fbUser?.uid,
+        details: !readProbe.canRead
+          ? 'Firestore security rules currently block public read access. Click "Copy Firestore Rules" below and publish them in your Firebase Console.'
+          : !writeProbe.ok
+          ? 'Firestore security rules currently block write operations. Click "Copy Firestore Rules" below and publish them in your Firebase Console.'
+          : 'Firestore cloud database is fully operational: Read, write, and real-time synchronization are active across all devices.',
+      });
+      showToast('Cloud connection audit completed');
+    } catch (e: any) {
+      setCloudAuditResult({
+        tested: true,
+        canRead: false,
+        canWrite: false,
+        details: e?.message || 'Failed to complete cloud audit',
+      });
+    } finally {
+      setIsAuditingCloud(false);
+    }
+  };
+
+  const handleForceSyncAllProductsToCloud = async () => {
+    setIsSyncingAllCloud(true);
+    showToast(`Syncing ${products.length} products to Firebase Cloud...`);
+    let successCount = 0;
+    let failCount = 0;
+    try {
+      for (const p of products) {
+        const res = await saveProductToFirestore(p);
+        if (res.ok) successCount++;
+        else failCount++;
+      }
+      if (failCount === 0) {
+        showToast(`Successfully synced all ${successCount} products to live Firebase cloud!`);
+      } else {
+        showToast(`Synced ${successCount} products. ${failCount} blocked by Firebase rules. Copy rules below.`);
+      }
+    } finally {
+      setIsSyncingAllCloud(false);
+    }
+  };
+
+  const handleCopyFirestoreRules = () => {
+    const rules = `rules_version = '2';\n\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /products/{productId} {\n      allow read, write: if true;\n    }\n    match /clients/{clientId} {\n      allow read, write: if true;\n    }\n    match /orders/{orderId} {\n      allow read, write: if true;\n    }\n    match /mpesa_transactions/{txId} {\n      allow read, write: if true;\n    }\n    match /offers/{offerId} {\n      allow read, write: if true;\n    }\n    match /categories/{categoryId} {\n      allow read, write: if true;\n    }\n    match /settings/{settingId} {\n      allow read, write: if true;\n    }\n    match /viewing_appointments/{appointmentId} {\n      allow read, write: if true;\n    }\n    match /viewing_locations/{locationId} {\n      allow read, write: if true;\n    }\n    match /test/{docId} {\n      allow read, write: if true;\n    }\n  }\n}`;
+    navigator.clipboard.writeText(rules);
+    showToast('Copied production Firestore rules to clipboard!');
+  };
+
+  const handleCopyStorageRules = () => {
+    const rules = `rules_version = '2';\n\nservice firebase.storage {\n  match /b/{bucket}/o {\n    match /products/{allPaths=**} {\n      allow read, write: if true;\n    }\n    match /{allPaths=**} {\n      allow read, write: if true;\n    }\n  }\n}`;
+    navigator.clipboard.writeText(rules);
+    showToast('Copied Firebase Storage rules to clipboard!');
   };
 
   // Product Modal State
@@ -530,7 +612,7 @@ export const AdminDashboard: React.FC = () => {
       const url = URL.createObjectURL(file);
       img.onload = () => {
         URL.revokeObjectURL(url);
-        const maxDim = 1200;
+        const maxDim = 1000;
         let { width, height } = img;
         if (width > maxDim || height > maxDim) {
           if (width > height) {
@@ -563,7 +645,7 @@ export const AdminDashboard: React.FC = () => {
             }
           },
           'image/jpeg',
-          0.84
+          0.78
         );
       };
       img.onerror = () => {
@@ -2496,42 +2578,140 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
             {/* Firebase & Cloud Firestore Integration Status */}
-            <div className="bg-[#EAE9E4]/60 border border-[#141413]/12 p-6 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="bg-[#EAE9E4]/60 border border-[#141413]/12 p-6 space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#141413]/10 pb-4">
                 <div>
                   <span className="font-mono-num text-xs font-semibold uppercase tracking-wider text-[#141413] flex items-center gap-2">
                     <Database className="w-4 h-4 text-[#1F6F43]" />
-                    <span>Firebase Cloud Firestore & Storage Status</span>
+                    <span>Firebase Cloud Firestore & Storage Live Status</span>
                   </span>
                   <p className="text-xs text-[#6E6D68] mt-0.5">
-                    Connected Project: <strong className="text-[#141413]">techsokonikenya</strong>
+                    Live Cloud Sync Engine for multi-browser and mobile device persistence across all website URLs.
                   </p>
                 </div>
-                <span
-                  className={`self-start sm:self-auto px-2.5 py-1 text-[11px] font-mono-num uppercase tracking-wider font-semibold border ${
-                    isFirebaseConnected
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                      : 'bg-amber-50 text-amber-800 border-amber-300'
-                  }`}
-                >
-                  {isFirebaseConnected ? '● Firestore Connected' : '○ Standby / Checking'}
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleAuditCloud}
+                    disabled={isAuditingCloud}
+                    className="px-3 py-1.5 bg-[#141413] text-[#F4F3EF] text-[11px] font-mono-num uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#2B2B28] cursor-pointer disabled:opacity-50"
+                  >
+                    {isAuditingCloud ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Activity className="w-3.5 h-3.5 text-[#C5A028]" />
+                    )}
+                    <span>Audit Cloud Connection</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleForceSyncAllProductsToCloud}
+                    disabled={isSyncingAllCloud}
+                    className="px-3 py-1.5 border border-[#141413]/30 bg-[#F4F3EF] text-[#141413] text-[11px] font-mono-num uppercase tracking-wider flex items-center gap-1.5 hover:border-[#141413] cursor-pointer disabled:opacity-50"
+                  >
+                    {isSyncingAllCloud ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="w-3.5 h-3.5 text-[#1F6F43]" />
+                    )}
+                    <span>Sync All Products to Cloud</span>
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono-num text-xs">
-                <div className="p-3 bg-[#F4F3EF] border border-[#141413]/10">
-                  <span className="text-[10px] text-[#6E6D68] uppercase block">Project ID</span>
+                <div className="p-3.5 bg-[#F4F3EF] border border-[#141413]/10">
+                  <span className="text-[10px] text-[#6E6D68] uppercase block">Firebase Project ID</span>
                   <strong className="text-[#141413] mt-1 block">techsokonikenya</strong>
                 </div>
-                <div className="p-3 bg-[#F4F3EF] border border-[#141413]/10">
+                <div className="p-3.5 bg-[#F4F3EF] border border-[#141413]/10">
                   <span className="text-[10px] text-[#6E6D68] uppercase block">Storage Bucket</span>
                   <strong className="text-[#141413] mt-1 block truncate">
                     techsokonikenya.firebasestorage.app
                   </strong>
                 </div>
-                <div className="p-3 bg-[#F4F3EF] border border-[#141413]/10">
-                  <span className="text-[10px] text-[#6E6D68] uppercase block">Primary Admin</span>
+                <div className="p-3.5 bg-[#F4F3EF] border border-[#141413]/10">
+                  <span className="text-[10px] text-[#6E6D68] uppercase block">Executive Admin</span>
                   <strong className="text-[#141413] mt-1 block">sirdusman@gmail.com</strong>
+                </div>
+              </div>
+
+              {/* Audit Result Banner */}
+              {cloudAuditResult && (
+                <div
+                  className={`p-4 border text-xs font-mono-num space-y-1.5 ${
+                    cloudAuditResult.canRead && cloudAuditResult.canWrite
+                      ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                      : 'bg-amber-50 border-amber-300 text-amber-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 font-semibold">
+                    {cloudAuditResult.canRead && cloudAuditResult.canWrite ? (
+                      <CheckCircle2 className="w-4 h-4 text-[#1F6F43]" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-[#D94E34]" />
+                    )}
+                    <span>
+                      {cloudAuditResult.canRead && cloudAuditResult.canWrite
+                        ? 'Cloud Database Fully Authorized'
+                        : 'Cloud Permission Configuration Required'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed">
+                    {cloudAuditResult.details}
+                  </p>
+                </div>
+              )}
+
+              {/* Rules Copy & Firebase Console Helper */}
+              <div className="bg-[#F4F3EF] border border-[#141413]/15 p-4 space-y-3">
+                <div>
+                  <h4 className="text-xs font-mono-num font-semibold text-[#141413] uppercase tracking-wider">
+                    Firebase Console Rules Helper (To enable real-time sync across all devices)
+                  </h4>
+                  <p className="text-[11px] text-[#6E6D68] mt-0.5">
+                    If updates are not reflecting on another website URL or mobile phone, publish these rules in your Firebase Console once:
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleCopyFirestoreRules}
+                    className="px-3 py-1.5 bg-[#141413] text-[#F4F3EF] text-[11px] font-mono-num uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#2B2B28] cursor-pointer"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy Firestore Rules</span>
+                  </button>
+
+                  <a
+                    href="https://console.firebase.google.com/project/techsokonikenya/firestore/rules"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 border border-[#141413]/25 bg-white text-[#141413] text-[11px] font-mono-num uppercase tracking-wider flex items-center gap-1.5 hover:border-[#141413]"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-[#1F6F43]" />
+                    <span>Open Firestore Rules in Console ↗</span>
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={handleCopyStorageRules}
+                    className="px-3 py-1.5 border border-[#141413]/25 bg-white text-[#141413] text-[11px] font-mono-num uppercase tracking-wider flex items-center gap-1.5 hover:border-[#141413] cursor-pointer"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy Storage Rules</span>
+                  </button>
+
+                  <a
+                    href="https://console.firebase.google.com/project/techsokonikenya/storage/rules"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 border border-[#141413]/25 bg-white text-[#141413] text-[11px] font-mono-num uppercase tracking-wider flex items-center gap-1.5 hover:border-[#141413]"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-[#1F6F43]" />
+                    <span>Open Storage Rules in Console ↗</span>
+                  </a>
                 </div>
               </div>
             </div>

@@ -32,7 +32,6 @@ import {
   ShowroomRailSkeleton,
 } from './components/Skeletons';
 import { BreadcrumbNav } from './components/BreadcrumbNav';
-import { PerformanceMonitor } from './components/PerformanceMonitor';
 
 const StorefrontRouter: React.FC = () => {
   const { route, isRouteLoading, toastMessage, compareIds } = useStore();
@@ -167,9 +166,6 @@ const StorefrontRouter: React.FC = () => {
           {toastMessage}
         </div>
       )}
-
-      {/* Performance Monitor floating widget */}
-      <PerformanceMonitor />
     </div>
   );
 };

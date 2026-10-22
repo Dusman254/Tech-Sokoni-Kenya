@@ -62,6 +62,7 @@ import {
   saveViewingLocationToFirestore,
   deleteViewingLocationFromFirestore,
   saveBookingConfigToFirestore,
+  ensureFirebaseAuth,
 } from '../services/firebase';
 import {
   DEFAULT_BOOKING_CONFIG,
@@ -895,8 +896,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       await startFirestoreSyncIfPermitted(Boolean(fbUser));
     });
 
+    // Automatically re-probe Firestore every 25 seconds in background so when rules are saved in Console,
+    // real-time synchronization springs to life without requiring a page reload.
+    const periodicProbe = setInterval(async () => {
+      if (!isMounted) return;
+      const probe = await probeFirestoreAccess();
+      if (probe.canRead && !unsubProducts) {
+        await startFirestoreSyncIfPermitted(Boolean(auth.currentUser));
+      }
+    }, 25000);
+
     return () => {
       isMounted = false;
+      clearInterval(periodicProbe);
       cleanupListeners();
       unsubAuth();
     };
@@ -1437,6 +1449,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       try {
         sessionStorage.setItem('tech_sokoni_admin_auth', '1');
       } catch {}
+      ensureFirebaseAuth().catch(() => {});
       syncWithServerDatabase(true);
       showToast('Admin Console unlocked');
       return true;
@@ -1858,11 +1871,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const updateProduct = (id: string, updates: Partial<Product>) => {
+    let targetUpdatedProd: Product | undefined;
     setAllProducts((prev) => {
       const next = prev.map((p) => {
         if (p.id !== id) return p;
         const updatedProd = { ...p, ...updates };
-        saveProductToFirestore(updatedProd).catch(() => {});
+        targetUpdatedProd = updatedProd;
         return updatedProd;
       });
       try {
@@ -1870,6 +1884,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       } catch {}
       return next;
     });
+
+    if (targetUpdatedProd) {
+      saveProductToFirestore(targetUpdatedProd).then((res) => {
+        if (res && !res.ok) {
+          console.warn('Firestore cloud sync status:', res.error);
+        }
+      });
+    }
 
     // Persist to server database
     fetch(`/api/products/${id}`, {
@@ -1890,7 +1912,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
           .filter((c) => (c.productId === id && nextStock <= 0 ? false : true))
       );
     }
-    showToast('Synced product changes to live website');
+    showToast('Product updated & saved across storefront');
   };
 
   const deleteProduct = (id: string) => {
