@@ -1,7 +1,37 @@
 {
   "version": 1,
-  "lastUpdated": "2026-10-20T15:39:38.081Z",
+  "lastUpdated": "2026-10-22T18:38:11.733Z",
   "products": [
+    {
+      "id": "test-cross-browser-phone-prod-1",
+      "name": "Dell XPS 15 OLED Touch",
+      "brand": "Dell",
+      "category": "laptops",
+      "condition": "New",
+      "price": 245000,
+      "stock": 3,
+      "sku": "TS-DEL-XPS15-OLED",
+      "images": [
+        "/uploads/prod-1792694276199-fx9n65.png"
+      ],
+      "specs": {
+        "Processor": "Intel Core Ultra 7 155H",
+        "RAM": "32GB LPDDR5X",
+        "Storage": "1TB NVMe SSD",
+        "Display": "15.6 inch 3.5K OLED Touch"
+      },
+      "description": "High-end creator laptop with OLED touchscreen display.",
+      "features": [
+        "3.5K OLED",
+        "Thunderbolt 4",
+        "Precision glass trackpad"
+      ],
+      "warrantyMonths": 24,
+      "badge": "New Arrival",
+      "showroomReady": true,
+      "reviews": [],
+      "deletedAt": "2026-10-22T18:38:11.733Z"
+    },
     {
       "name": "Apple MacBook Pro 16 M4 Max (Showroom)",
       "brand": "Apple",
@@ -27,7 +57,8 @@
         "battery": "All-Day Battery",
         "weight": "1.4 kg",
         "warranty": "1 Year Official Warranty"
-      }
+      },
+      "reviews": []
     },
     {
       "name": "HP EliteBook 840 G10 (Test Sync)",
@@ -54,7 +85,8 @@
         "battery": "All-Day Battery",
         "weight": "1.4 kg",
         "warranty": "1 Year Official Warranty"
-      }
+      },
+      "reviews": []
     },
     {
       "id": "prod-macbook-pro-16-m3",

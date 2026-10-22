@@ -214,9 +214,9 @@ export function getFullAdminData() {
 // CRUD Mutations with Permanent Disk Persistence
 // ============================================================================
 
-export function addProduct(productData: Omit<Product, 'id'>): Product {
+export function addProduct(productData: Partial<Product> & Omit<Product, 'id'>): Product {
   const db = getDatabase();
-  const id = `prod-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const id = productData.id || `prod-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   const newProduct: Product = {
     ...productData,
     id,

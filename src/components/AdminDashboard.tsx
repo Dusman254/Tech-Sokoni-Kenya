@@ -522,7 +522,59 @@ export const AdminDashboard: React.FC = () => {
     }));
   };
 
-  // Handle Simultaneous Multi-Image Upload (Uploads to Firebase Storage if active, or falls back to data URL)
+  // Client-side image optimizer (downscales high-res photos to max 1200px so uploads are instant and lightweight)
+  const compressImageFile = async (file: File): Promise<File | Blob> => {
+    if (!file.type.startsWith('image/')) return file;
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const maxDim = 1200;
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(file);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(
+                new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
+                  type: 'image/jpeg',
+                })
+              );
+            } else {
+              resolve(file);
+            }
+          },
+          'image/jpeg',
+          0.84
+        );
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(file);
+      };
+      img.src = url;
+    });
+  };
+
+  // Handle Simultaneous Multi-Image Upload (Uploads to permanent server store / Firebase Storage)
   const handleMultipleImageUpload = async (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -531,13 +583,13 @@ export const AdminDashboard: React.FC = () => {
 
     const files = Array.from(fileList).slice(0, 5);
 
-    showToast('Uploading images...');
+    showToast('Optimizing and uploading images...');
     const uploadSingleImage = async (file: File): Promise<string> => {
       try {
-        const firebaseUrl = await uploadProductImage(file);
-        return firebaseUrl;
-      } catch (storageErr) {
-        // Fallback to local Data URL if Firebase Storage is not yet configured in Firebase console
+        const compressed = await compressImageFile(file);
+        const uploadedUrl = await uploadProductImage(compressed);
+        return uploadedUrl;
+      } catch (err) {
         return new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => resolve(String(reader.result));
@@ -550,13 +602,17 @@ export const AdminDashboard: React.FC = () => {
     try {
       const uploadedUrls = await Promise.all(files.map(uploadSingleImage));
       setProdForm((prev) => {
-        const combined = [...uploadedUrls, ...prev.images].slice(0, 5);
+        // If images only had default placeholder, replace with uploaded picture so it becomes Slot 1
+        const isDefaultOnly =
+          prev.images.length === 1 && prev.images[0] === STUDIO_IMAGES.laptopPro;
+        const baseImages = isDefaultOnly ? [] : prev.images;
+        const combined = [...uploadedUrls, ...baseImages].slice(0, 5);
         return { ...prev, images: combined };
       });
       showToast(
         `Uploaded ${uploadedUrls.length} image${
           uploadedUrls.length > 1 ? 's' : ''
-        } to product gallery`
+        } directly to product gallery`
       );
     } catch {
       showToast('Could not process one or more image files');
@@ -580,7 +636,7 @@ export const AdminDashboard: React.FC = () => {
       shortSpec: '',
       shortDescription: '',
       description: '',
-      images: [STUDIO_IMAGES.laptopPro],
+      images: [], // Start clean so user's uploaded picture becomes main front-store image
       processor: '',
       ram: '',
       storage: '',

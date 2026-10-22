@@ -31,6 +31,8 @@ import {
   ProductDetailSkeleton,
   ShowroomRailSkeleton,
 } from './components/Skeletons';
+import { BreadcrumbNav } from './components/BreadcrumbNav';
+import { PerformanceMonitor } from './components/PerformanceMonitor';
 
 const StorefrontRouter: React.FC = () => {
   const { route, isRouteLoading, toastMessage, compareIds } = useStore();
@@ -56,6 +58,7 @@ const StorefrontRouter: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col bg-[#F4F3EF] text-[#141413]">
       <Header />
+      <BreadcrumbNav />
 
       <main className="flex-1">
         {isRouteLoading ? (
@@ -164,6 +167,9 @@ const StorefrontRouter: React.FC = () => {
           {toastMessage}
         </div>
       )}
+
+      {/* Performance Monitor floating widget */}
+      <PerformanceMonitor />
     </div>
   );
 };

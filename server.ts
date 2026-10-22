@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
@@ -129,7 +130,14 @@ async function startServer() {
     next();
   });
 
-  app.use(express.json({ limit: '10mb' }));
+  app.use(express.json({ limit: '25mb' }));
+
+  // Uploads directory for persistent local product images
+  const uploadsDir = path.resolve(process.cwd(), 'uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+  app.use('/uploads', express.static(uploadsDir));
 
   // Initialize persistent server database (loads from disk or seeds initial catalog)
   initServerDatabase();
@@ -142,6 +150,42 @@ async function startServer() {
     }
     return res.status(401).json({ error: 'Unauthorized: Admin authentication required.' });
   }
+
+  // Dedicated Product Image Upload (Saves image to disk permanently, returns public URL)
+  app.post('/api/upload-image', (req: Request, res: Response) => {
+    try {
+      const image = req.body?.image || req.body?.imageData;
+      if (!image || typeof image !== 'string') {
+        return res.status(400).json({ error: 'Image data is required' });
+      }
+
+      // Check base64 format (supports data:image/xxx;base64,...)
+      const matches = image.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      let ext = 'jpg';
+      let buffer: Buffer;
+
+      if (matches && matches.length === 3) {
+        const mime = matches[1].toLowerCase();
+        if (mime.includes('png')) ext = 'png';
+        else if (mime.includes('webp')) ext = 'webp';
+        else if (mime.includes('gif')) ext = 'gif';
+        else ext = 'jpg';
+        buffer = Buffer.from(matches[2], 'base64');
+      } else {
+        buffer = Buffer.from(image, 'base64');
+      }
+
+      const filename = `prod-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const filePath = path.join(uploadsDir, filename);
+      fs.writeFileSync(filePath, buffer);
+
+      const publicUrl = `/uploads/${filename}`;
+      return res.status(201).json({ ok: true, url: publicUrl, filename });
+    } catch (err: any) {
+      console.error('Error saving uploaded image:', err?.message || err);
+      return res.status(500).json({ error: 'Failed to process image upload' });
+    }
+  });
 
   // 1. Data synchronization endpoint across all devices and browsers
   app.get('/api/db/sync', (req, res) => {

@@ -83,22 +83,54 @@ googleProvider.setCustomParameters({
 });
 
 /**
- * Uploads a product image directly to Firebase Storage bucket (techsokonikenya.firebasestorage.app)
- * and returns the public, CDN-cached download URL.
+ * Uploads a product image directly to Firebase Storage bucket or server permanent /uploads/ store.
+ * Returns the public, CDN-cached or server URL.
  */
 export async function uploadProductImage(
   file: File | Blob,
   customFileName?: string
 ): Promise<string> {
-  const ext = (file as File).name?.split('.').pop() || 'jpg';
-  const filename =
-    customFileName ||
-    `prod-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
-  const sRef = storageRef(storage, `products/${filename}`);
-  const result = await uploadBytes(sRef, file, {
-    contentType: (file as File).type || 'image/jpeg',
-  });
-  return await getDownloadURL(result.ref);
+  // 1. Try Firebase Storage first
+  try {
+    const ext = (file as File).name?.split('.').pop() || 'jpg';
+    const filename =
+      customFileName ||
+      `prod-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
+    const sRef = storageRef(storage, `products/${filename}`);
+    const result = await uploadBytes(sRef, file, {
+      contentType: (file as File).type || 'image/jpeg',
+    });
+    return await getDownloadURL(result.ref);
+  } catch (storageErr) {
+    // 2. Seamlessly upload to permanent Server API (/api/upload-image)
+    try {
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const res = await fetch('/api/upload-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64Data }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.url) return json.url;
+      }
+      return base64Data;
+    } catch {
+      // 3. Fallback to base64 Data URL if network is unreachable
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+  }
 }
 
 // Tracks whether the external `techsokonikenya` Firestore rules currently allow read/write for the current auth session
