@@ -63,6 +63,9 @@ import {
   testFirestoreWriteAccess,
   saveProductToFirestore,
   ensureFirebaseAuth,
+  firebaseConfig,
+  saveAndApplyFirebaseConfig,
+  resetFirebaseConfigToDefault,
 } from '../services/firebase';
 
 type AdminTab =
@@ -311,6 +314,76 @@ export const AdminDashboard: React.FC = () => {
     const rules = `rules_version = '2';\n\nservice firebase.storage {\n  match /b/{bucket}/o {\n    match /products/{allPaths=**} {\n      allow read, write: if true;\n    }\n    match /{allPaths=**} {\n      allow read, write: if true;\n    }\n  }\n}`;
     navigator.clipboard.writeText(rules);
     showToast('Copied Firebase Storage rules to clipboard!');
+  };
+
+  // Firebase Account / Project Switcher
+  const [newConfigInput, setNewConfigInput] = useState('');
+  const [configSwitchNotice, setConfigSwitchNotice] = useState<string | null>(null);
+
+  const handleApplyNewFirebaseConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    const raw = newConfigInput.trim();
+    if (!raw) {
+      setConfigSwitchNotice('Please paste your Firebase configuration code or JSON first.');
+      return;
+    }
+
+    // Attempt JSON parse
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      // Regex extraction from JavaScript snippet
+      const extract = (key: string): string | undefined => {
+        const regex = new RegExp(`${key}\\s*:\\s*["']([^"']+)["']`, 'i');
+        const m = raw.match(regex);
+        return m ? m[1] : undefined;
+      };
+
+      const apiKey = extract('apiKey');
+      const projectId = extract('projectId');
+      const authDomain = extract('authDomain');
+      const storageBucket = extract('storageBucket');
+      const messagingSenderId = extract('messagingSenderId');
+      const appId = extract('appId');
+      const measurementId = extract('measurementId');
+
+      if (projectId && apiKey) {
+        parsed = {
+          apiKey,
+          projectId,
+          authDomain: authDomain || `${projectId}.firebaseapp.com`,
+          storageBucket: storageBucket || `${projectId}.firebasestorage.app`,
+          messagingSenderId,
+          appId,
+          measurementId,
+        };
+      }
+    }
+
+    if (!parsed || !parsed.projectId || !parsed.apiKey) {
+      setConfigSwitchNotice(
+        'Could not detect valid "projectId" and "apiKey". Make sure you copy the entire firebaseConfig object from Firebase Console.'
+      );
+      return;
+    }
+
+    saveAndApplyFirebaseConfig(parsed);
+    setConfigSwitchNotice(
+      `✓ Successfully updated backend to project "${parsed.projectId}". Reloading app to connect immediately...`
+    );
+    showToast(`Switched backend to project ${parsed.projectId}!`);
+    setTimeout(() => {
+      window.location.reload();
+    }, 1500);
+  };
+
+  const handleResetToDefaultConfig = () => {
+    resetFirebaseConfigToDefault();
+    showToast('Reset backend to default Tech Sokoni project.');
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
   };
 
   // Product Modal State
@@ -2621,18 +2694,20 @@ export const AdminDashboard: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono-num text-xs">
                 <div className="p-3.5 bg-[#F4F3EF] border border-[#141413]/10">
-                  <span className="text-[10px] text-[#6E6D68] uppercase block">Firebase Project ID</span>
-                  <strong className="text-[#141413] mt-1 block">techsokonikenya</strong>
+                  <span className="text-[10px] text-[#6E6D68] uppercase block">Active Firebase Project</span>
+                  <strong className="text-[#141413] mt-1 block truncate font-semibold">
+                    {firebaseConfig.projectId}
+                  </strong>
                 </div>
                 <div className="p-3.5 bg-[#F4F3EF] border border-[#141413]/10">
                   <span className="text-[10px] text-[#6E6D68] uppercase block">Storage Bucket</span>
                   <strong className="text-[#141413] mt-1 block truncate">
-                    techsokonikenya.firebasestorage.app
+                    {firebaseConfig.storageBucket || `${firebaseConfig.projectId}.firebasestorage.app`}
                   </strong>
                 </div>
                 <div className="p-3.5 bg-[#F4F3EF] border border-[#141413]/10">
-                  <span className="text-[10px] text-[#6E6D68] uppercase block">Executive Admin</span>
-                  <strong className="text-[#141413] mt-1 block">sirdusman@gmail.com</strong>
+                  <span className="text-[10px] text-[#6E6D68] uppercase block">Primary Admin</span>
+                  <strong className="text-[#141413] mt-1 block truncate">sirdusman@gmail.com</strong>
                 </div>
               </div>
 
@@ -2663,14 +2738,68 @@ export const AdminDashboard: React.FC = () => {
                 </div>
               )}
 
+              {/* Connect Another Firebase Account / Project */}
+              <div className="bg-[#F4F3EF] border border-[#141413]/15 p-4 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <div>
+                    <h4 className="text-xs font-mono-num font-semibold text-[#141413] uppercase tracking-wider flex items-center gap-1.5">
+                      <Settings className="w-3.5 h-3.5 text-[#C5A028]" />
+                      <span>Connect Another Firebase Account / Backend Project</span>
+                    </h4>
+                    <p className="text-[11px] text-[#6E6D68] mt-0.5">
+                      To switch backend to your other Google account, paste the web app config snippet or JSON below:
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleResetToDefaultConfig}
+                    className="self-start sm:self-auto text-[10px] font-mono-num uppercase tracking-wider text-[#D94E34] hover:underline cursor-pointer"
+                  >
+                    Reset to Default Project
+                  </button>
+                </div>
+
+                <form onSubmit={handleApplyNewFirebaseConfig} className="space-y-3">
+                  <textarea
+                    rows={4}
+                    value={newConfigInput}
+                    onChange={(e) => {
+                      setNewConfigInput(e.target.value);
+                      setConfigSwitchNotice(null);
+                    }}
+                    placeholder={`Paste your other account's Firebase config snippet, e.g.:\nconst firebaseConfig = {\n  apiKey: "AIzaSy...",\n  projectId: "your-new-project-id",\n  authDomain: "...",\n  storageBucket: "...",\n  appId: "..."\n};`}
+                    className="w-full bg-[#EAE9E4]/60 border border-[#141413]/25 p-3 text-xs font-mono text-[#141413] placeholder:text-[#8E8D87] focus:outline-none focus:border-[#141413]"
+                  />
+
+                  {configSwitchNotice && (
+                    <div className="p-2.5 bg-white border border-[#141413]/20 text-[11px] font-mono-num text-[#141413]">
+                      {configSwitchNotice}
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-[#1F6F43] text-white text-xs font-mono-num uppercase tracking-wider hover:bg-[#185835] cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Save & Connect New Account</span>
+                    </button>
+                    <span className="text-[11px] text-[#6E6D68] font-mono-num">
+                      (Found in Firebase Console → Project Settings → Web App Config)
+                    </span>
+                  </div>
+                </form>
+              </div>
+
               {/* Rules Copy & Firebase Console Helper */}
               <div className="bg-[#F4F3EF] border border-[#141413]/15 p-4 space-y-3">
                 <div>
                   <h4 className="text-xs font-mono-num font-semibold text-[#141413] uppercase tracking-wider">
-                    Firebase Console Rules Helper (To enable real-time sync across all devices)
+                    Firebase Console Rules Helper (For Active Project: {firebaseConfig.projectId})
                   </h4>
                   <p className="text-[11px] text-[#6E6D68] mt-0.5">
-                    If updates are not reflecting on another website URL or mobile phone, publish these rules in your Firebase Console once:
+                    To enable document uploading and real-time syncing across all devices, ensure these rules are published in your active project:
                   </p>
                 </div>
 
@@ -2685,7 +2814,7 @@ export const AdminDashboard: React.FC = () => {
                   </button>
 
                   <a
-                    href="https://console.firebase.google.com/project/techsokonikenya/firestore/rules"
+                    href={`https://console.firebase.google.com/project/${firebaseConfig.projectId}/firestore/rules`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-3 py-1.5 border border-[#141413]/25 bg-white text-[#141413] text-[11px] font-mono-num uppercase tracking-wider flex items-center gap-1.5 hover:border-[#141413]"
@@ -2697,14 +2826,14 @@ export const AdminDashboard: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleCopyStorageRules}
-                    className="px-3 py-1.5 border border-[#141413]/25 bg-white text-[#141413] text-[11px] font-mono-num uppercase tracking-wider flex items-center gap-1.5 hover:border-[#141413] cursor-pointer"
+                    className="px-3 py-1.5 border border-[#141413]/25 bg-white text-[#141413] text-[11px] font-mono-num uppercase tracking-wider flex items-center gap-1.5 hover:border-[#141413]"
                   >
                     <Copy className="w-3.5 h-3.5" />
                     <span>Copy Storage Rules</span>
                   </button>
 
                   <a
-                    href="https://console.firebase.google.com/project/techsokonikenya/storage/rules"
+                    href={`https://console.firebase.google.com/project/${firebaseConfig.projectId}/storage/rules`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-3 py-1.5 border border-[#141413]/25 bg-white text-[#141413] text-[11px] font-mono-num uppercase tracking-wider flex items-center gap-1.5 hover:border-[#141413]"

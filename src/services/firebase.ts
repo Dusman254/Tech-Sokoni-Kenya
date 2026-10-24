@@ -46,8 +46,8 @@ import {
   ViewingLocation,
 } from '../types/store';
 
-// User's Tech Sokoni Firebase configuration
-export const firebaseConfig = {
+// Dynamic Firebase Configuration (Supports seamless switching to user's new backend account)
+export const DEFAULT_FIREBASE_CONFIG = {
   apiKey: "AIzaSyBMyReihYiYY1JDiWyH1LEgOYtQbmeuAGs",
   authDomain: "techsokonikenya.firebaseapp.com",
   projectId: "techsokonikenya",
@@ -56,6 +56,51 @@ export const firebaseConfig = {
   appId: "1:720907830049:web:e18eb6a1e861c64753b460",
   measurementId: "G-2PC5T8BSCP"
 };
+
+function getActiveFirebaseConfig() {
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem('tech_sokoni_custom_firebase_config');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.projectId && parsed.apiKey) {
+          return { ...DEFAULT_FIREBASE_CONFIG, ...parsed };
+        }
+      }
+    } catch {}
+  }
+  return DEFAULT_FIREBASE_CONFIG;
+}
+
+export const firebaseConfig = getActiveFirebaseConfig();
+
+export function saveAndApplyFirebaseConfig(newConfig: {
+  apiKey: string;
+  projectId: string;
+  authDomain?: string;
+  storageBucket?: string;
+  messagingSenderId?: string;
+  appId?: string;
+  measurementId?: string;
+}) {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('tech_sokoni_custom_firebase_config', JSON.stringify(newConfig));
+    fetch('/api/firebase-config', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-key': '1940',
+      },
+      body: JSON.stringify(newConfig),
+    }).catch(() => {});
+  }
+}
+
+export function resetFirebaseConfigToDefault() {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('tech_sokoni_custom_firebase_config');
+  }
+}
 
 // Initialize Firebase App
 export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
@@ -98,10 +143,12 @@ export async function uploadProductImage(
     customFileName ||
     `prod-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
 
-  // 1. Candidate Firebase Storage buckets for techsokonikenya
+  // 1. Candidate Firebase Storage buckets based on active project configuration
+  const activeBucket = firebaseConfig.storageBucket || `${firebaseConfig.projectId}.firebasestorage.app`;
+  const legacyBucket = `${firebaseConfig.projectId}.appspot.com`;
   const candidateBucketUrls = [
-    'gs://techsokonikenya.firebasestorage.app',
-    'gs://techsokonikenya.appspot.com',
+    activeBucket.startsWith('gs://') ? activeBucket : `gs://${activeBucket}`,
+    `gs://${legacyBucket}`,
   ];
 
   for (const bucketUrl of candidateBucketUrls) {

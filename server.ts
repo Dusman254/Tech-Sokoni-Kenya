@@ -187,6 +187,32 @@ async function startServer() {
     }
   });
 
+  // 1b. Firebase Project Configuration endpoint (Allows switching to new backend account)
+  app.get('/api/firebase-config', (_req, res) => {
+    try {
+      const configPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
+      if (fs.existsSync(configPath)) {
+        const raw = fs.readFileSync(configPath, 'utf-8');
+        return res.json(JSON.parse(raw));
+      }
+    } catch {}
+    res.json({});
+  });
+
+  app.post('/api/firebase-config', requireAdmin, (req, res) => {
+    try {
+      const newConfig = req.body;
+      if (!newConfig || !newConfig.projectId || !newConfig.apiKey) {
+        return res.status(400).json({ error: 'Valid projectId and apiKey are required' });
+      }
+      const configPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
+      fs.writeFileSync(configPath, JSON.stringify(newConfig, null, 2), 'utf-8');
+      return res.json({ ok: true, config: newConfig });
+    } catch (err: any) {
+      return res.status(500).json({ error: err?.message || 'Failed to update config' });
+    }
+  });
+
   // 1. Data synchronization endpoint across all devices and browsers
   app.get('/api/db/sync', (req, res) => {
     const isAdmin = req.headers['x-admin-key'] === '1940';
