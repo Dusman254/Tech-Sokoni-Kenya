@@ -765,27 +765,25 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
           }
         );
 
-        if (isAuthenticated) {
-          unsubClients = onSnapshot(
-            collection(db, 'clients'),
-            (snap) => {
-              if (!snap.empty) {
-                const remoteClients = snap.docs.map(
-                  (d) => ({ ...d.data(), id: d.id } as ClientAccount)
-                );
-                setClients((prev) => {
-                  const byId = new Map<string, ClientAccount>();
-                  prev.forEach((c) => byId.set(c.id, c));
-                  remoteClients.forEach((c) => byId.set(c.id, c));
-                  return Array.from(byId.values());
-                });
-              }
-            },
-            (err) => {
-              handleFirestoreError(err, OperationType.LIST, 'clients', false);
+        unsubClients = onSnapshot(
+          collection(db, 'clients'),
+          (snap) => {
+            if (!snap.empty) {
+              const remoteClients = snap.docs.map(
+                (d) => ({ ...d.data(), id: d.id } as ClientAccount)
+              );
+              setClients((prev) => {
+                const byId = new Map<string, ClientAccount>();
+                prev.forEach((c) => byId.set(c.id, c));
+                remoteClients.forEach((c) => byId.set(c.id, c));
+                return Array.from(byId.values());
+              });
             }
-          );
-        }
+          },
+          (err) => {
+            handleFirestoreError(err, OperationType.LIST, 'clients', false);
+          }
+        );
 
         unsubSettings = onSnapshot(
           doc(db, 'settings', 'storefront'),
