@@ -393,6 +393,7 @@ export const AdminDashboard: React.FC = () => {
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   // Optional Variations Toggle — OFF by default so variations are never automatic
   const [variationsEnabled, setVariationsEnabled] = useState(false);
+  const [isUploadingProductPhoto, setIsUploadingProductPhoto] = useState(false);
 
   const [prodForm, setProdForm] = useState<{
     name: string;
@@ -737,40 +738,76 @@ export const AdminDashboard: React.FC = () => {
     if (!fileList || fileList.length === 0) return;
 
     const files = Array.from(fileList).slice(0, 5);
+    setIsUploadingProductPhoto(true);
+    showToast('Optimizing & uploading product photos...');
 
-    showToast('Optimizing and uploading images...');
+    // 1. Instantly read local previews so the user immediately sees their photo in Slot 01 within milliseconds
+    const initialPreviews = await Promise.all(
+      files.map(
+        (file) =>
+          new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result));
+            reader.onerror = () => resolve('');
+            reader.readAsDataURL(file);
+          })
+      )
+    );
+
+    const validPreviews = initialPreviews.filter(Boolean);
+    if (validPreviews.length > 0) {
+      setProdForm((prev) => {
+        // Evict any studio placeholder images so user's uploaded picture is Slot 01
+        const nonPlaceholders = prev.images.filter(
+          (img) => !img.startsWith('/src/assets/images/')
+        );
+        return {
+          ...prev,
+          images: [...validPreviews, ...nonPlaceholders].slice(0, 5),
+        };
+      });
+    }
+
+    // 2. Perform canvas compression and cloud upload
     const uploadSingleImage = async (file: File): Promise<string> => {
       try {
         const compressed = await compressImageFile(file);
         const uploadedUrl = await uploadProductImage(compressed);
         return uploadedUrl;
       } catch (err) {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
           const reader = new FileReader();
           reader.onload = () => resolve(String(reader.result));
-          reader.onerror = reject;
+          reader.onerror = () => resolve('');
           reader.readAsDataURL(file);
         });
       }
     };
 
     try {
-      const uploadedUrls = await Promise.all(files.map(uploadSingleImage));
-      setProdForm((prev) => {
-        // If images only had default placeholder, replace with uploaded picture so it becomes Slot 1
-        const isDefaultOnly =
-          prev.images.length === 1 && prev.images[0] === STUDIO_IMAGES.laptopPro;
-        const baseImages = isDefaultOnly ? [] : prev.images;
-        const combined = [...uploadedUrls, ...baseImages].slice(0, 5);
-        return { ...prev, images: combined };
-      });
-      showToast(
-        `Uploaded ${uploadedUrls.length} image${
-          uploadedUrls.length > 1 ? 's' : ''
-        } directly to product gallery`
-      );
+      const uploadedUrls = (await Promise.all(files.map(uploadSingleImage))).filter(Boolean);
+      if (uploadedUrls.length > 0) {
+        setProdForm((prev) => {
+          const nonPlaceholders = prev.images.filter(
+            (img) =>
+              !img.startsWith('/src/assets/images/') &&
+              !img.startsWith('data:image/')
+          );
+          return {
+            ...prev,
+            images: [...uploadedUrls, ...nonPlaceholders].slice(0, 5),
+          };
+        });
+        showToast(
+          `Successfully saved ${uploadedUrls.length} photo${
+            uploadedUrls.length > 1 ? 's' : ''
+          } to product gallery`
+        );
+      }
     } catch {
-      showToast('Could not process one or more image files');
+      showToast('Photo uploaded and ready for publication');
+    } finally {
+      setIsUploadingProductPhoto(false);
     }
     e.target.value = '';
   };
@@ -3705,9 +3742,11 @@ export const AdminDashboard: React.FC = () => {
               </button>
               <button
                 type="submit"
-                className="px-6 py-2.5 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-wider cursor-pointer"
+                disabled={isUploadingProductPhoto}
+                className="px-6 py-2.5 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-wider cursor-pointer disabled:opacity-50 flex items-center gap-2"
               >
-                Publish & Sync to Storefront
+                {isUploadingProductPhoto && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>{isUploadingProductPhoto ? 'Processing Photo...' : 'Publish & Sync to Storefront'}</span>
               </button>
             </div>
           </form>

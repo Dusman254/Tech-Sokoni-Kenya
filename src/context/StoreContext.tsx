@@ -534,17 +534,34 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       if (!data) return;
 
       if (adminMode && Array.isArray(data.allProducts) && data.allProducts.length > 0) {
-        const normalized = data.allProducts.map(normalizeProduct);
-        setAllProducts(normalized);
-        try {
-          localStorage.setItem(STORAGE_KEYS.ALL_PRODUCTS, JSON.stringify(normalized));
-        } catch {}
+        setAllProducts((prev) => {
+          const map = new Map<string, Product>();
+          data.allProducts.forEach((p: any) => {
+            const norm = normalizeProduct(p);
+            map.set(norm.id, norm);
+          });
+          // Preserve live Firestore state and in-memory additions
+          prev.forEach((p) => {
+            map.set(p.id, p);
+          });
+          const merged = Array.from(map.values());
+          try {
+            localStorage.setItem(STORAGE_KEYS.ALL_PRODUCTS, JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
       } else if (Array.isArray(data.products) && data.products.length > 0) {
         setAllProducts((prev) => {
-          const deleted = prev.filter((p) => p.deletedAt);
-          const remoteIds = new Set(data.products.map((p: any) => p.id));
-          const keptDeleted = deleted.filter((p) => !remoteIds.has(p.id));
-          const merged = [...data.products.map(normalizeProduct), ...keptDeleted];
+          const map = new Map<string, Product>();
+          data.products.forEach((p: any) => {
+            const norm = normalizeProduct(p);
+            map.set(norm.id, norm);
+          });
+          // Preserve live Firestore state and in-memory additions
+          prev.forEach((p) => {
+            map.set(p.id, p);
+          });
+          const merged = Array.from(map.values());
           try {
             localStorage.setItem(STORAGE_KEYS.ALL_PRODUCTS, JSON.stringify(merged));
           } catch {}

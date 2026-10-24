@@ -155,13 +155,17 @@ export async function uploadProductImage(
     try {
       const customStorage = getStorage(app, bucketUrl);
       const sRef = storageRef(customStorage, `products/${filename}`);
-      const result = await uploadBytes(sRef, file, {
+      const uploadPromise = uploadBytes(sRef, file, {
         contentType: (file as File).type || 'image/jpeg',
       });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Storage timeout')), 2500)
+      );
+      const result = await Promise.race([uploadPromise, timeoutPromise]);
       const downloadUrl = await getDownloadURL(result.ref);
       if (downloadUrl) return downloadUrl;
     } catch {
-      // Continue to next bucket
+      // Continue to next candidate or instant fallback
     }
   }
 
