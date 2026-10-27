@@ -452,7 +452,7 @@ export const AdminDashboard: React.FC = () => {
     ports: '3x Thunderbolt 5, HDMI, MagSafe 3',
     battery: 'Up to 22 hours',
     weight: '2.1 kg',
-    warranty: '2 Years Tech Sokoni Official Warranty',
+    warranty: '6 Months Tech Sokoni Official Warranty',
     variations: [],
     featured: true,
     isNewArrival: true,
@@ -678,59 +678,52 @@ export const AdminDashboard: React.FC = () => {
     }));
   };
 
-  // Client-side image optimizer (downscales high-res photos to max 1200px so uploads are instant and lightweight)
-  const compressImageFile = async (file: File): Promise<File | Blob> => {
-    if (!file.type.startsWith('image/')) return file;
+  // Client-side image optimizer (downscales high-res photos to max 800px and converts to crisp lightweight JPEG Data URL)
+  const compressImageFile = async (file: File): Promise<string> => {
     return new Promise((resolve) => {
-      const img = new Image();
-      const url = URL.createObjectURL(file);
-      img.onload = () => {
-        URL.revokeObjectURL(url);
-        const maxDim = 1000;
-        let { width, height } = img;
-        if (width > maxDim || height > maxDim) {
-          if (width > height) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve(file);
-          return;
-        }
-        ctx.drawImage(img, 0, 0, width, height);
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              resolve(
-                new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
-                  type: 'image/jpeg',
-                })
-              );
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const resultStr = String(e.target?.result || '');
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 800;
+          let { width, height } = img;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
             } else {
-              resolve(file);
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
             }
-          },
-          'image/jpeg',
-          0.78
-        );
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(resultStr);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          try {
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+            resolve(dataUrl);
+          } catch {
+            resolve(resultStr);
+          }
+        };
+        img.onerror = () => {
+          resolve(resultStr);
+        };
+        img.src = resultStr;
       };
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        resolve(file);
-      };
-      img.src = url;
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(file);
     });
   };
 
-  // Handle Simultaneous Multi-Image Upload (Uploads to permanent server store / Firebase Storage)
+  // Handle Simultaneous Multi-Image Upload (Instantly optimizes & embeds directly into product gallery)
   const handleMultipleImageUpload = async (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -739,73 +732,31 @@ export const AdminDashboard: React.FC = () => {
 
     const files = Array.from(fileList).slice(0, 5);
     setIsUploadingProductPhoto(true);
-    showToast('Optimizing & uploading product photos...');
-
-    // 1. Instantly read local previews so the user immediately sees their photo in Slot 01 within milliseconds
-    const initialPreviews = await Promise.all(
-      files.map(
-        (file) =>
-          new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(String(reader.result));
-            reader.onerror = () => resolve('');
-            reader.readAsDataURL(file);
-          })
-      )
-    );
-
-    const validPreviews = initialPreviews.filter(Boolean);
-    if (validPreviews.length > 0) {
-      setProdForm((prev) => {
-        // Evict any studio placeholder images so user's uploaded picture is Slot 01
-        const nonPlaceholders = prev.images.filter(
-          (img) => !img.startsWith('/src/assets/images/')
-        );
-        return {
-          ...prev,
-          images: [...validPreviews, ...nonPlaceholders].slice(0, 5),
-        };
-      });
-    }
-
-    // 2. Perform canvas compression and cloud upload
-    const uploadSingleImage = async (file: File): Promise<string> => {
-      try {
-        const compressed = await compressImageFile(file);
-        const uploadedUrl = await uploadProductImage(compressed);
-        return uploadedUrl;
-      } catch (err) {
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result));
-          reader.onerror = () => resolve('');
-          reader.readAsDataURL(file);
-        });
-      }
-    };
 
     try {
-      const uploadedUrls = (await Promise.all(files.map(uploadSingleImage))).filter(Boolean);
-      if (uploadedUrls.length > 0) {
+      const compressedUrls = (
+        await Promise.all(files.map(compressImageFile))
+      ).filter(Boolean);
+
+      if (compressedUrls.length > 0) {
         setProdForm((prev) => {
+          // Evict any studio presets so the user's uploaded photo is immediately Slot 01
           const nonPlaceholders = prev.images.filter(
-            (img) =>
-              !img.startsWith('/src/assets/images/') &&
-              !img.startsWith('data:image/')
+            (img) => !img.startsWith('/src/assets/images/')
           );
           return {
             ...prev,
-            images: [...uploadedUrls, ...nonPlaceholders].slice(0, 5),
+            images: [...compressedUrls, ...nonPlaceholders].slice(0, 5),
           };
         });
         showToast(
-          `Successfully saved ${uploadedUrls.length} photo${
-            uploadedUrls.length > 1 ? 's' : ''
-          } to product gallery`
+          `Successfully added ${compressedUrls.length} photo${
+            compressedUrls.length > 1 ? 's' : ''
+          } to gallery`
         );
       }
     } catch {
-      showToast('Photo uploaded and ready for publication');
+      showToast('Could not process photo');
     } finally {
       setIsUploadingProductPhoto(false);
     }
@@ -839,7 +790,7 @@ export const AdminDashboard: React.FC = () => {
       ports: '',
       battery: '',
       weight: '',
-      warranty: '1 Year Tech Sokoni Official Warranty',
+      warranty: '6 Months Tech Sokoni Official Warranty',
       variations: [],
       featured: true,
       isNewArrival: true,
@@ -882,7 +833,7 @@ export const AdminDashboard: React.FC = () => {
       ports: product.specs?.ports || '',
       battery: product.specs?.battery || '',
       weight: product.specs?.weight || '',
-      warranty: product.specs?.warranty || '1 Year Official Warranty',
+      warranty: product.specs?.warranty || '6 Months Official Tech Sokoni Warranty',
       variations: product.variations || [],
       featured: product.featured,
       isNewArrival: product.isNewArrival,
@@ -924,7 +875,7 @@ export const AdminDashboard: React.FC = () => {
         ports: prodForm.ports || undefined,
         battery: prodForm.battery || undefined,
         weight: prodForm.weight || undefined,
-        warranty: prodForm.warranty || '1 Year Tech Sokoni Official Warranty',
+        warranty: prodForm.warranty || '6 Months Tech Sokoni Official Warranty',
       },
       variations: variationsEnabled ? prodForm.variations : [],
       featured: prodForm.featured,
@@ -3565,11 +3516,10 @@ export const AdminDashboard: React.FC = () => {
                     >
                       {imgUrl ? (
                         <>
-                          <StudioImage
+                          <img
                             src={imgUrl}
                             alt={`Slot ${slotIdx + 1}`}
-                            containerClassName="w-full h-full"
-                            className="w-full h-full object-contain"
+                            className="w-full h-full object-contain select-none"
                           />
                           <button
                             type="button"

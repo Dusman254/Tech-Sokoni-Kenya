@@ -158,7 +158,7 @@ export class PdfReceiptService {
       { maxWidth: colMaxW }
     );
     doc.text(
-      `Warranty Coverage: Official 1-Yr Tech Sokoni Direct`,
+      `Warranty Coverage: Official 6-Month Tech Sokoni Direct`,
       rightColX,
       y + 27.5,
       { maxWidth: colMaxW }
@@ -352,7 +352,7 @@ export class PdfReceiptService {
       footerY + 13
     );
     doc.text(
-      '2. All systems are backed by our 1-Year Local & Manufacturer Warranty. Lipa Na M-Pesa Buy Goods Till: 9309020.',
+      '2. All systems are backed by our 6-Month Local & Manufacturer Warranty. Lipa Na M-Pesa Buy Goods Till: 9309020.',
       margin,
       footerY + 18
     );

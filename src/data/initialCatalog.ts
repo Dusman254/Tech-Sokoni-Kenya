@@ -139,7 +139,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     shortDescription:
       'Pro performance powerhouse with 12-core CPU, 18-core GPU, up to 22 hours battery life, and studio-grade audio.',
     description:
-      'Engineered for developers, audio engineers, and creative directors. Features Liquid Retina XDR display with 1,600 nits peak HDR brightness, three Thunderbolt 4 ports, MagSafe 3, HDMI, and SDXC card reader. 100% genuine Apple serial verified with 1-Year Local & Manufacturer Warranty.',
+      'Engineered for developers, audio engineers, and creative directors. Features Liquid Retina XDR display with 1,600 nits peak HDR brightness, three Thunderbolt 4 ports, MagSafe 3, HDMI, and SDXC card reader. 100% genuine Apple serial verified with 6-Month Local & Manufacturer Warranty.',
     images: [STUDIO_IMAGES.laptopPro],
     specs: {
       processor: 'Apple M3 Pro (12-Core CPU, 18-Core GPU)',
@@ -150,7 +150,7 @@ export const INITIAL_PRODUCTS: Product[] = [
       os: 'macOS Sonoma',
       battery: '100Wh Lithium-Polymer (up to 22h)',
       weight: '2.14 kg',
-      warranty: '1-Year Official Apple Warranty',
+      warranty: '6 Months Official Tech Sokoni Warranty',
     },
     variations: [
       {
@@ -192,7 +192,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     shortDescription:
       'CNC machined aluminum executive workstation with stunning InfinityEdge 3.5K OLED touchscreen and discrete NVIDIA GeForce graphics.',
     description:
-      'Premium creator workstation with 14-core Intel Core i7, 32GB DDR5 dual-channel memory, and calibrated OLED panel with 100% DCI-P3 color gamut. Fully diagnostic-tested with 100% battery health and clean cosmetic chassis. 1-Year Tech Sokoni Local Warranty.',
+      'Premium creator workstation with 14-core Intel Core i7, 32GB DDR5 dual-channel memory, and calibrated OLED panel with 100% DCI-P3 color gamut. Fully diagnostic-tested with 100% battery health and clean cosmetic chassis. 6 Months Tech Sokoni Local Warranty.',
     images: [STUDIO_IMAGES.laptopPro],
     specs: {
       processor: 'Intel Core i7-13700H (14 Cores, 20 Threads, up to 5.0GHz)',
@@ -204,7 +204,7 @@ export const INITIAL_PRODUCTS: Product[] = [
       os: 'Windows 11 Pro',
       battery: '86Wh (Excellent Health)',
       weight: '1.92 kg',
-      warranty: '1-Year Tech Sokoni Showroom Warranty',
+      warranty: '6 Months Tech Sokoni Showroom Warranty',
     },
     featured: true,
     isNewArrival: false,
@@ -229,7 +229,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     shortDescription:
       'Enterprise executive standard with HP Wolf Security, ultra-light magnesium chassis, 5MP IR webcam, and Bang & Olufsen audio.',
     description:
-      'Built for heavy commercial and corporate workflows. Features HP Sure Start self-healing BIOS, backlit spill-resistant keyboard, Wi-Fi 6E, and all-day battery life. Brand new sealed unit with 1-Year Local Kenya Warranty.',
+      'Built for heavy commercial and corporate workflows. Features HP Sure Start self-healing BIOS, backlit spill-resistant keyboard, Wi-Fi 6E, and all-day battery life. Brand new sealed unit with 6 Months Local Kenya Warranty.',
     images: [STUDIO_IMAGES.laptopPro],
     specs: {
       processor: 'Intel Core i7-1365U (10 Cores, 12 Threads, vPro Enterprise)',
@@ -240,7 +240,7 @@ export const INITIAL_PRODUCTS: Product[] = [
       os: 'Windows 11 Pro Licensed',
       battery: '51Wh Long Life (Fast charge 50% in 30 mins)',
       weight: '1.36 kg',
-      warranty: '1-Year HP Kenya & Tech Sokoni Warranty',
+      warranty: '6 Months HP Kenya & Tech Sokoni Warranty',
     },
     featured: false,
     isNewArrival: true,
@@ -264,7 +264,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     shortDescription:
       'Ultra-durable carbon-fiber flagship with legendary ThinkPad keyboard, 2.8K OLED display, and MIL-STD 810H military certification.',
     description:
-      'The gold standard in portable corporate computing. Certified against 12 military-grade requirements and more than 200 quality checks. Includes fingerprint reader, Windows Hello facial recognition, and dual Thunderbolt 4 ports. 1-Year Showroom Warranty.',
+      'The gold standard in portable corporate computing. Certified against 12 military-grade requirements and more than 200 quality checks. Includes fingerprint reader, Windows Hello facial recognition, and dual Thunderbolt 4 ports. 6 Months Showroom Warranty.',
     images: [STUDIO_IMAGES.laptopPro],
     specs: {
       processor: 'Intel Core i7-1355U (10 Cores, 12 Threads)',
@@ -275,7 +275,7 @@ export const INITIAL_PRODUCTS: Product[] = [
       os: 'Windows 11 Pro',
       battery: '57Wh (Rapid Charge)',
       weight: '1.12 kg',
-      warranty: '1-Year Tech Sokoni Warranty',
+      warranty: '6 Months Tech Sokoni Warranty',
     },
     featured: false,
     isNewArrival: false,

@@ -82,7 +82,7 @@ export const InfoSectionView: React.FC<{
       body: [
         'Tech Sokoni Kenya (techsokoni.com) is a premier electronics showroom and enterprise hardware supplier located in Nairobi CBD at Kenyatta Pioneer Building, along Kenyatta Avenue, 5th Floor, Shop Number 514 (Next to I&M Building).',
         'We specialize in 100% genuine brand imports and enterprise computers — including Apple MacBooks, HP EliteBooks & Spectres, Dell XPS workstations, iPhones, Samsung Galaxy flagships, genuine Epson EcoTank & HP LaserJet printers, and Anker & Sony studio accessories.',
-        'Every machine in our catalog is rigorously verified for battery health, thermal performance, and authentic serial provenance — backed by our 1-Year Local & Manufacturer Warranty, instant Lipa Na M-Pesa clearing (Buy Goods Till: 9309020), and Payment on Delivery nationwide.',
+        'Every machine in our catalog is rigorously verified for battery health, thermal performance, and authentic serial provenance — backed by our 6-Month Local & Manufacturer Warranty, instant Lipa Na M-Pesa clearing (Buy Goods Till: 9309020), and Payment on Delivery nationwide.',
       ],
     },
     delivery: {
@@ -104,10 +104,11 @@ export const InfoSectionView: React.FC<{
     },
     warranty: {
       kicker: 'CUSTOMER SUPPORT · WARRANTY',
-      title: '1-Year Official & Boutique Hardware Warranty.',
+      title: '6-Month Official & Boutique Hardware Warranty.',
       body: [
-        'Every laptop, phone, desktop, monitor, genuine Epson EcoTank printer, and Anker power system sold at Tech Sokoni is 100% manufacturer-certified and includes a 1-Year Local Kenya & Manufacturer Warranty.',
+        'Every laptop, phone, desktop, monitor, genuine Epson EcoTank printer, and Anker power system sold at Tech Sokoni is 100% manufacturer-certified and includes our 6-Month Local Kenya & Manufacturer Warranty.',
         'All warranty diagnostics, upgrades, and priority service are handled directly at Kenyatta Pioneer Building, 5th Floor, Shop 514, Kenyatta Avenue (Next to I&M Building), Nairobi CBD.',
+        'Clients can register their device serial numbers inside the Client Portal for official warranty certificate verification and tracking.',
       ],
     },
     faq: {
@@ -116,7 +117,7 @@ export const InfoSectionView: React.FC<{
       body: [
         'Where is Tech Sokoni located? — Visit our Nairobi CBD Storefront at Kenyatta Pioneer Building, along Kenyatta Avenue, 5th Floor, Shop Number 514 (Next to I&M Building). Orders Hotline & WhatsApp: +254 792 620 789.',
         'How does Payment on Delivery (Cash or M-Pesa on Delivery) work? — We offer Payment on Delivery across Nairobi County and major towns nationwide in Kenya. You inspect the physical package and hardware upon arrival before paying via Cash or M-Pesa (Buy Goods Till: 9309020).',
-        'Are the products genuine and covered by warranty? — Absolutely. Every system is 100% genuine, serial-verified, and backed by a 1-year local service warranty.',
+        'Are the products genuine and covered by warranty? — Absolutely. Every system is 100% genuine, serial-verified, and backed by an official 6-Month warranty.',
       ],
     },
     contact: {
@@ -147,7 +148,7 @@ export const InfoSectionView: React.FC<{
         '2. Payment Methods: We accept Lipa Na M-Pesa Buy Goods Till 9309020 and Payment on Delivery (Cash or M-Pesa on Delivery) across Nairobi County and nationwide transit hubs.',
         '3. Order Verification & Delivery: Orders are dispatched from Kenyatta Pioneer Building, Shop 514, Nairobi. Same-day delivery applies for orders confirmed before 3:00 PM EAT within Nairobi.',
         '4. Inspection & Guarantee: Clients are entitled to physically inspect hardware packaging and verified serial numbers upon delivery before confirming receipt.',
-        '5. Warranty Coverage: Every new system includes a minimum 1-Year Official Manufacturer and Tech Sokoni warranty. Defective units reported within 14 calendar days are eligible for priority replacement.',
+        '5. Warranty Coverage: Every new system includes a minimum 6-Month Official Manufacturer and Tech Sokoni warranty. Defective units reported within 14 calendar days are eligible for priority replacement.',
         '6. Governing Law: These terms are governed by and construed in accordance with the laws of the Republic of Kenya.',
       ],
     },

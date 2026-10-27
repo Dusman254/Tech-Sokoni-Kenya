@@ -627,7 +627,7 @@ export const TrackShipmentView: React.FC<TrackShipmentViewProps> = ({
               <div className="flex items-center gap-2 text-xs text-[#5E5D59]">
                 <ShieldCheck className="w-4 h-4 text-[#1F6F43]" />
                 <span>
-                  Protected by 1-Year Local Warranty &amp; Same-Day Nairobi Dispatch.
+                  Protected by 6-Month Local Warranty &amp; Same-Day Nairobi Dispatch.
                 </span>
               </div>
               <div className="flex items-center gap-3">

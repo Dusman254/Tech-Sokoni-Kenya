@@ -16,6 +16,11 @@ import {
   Star,
   Store,
   Truck,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  X,
+  RotateCcw,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { ProductCard } from './ProductCard';
@@ -55,6 +60,15 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
   const [activeTab, setActiveTab] = useState<
     'description' | 'specifications' | 'delivery' | 'warranty' | 'reviews'
   >('specifications');
+
+  // High-Resolution Spec & Build Zoom State
+  const [isHoverZooming, setIsHoverZooming] = useState<boolean>(false);
+  const [zoomCoords, setZoomCoords] = useState<{ x: number; y: number }>({ x: 50, y: 50 });
+  const [isFullscreenZoomOpen, setIsFullscreenZoomOpen] = useState<boolean>(false);
+  const [lightboxZoom, setLightboxZoom] = useState<number>(1.5);
+  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // Initialize default variations when product changes
   useEffect(() => {

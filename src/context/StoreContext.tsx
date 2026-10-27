@@ -27,6 +27,7 @@ import {
   ViewingBookingStatus,
   ViewingLocation,
   ViewingAuditLog,
+  WarrantyRegistration,
 } from '../types/store';
 import {
   auth,
@@ -292,6 +293,19 @@ interface StoreContextValue {
     locationId?: string,
     excludeAppointmentId?: string
   ) => boolean;
+  warrantyRegistrations: WarrantyRegistration[];
+  registerWarranty: (data: {
+    serialNumber: string;
+    modelName: string;
+    category?: CategoryId;
+    purchaseDate: string;
+    orderNumber?: string;
+    clientName?: string;
+    clientEmail?: string;
+    clientPhone?: string;
+    notes?: string;
+  }) => Promise<{ ok: boolean; registration?: WarrantyRegistration; error?: string }>;
+  getWarrantyBySerial: (serial: string) => WarrantyRegistration | undefined;
 }
 
 const StoreContext = createContext<StoreContextValue | undefined>(undefined);
@@ -313,6 +327,7 @@ const STORAGE_KEYS = {
   VIEWING_APPOINTMENTS: 'tech_sokoni_viewing_appointments_live_v1',
   VIEWING_LOCATIONS: 'tech_sokoni_viewing_locations_live_v1',
   BOOKING_CONFIG: 'tech_sokoni_booking_config_live_v1',
+  WARRANTY_REGISTRATIONS: 'tech_sokoni_warranties_live_v1',
 };
 
 export const DEFAULT_CATEGORY_FILTERS: CategoryFilterState = {
@@ -353,7 +368,7 @@ function normalizeProduct(p: any): Product {
       shortDescription: '',
       description: '',
       images: [STUDIO_IMAGES.laptopPro],
-      specs: { warranty: '1 Year Official Warranty' },
+      specs: { warranty: '6 Months Official Tech Sokoni Warranty' },
       reviews: [],
       variations: [],
       featured: false,
@@ -413,7 +428,7 @@ function normalizeProduct(p: any): Product {
             ports: '',
             battery: '',
             weight: '',
-            warranty: '1 Year Official Warranty',
+            warranty: '6 Months Official Tech Sokoni Warranty',
           },
     reviews: Array.isArray(p.reviews) ? p.reviews : [],
     variations: Array.isArray(p.variations) ? p.variations : [],
@@ -437,6 +452,43 @@ function normalizeProduct(p: any): Product {
         : 1,
   };
 }
+
+const INITIAL_WARRANTIES: WarrantyRegistration[] = [
+  {
+    id: 'war-001',
+    serialNumber: 'C02GK9XXMD6R',
+    modelName: 'Apple MacBook Pro 16" (M3 Pro)',
+    category: 'laptops',
+    clientEmail: 'sirdusman@gmail.com',
+    clientPhone: '0792620789',
+    clientName: 'Showroom Client',
+    orderNumber: 'TS-ORD-1002',
+    purchaseDate: '2026-08-15',
+    warrantyMonths: 6,
+    warrantyExpiryDate: '2027-02-15',
+    status: 'active',
+    coverageSummary: '6 Months Official Tech Sokoni Hardware & Labor Coverage',
+    notes: 'Registered with original invoice TS-INV-2026-884. Verified Apple Silicon logic board and Liquid Retina display.',
+    registeredAt: '2026-08-15T09:30:00.000Z',
+  },
+  {
+    id: 'war-002',
+    serialNumber: '5CD23491KL',
+    modelName: 'HP EliteBook 840 G10',
+    category: 'laptops',
+    clientEmail: 'sirdusman@gmail.com',
+    clientPhone: '0792620789',
+    clientName: 'Showroom Client',
+    orderNumber: 'TS-ORD-1001',
+    purchaseDate: '2026-06-10',
+    warrantyMonths: 6,
+    warrantyExpiryDate: '2026-12-10',
+    status: 'active',
+    coverageSummary: '6 Months Official Tech Sokoni Hardware & Labor Coverage',
+    notes: 'Official enterprise registration. Sealed magnesium chassis verified at Pioneer Showroom.',
+    registeredAt: '2026-06-10T11:15:00.000Z',
+  },
+];
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -522,6 +574,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [passwordResetCode, setPasswordResetCode] = useState<string | null>(null);
+
+  const [warrantyRegistrations, setWarrantyRegistrations] = useState<
+    WarrantyRegistration[]
+  >(() =>
+    loadFromStorage(STORAGE_KEYS.WARRANTY_REGISTRATIONS, INITIAL_WARRANTIES)
+  );
 
   // "Book to View" State
   const [viewingAppointments, setViewingAppointments] = useState<
@@ -2849,11 +2907,114 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
     showToast('Booking configuration saved');
   };
 
+  const registerWarranty = async (data: {
+    serialNumber: string;
+    modelName: string;
+    category?: CategoryId;
+    purchaseDate: string;
+    orderNumber?: string;
+    clientName?: string;
+    clientEmail?: string;
+    clientPhone?: string;
+    notes?: string;
+  }): Promise<{ ok: boolean; registration?: WarrantyRegistration; error?: string }> => {
+    const cleanSerial = data.serialNumber.trim().toUpperCase();
+    if (!cleanSerial) {
+      return { ok: false, error: 'Hardware serial number is required.' };
+    }
+    if (!data.modelName.trim()) {
+      return { ok: false, error: 'Product / Model name is required.' };
+    }
+    if (!data.purchaseDate) {
+      return { ok: false, error: 'Purchase date is required.' };
+    }
+
+    // Check duplicate registration
+    const existing = warrantyRegistrations.find(
+      (w) => w.serialNumber.toUpperCase() === cleanSerial
+    );
+    if (existing) {
+      return {
+        ok: false,
+        error: `Serial number ${cleanSerial} is already registered under ${existing.clientName || 'an existing client'}.`,
+      };
+    }
+
+    // Calculate expiry (Purchase Date + 6 Months)
+    let expiryStr = '';
+    try {
+      const pDate = new Date(data.purchaseDate);
+      if (isNaN(pDate.getTime())) {
+        const fallback = new Date();
+        fallback.setMonth(fallback.getMonth() + 6);
+        expiryStr = fallback.toISOString().split('T')[0];
+      } else {
+        pDate.setMonth(pDate.getMonth() + 6);
+        expiryStr = pDate.toISOString().split('T')[0];
+      }
+    } catch {
+      const fallback = new Date();
+      fallback.setMonth(fallback.getMonth() + 6);
+      expiryStr = fallback.toISOString().split('T')[0];
+    }
+
+    // Determine status
+    const nowTime = Date.now();
+    const expiryTime = new Date(expiryStr).getTime();
+    const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+    let initialStatus: 'active' | 'expiring-soon' | 'expired' = 'active';
+    if (nowTime > expiryTime) {
+      initialStatus = 'expired';
+    } else if (expiryTime - nowTime < thirtyDays) {
+      initialStatus = 'expiring-soon';
+    }
+
+    const newReg: WarrantyRegistration = {
+      id: `war-${Date.now()}`,
+      serialNumber: cleanSerial,
+      modelName: data.modelName.trim(),
+      category: data.category || 'laptops',
+      clientEmail: data.clientEmail?.trim() || currentClient?.email || 'customer@techsokoni.com',
+      clientPhone: data.clientPhone?.trim() || currentClient?.phone || '0792620789',
+      clientName: data.clientName?.trim() || currentClient?.name || 'Tech Sokoni Customer',
+      orderNumber: data.orderNumber?.trim() || undefined,
+      purchaseDate: data.purchaseDate,
+      warrantyMonths: 6,
+      warrantyExpiryDate: expiryStr,
+      status: initialStatus,
+      coverageSummary: '6 Months Official Tech Sokoni Hardware & Labor Coverage',
+      notes: data.notes?.trim() || undefined,
+      registeredAt: new Date().toISOString(),
+    };
+
+    setWarrantyRegistrations((prev) => {
+      const updated = [newReg, ...prev];
+      try {
+        localStorage.setItem(
+          STORAGE_KEYS.WARRANTY_REGISTRATIONS,
+          JSON.stringify(updated)
+        );
+      } catch {}
+      return updated;
+    });
+
+    showToast(`Warranty registered: ${cleanSerial} (6 Months Official Coverage)`);
+    return { ok: true, registration: newReg };
+  };
+
+  const getWarrantyBySerial = (serial: string): WarrantyRegistration | undefined => {
+    const clean = serial.trim().toUpperCase();
+    return warrantyRegistrations.find((w) => w.serialNumber.toUpperCase() === clean);
+  };
+
   return (
     <StoreContext.Provider
       value={{
         products,
         deletedProducts,
+        warrantyRegistrations,
+        registerWarranty,
+        getWarrantyBySerial,
         categories,
         offers,
         orders,

@@ -334,3 +334,22 @@ export interface BookingConfig {
   defaultLocationId: string;
   requireApproval: boolean;
 }
+
+export interface WarrantyRegistration {
+  id: string;
+  serialNumber: string;
+  modelName: string;
+  category: CategoryId;
+  clientEmail: string;
+  clientPhone: string;
+  clientName: string;
+  orderNumber?: string;
+  purchaseDate: string; // YYYY-MM-DD
+  warrantyMonths: number; // default 6
+  warrantyExpiryDate: string; // YYYY-MM-DD
+  status: 'active' | 'expiring-soon' | 'expired' | 'claim-pending';
+  coverageSummary: string;
+  notes?: string;
+  registeredAt: string; // ISO
+}
+
