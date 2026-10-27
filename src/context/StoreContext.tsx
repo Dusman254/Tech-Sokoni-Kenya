@@ -5,6 +5,7 @@ import {
   INITIAL_ORDERS,
   INITIAL_PRODUCTS,
   INITIAL_SETTINGS,
+  STUDIO_IMAGES,
 } from '../data/initialCatalog';
 import {
   ActiveRoute,
@@ -338,23 +339,102 @@ function loadFromStorage<T>(key: string, fallback: T): T {
 }
 
 function normalizeProduct(p: any): Product {
+  if (!p || typeof p !== 'object') {
+    return {
+      id: `prod-fallback-${Date.now()}`,
+      name: 'Showroom Hardware System',
+      sku: 'TS-001',
+      brand: 'Tech Sokoni',
+      category: 'laptops',
+      price: 1000,
+      stock: 1,
+      condition: 'New',
+      shortSpec: '',
+      shortDescription: '',
+      description: '',
+      images: [STUDIO_IMAGES.laptopPro],
+      specs: { warranty: '1 Year Official Warranty' },
+      reviews: [],
+      variations: [],
+      featured: false,
+      isNewArrival: false,
+      inShowroomRail: false,
+      rating: 5,
+      reviewCount: 0,
+      deliveryInfo: 'In stock at Tech Sokoni Showroom',
+    };
+  }
+
+  const name =
+    typeof p.name === 'string' && p.name.trim()
+      ? p.name.trim()
+      : 'Showroom Hardware System';
+  const price =
+    typeof p.price === 'number' && !isNaN(p.price)
+      ? p.price
+      : Number(p.price) || 999;
+  const brand =
+    typeof p.brand === 'string' && p.brand.trim()
+      ? p.brand.trim()
+      : 'Tech Sokoni';
+  const category =
+    typeof p.category === 'string' && p.category ? p.category : 'laptops';
+  const condition =
+    typeof p.condition === 'string' && p.condition ? p.condition : 'New';
+
+  const rawImages = Array.isArray(p.images)
+    ? p.images.filter((img: any) => typeof img === 'string' && Boolean(img.trim()))
+    : typeof p.image === 'string' && p.image.trim()
+    ? [p.image.trim()]
+    : [];
+
+  const images = rawImages.length > 0 ? rawImages : [STUDIO_IMAGES.laptopPro];
+
   return {
     ...p,
-    specs: p.specs || {
-      processor: '',
-      ram: '',
-      storage: '',
-      screenSize: '',
-      color: '',
-      os: '',
-      graphics: '',
-      ports: '',
-      battery: '',
-      weight: '',
-      warranty: '1 Year Official Warranty',
-    },
+    id: typeof p.id === 'string' && p.id ? p.id : `prod-${Date.now()}`,
+    name,
+    price,
+    brand,
+    category,
+    condition,
+    images,
+    specs:
+      p.specs && typeof p.specs === 'object'
+        ? p.specs
+        : {
+            processor: '',
+            ram: '',
+            storage: '',
+            screenSize: '',
+            color: '',
+            os: '',
+            graphics: '',
+            ports: '',
+            battery: '',
+            weight: '',
+            warranty: '1 Year Official Warranty',
+          },
     reviews: Array.isArray(p.reviews) ? p.reviews : [],
-    images: Array.isArray(p.images) && p.images.length > 0 ? p.images : [],
+    variations: Array.isArray(p.variations) ? p.variations : [],
+    shortSpec: typeof p.shortSpec === 'string' ? p.shortSpec : '',
+    shortDescription:
+      typeof p.shortDescription === 'string' ? p.shortDescription : '',
+    description: typeof p.description === 'string' ? p.description : '',
+    stock:
+      typeof p.stock === 'number' && !isNaN(p.stock)
+        ? p.stock
+        : Number(p.stock) || 0,
+    rating:
+      typeof p.rating === 'number' && !isNaN(p.rating)
+        ? p.rating
+        : 5.0,
+    reviewCount:
+      typeof p.reviewCount === 'number' && !isNaN(p.reviewCount)
+        ? p.reviewCount
+        : Array.isArray(p.reviews) && p.reviews.length > 0
+        ? p.reviews.length
+        : 1,
   };
 }
 

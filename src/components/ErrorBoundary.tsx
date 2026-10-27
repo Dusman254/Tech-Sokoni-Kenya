@@ -35,6 +35,15 @@ export class ErrorBoundary extends Component<Props, State> {
     window.location.reload();
   };
 
+  handleClearAndReload = () => {
+    try {
+      localStorage.removeItem('tech_sokoni_products_catalog');
+      localStorage.removeItem('tech_sokoni_all_products_v2');
+      sessionStorage.clear();
+    } catch {}
+    window.location.href = '/';
+  };
+
   render() {
     if (this.state.hasError) {
       return (
@@ -66,6 +75,14 @@ export class ErrorBoundary extends Component<Props, State> {
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>Reload Showroom Canvas</span>
+              </button>
+
+              <button
+                onClick={this.handleClearAndReload}
+                className="w-full py-2.5 border border-[#141413]/25 bg-white text-[#141413] hover:border-[#141413] text-xs font-mono-num uppercase tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-[#C5A028]" />
+                <span>Reset Cache & Restore Showroom</span>
               </button>
 
               <a

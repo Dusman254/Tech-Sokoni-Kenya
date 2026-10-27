@@ -25,18 +25,21 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     openBookViewingModal,
   } = useStore();
 
+  if (!product) return null;
+
   const pricing = getEffectivePricing(product);
   const isWishlisted = wishlist.includes(product.id);
   const isCompared = compareIds.includes(product.id);
+  const prodName = product.name || 'Hardware System';
 
   const isLaptop =
     product.category === 'laptops' ||
     Boolean(
       product.specs?.processor &&
-        (product.name.toLowerCase().includes('laptop') ||
-          product.name.toLowerCase().includes('thinkpad') ||
-          product.name.toLowerCase().includes('macbook') ||
-          product.name.toLowerCase().includes('xps'))
+        (prodName.toLowerCase().includes('laptop') ||
+          prodName.toLowerCase().includes('thinkpad') ||
+          prodName.toLowerCase().includes('macbook') ||
+          prodName.toLowerCase().includes('xps'))
     );
 
   const isOutOfStockNoSample = isLaptop && product.stock <= 0 && !product.allowSampleViewing;

@@ -168,7 +168,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
       const priceB = getEffectivePricing(b).finalPrice;
       if (sortBy === 'price-asc') return priceA - priceB;
       if (sortBy === 'price-desc') return priceB - priceA;
-      if (sortBy === 'rating') return b.rating - a.rating;
+      if (sortBy === 'rating') return (Number(b.rating) || 5) - (Number(a.rating) || 5);
       return Number(b.featured) - Number(a.featured);
     });
   }, [

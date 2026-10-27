@@ -168,7 +168,7 @@ export const SearchOverlay: React.FC = () => {
           getEffectivePricing(b).finalPrice - getEffectivePricing(a).finalPrice
       );
     } else if (sortBy === 'rating') {
-      sorted.sort((a, b) => b.rating - a.rating);
+      sorted.sort((a, b) => (Number(b.rating) || 5) - (Number(a.rating) || 5));
     }
 
     // If no filters are active at all, show top 6 featured systems; otherwise show all matching systems

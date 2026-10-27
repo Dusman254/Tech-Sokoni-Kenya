@@ -82,7 +82,20 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
   const [reviewComment, setReviewComment] = useState('');
   const [reviewRating, setReviewRating] = useState(5);
 
-  if (!product) return null;
+  if (!product) {
+    return (
+      <div className="py-24 max-w-xl mx-auto text-center px-4 space-y-4 font-mono-num">
+        <p className="font-editorial text-3xl text-[#141413]">Hardware System Not Found</p>
+        <p className="text-xs text-[#6E6D68]">The requested inventory item is not available in the current showroom catalog.</p>
+        <button
+          onClick={() => navigate({ page: 'home' })}
+          className="mt-2 px-6 py-2.5 bg-[#141413] text-[#F4F3EF] text-xs uppercase tracking-wider cursor-pointer"
+        >
+          Return to Showroom
+        </button>
+      </div>
+    );
+  }
 
   const pricing = getEffectivePricing(product);
   const isWishlisted = wishlist.includes(product.id);
@@ -90,7 +103,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
 
   // Calculate total price delta from selected variations
   const variationPriceDelta = useMemo(() => {
-    if (!product.variations) return 0;
+    if (!product?.variations) return 0;
     let delta = 0;
     for (const group of product.variations) {
       const chosenLabel = selectedVariations[group.name];
@@ -266,9 +279,9 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
                 className="flex items-center gap-1 text-[#141413] hover:underline cursor-pointer"
               >
                 <Star className="w-3.5 h-3.5 fill-[#141413]" />
-                <span>{product.rating.toFixed(1)}</span>
+                <span>{(Number(product.rating) || 5.0).toFixed(1)}</span>
                 <span className="text-[#6E6D68]">
-                  ({product.reviewCount} reviews)
+                  ({Number(product.reviewCount) || product.reviews?.length || 1} reviews)
                 </span>
               </button>
             </div>
@@ -697,7 +710,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
                             · {rev.role}
                           </span>
                           <span>
-                            {'★'.repeat(rev.rating)} · {rev.date}
+                            {'★'.repeat(Math.max(1, Math.min(5, Math.round(Number(rev.rating) || 5))))} · {rev.date}
                           </span>
                         </div>
                         <h4 className="text-sm font-semibold text-[#141413]">
