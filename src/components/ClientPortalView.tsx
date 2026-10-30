@@ -23,10 +23,16 @@ import {
   Truck,
   User,
   XCircle,
+  Copy,
+  Check,
+  ExternalLink,
+  AlertTriangle,
+  FileText,
+  Sparkles,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useStore } from '../context/StoreContext';
-import { Order, OrderStatus } from '../types/store';
+import { Order, OrderStatus, WarrantyRegistration, CategoryId } from '../types/store';
 import { PdfReceiptService } from '../services/pdfReceiptService';
 import { StudioImage } from './StudioImage';
 import { TrackShipmentView } from './TrackShipmentView';
@@ -207,6 +213,7 @@ const RealTimeTrackingIndicator: React.FC<{ order: Order }> = ({ order }) => {
 
 export const ClientPortalView: React.FC = () => {
   const {
+    products,
     currentClient,
     orders,
     settings,
@@ -225,6 +232,12 @@ export const ClientPortalView: React.FC = () => {
     clearPasswordResetCode,
     addToCart,
     navigate,
+    warrantyRegistrations,
+    registerWarranty,
+    getWarrantyBySerial,
+    showToast,
+    categories,
+    openBookViewingModal,
   } = useStore();
 
   const [authMode, setAuthMode] = useState<
@@ -275,10 +288,23 @@ export const ClientPortalView: React.FC = () => {
     }
   }, [passwordResetCode]);
 
-  // Portal view tabs: 'history' (Order History), 'orders' (Detailed Receipts), 'track' (Shipment Tracker), 'profile' (Delivery Profile)
+  // Portal view tabs: 'history' | 'orders' | 'profile' | 'track' | 'warranty'
   const [activeTab, setActiveTab] = useState<
-    'orders' | 'history' | 'profile' | 'track'
+    'orders' | 'history' | 'profile' | 'track' | 'warranty'
   >(route.page === 'client-portal' && route.tab ? route.tab : 'history');
+
+  // Dedicated Warranty Registration & Serial Tracking State
+  const [regSerial, setRegSerial] = useState('');
+  const [regModel, setRegModel] = useState('');
+  const [regCategory, setRegCategory] = useState<CategoryId>('laptops');
+  const [regPurchaseDate, setRegPurchaseDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [regOrderNumber, setRegOrderNumber] = useState('');
+  const [regNotes, setRegNotes] = useState('');
+  const [isSubmittingWarranty, setIsSubmittingWarranty] = useState(false);
+  const [warrantyFilterStatus, setWarrantyFilterStatus] = useState<'all' | 'active' | 'expiring-soon' | 'expired'>('all');
+  const [lookupQuery, setLookupQuery] = useState('');
+  const [lookupResult, setLookupResult] = useState<WarrantyRegistration | null | 'not_found'>(null);
+  const [copiedSerial, setCopiedSerial] = useState<string | null>(null);
 
   // Inline M-Pesa confirmation input per order
   const [mpesaDrafts, setMpesaDrafts] = useState<Record<string, string>>({});
@@ -520,6 +546,82 @@ export const ClientPortalView: React.FC = () => {
       deliveredCount: deliveredOrders.length,
     };
   }, [displayedOrders]);
+
+  // Client's registered warranties
+  const clientWarranties = useMemo(() => {
+    if (!currentClient) return warrantyRegistrations;
+    const clientEmail = (currentClient.email || '').toLowerCase().trim();
+    const clientPhone = (currentClient.phone || '').trim();
+    const userW = warrantyRegistrations.filter((w) => {
+      const emailMatch = clientEmail && w.clientEmail.toLowerCase().trim() === clientEmail;
+      const phoneMatch = clientPhone && w.clientPhone && (w.clientPhone.includes(clientPhone) || clientPhone.includes(w.clientPhone));
+      return emailMatch || phoneMatch;
+    });
+    return userW.length > 0 ? userW : warrantyRegistrations;
+  }, [warrantyRegistrations, currentClient]);
+
+  const filteredWarranties = useMemo(() => {
+    return clientWarranties.filter((w) => {
+      if (warrantyFilterStatus === 'all') return true;
+      return w.status === warrantyFilterStatus;
+    });
+  }, [clientWarranties, warrantyFilterStatus]);
+
+  const handleRegisterWarrantySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!regSerial.trim()) {
+      showToast('Please enter the hardware serial number.');
+      return;
+    }
+    if (!regModel.trim()) {
+      showToast('Please enter the hardware model name.');
+      return;
+    }
+    setIsSubmittingWarranty(true);
+    try {
+      const res = await registerWarranty({
+        serialNumber: regSerial.trim().toUpperCase(),
+        modelName: regModel.trim(),
+        category: regCategory,
+        purchaseDate: regPurchaseDate,
+        orderNumber: regOrderNumber.trim() || undefined,
+        clientName: currentClient?.name || 'Showroom Client',
+        clientEmail: currentClient?.email || 'customer@techsokoni.com',
+        clientPhone: currentClient?.phone || '0792620789',
+        notes: regNotes.trim() || undefined,
+      });
+      if (res.ok) {
+        setRegSerial('');
+        setRegModel('');
+        setRegOrderNumber('');
+        setRegNotes('');
+        showToast('Serial registered! Official 6-Month warranty is active.');
+      } else {
+        showToast(res.error || 'Failed to register serial.');
+      }
+    } finally {
+      setIsSubmittingWarranty(false);
+    }
+  };
+
+  const handleLookupSerial = (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = lookupQuery.trim().toUpperCase();
+    if (!clean) return;
+    const found = getWarrantyBySerial(clean);
+    if (found) {
+      setLookupResult(found);
+    } else {
+      setLookupResult('not_found');
+    }
+  };
+
+  const handleCopySerial = (serial: string) => {
+    navigator.clipboard?.writeText(serial);
+    setCopiedSerial(serial);
+    showToast(`Serial copied: ${serial}`);
+    setTimeout(() => setCopiedSerial(null), 2500);
+  };
 
   const handleSendMpesaForOrder = (orderId: string) => {
     const raw = (mpesaDrafts[orderId] || '').trim();
@@ -1149,6 +1251,18 @@ export const ClientPortalView: React.FC = () => {
           >
             <Package className="w-3.5 h-3.5" />
             <span>Detailed Receipts ({displayedOrders.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('warranty')}
+            className={`px-4 py-2.5 text-xs font-mono-num uppercase tracking-widest flex items-center gap-2 cursor-pointer transition-colors ${
+              activeTab === 'warranty'
+                ? 'bg-[#141413] text-[#F4F3EF]'
+                : 'bg-[#EAE9E4] text-[#5E5D59] hover:text-[#141413]'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-[#1F6F43]" />
+            <span>Warranty &amp; Serials ({clientWarranties.length})</span>
           </button>
 
           <button
@@ -1825,6 +1939,482 @@ export const ClientPortalView: React.FC = () => {
                 route.page === 'client-portal' ? route.initialOrderId : undefined
               }
             />
+          </div>
+        )}
+
+        {/* =====================================================================
+            VIEW 5: DEDICATED WARRANTY TRACKING & SERIAL REGISTRATION
+           ===================================================================== */}
+        {activeTab === 'warranty' && (
+          <div className="py-8 space-y-10">
+            {/* Header Banner */}
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-6 border-b border-[#141413]/10">
+              <div>
+                <p className="text-[11px] font-mono-num uppercase tracking-[0.22em] text-[#1F6F43] font-semibold flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-[#1F6F43]" />
+                  <span>OFFICIAL HARDWARE PROTECTION · 6-MONTH WARRANTY</span>
+                </p>
+                <h2 className="font-editorial text-3xl sm:text-4xl text-[#141413] mt-1">
+                  Warranty Tracking &amp; Serial Registration
+                </h2>
+                <p className="text-xs text-[#6E6D68] max-w-2xl mt-2 leading-relaxed">
+                  Every machine from Tech Sokoni is backed by an official <strong>6-Month Local &amp; Manufacturer Warranty</strong>.
+                  Register your unit's serial number below to activate instant warranty status tracking, claim priority repair or replacement at our Kenyatta Avenue showroom, and download your verifiable proof of authentic provenance.
+                </p>
+              </div>
+
+              {/* KPI Strip */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono-num shrink-0">
+                <div className="bg-[#EAE9E4] p-3 border border-[#141413]/10">
+                  <span className="text-[10px] text-[#6E6D68] uppercase block">Registered Units</span>
+                  <span className="text-xl font-semibold text-[#141413]">{clientWarranties.length}</span>
+                </div>
+                <div className="bg-[#EAE9E4] p-3 border border-[#141413]/10">
+                  <span className="text-[10px] text-[#6E6D68] uppercase block">Active Coverage</span>
+                  <span className="text-xl font-semibold text-[#1F6F43]">
+                    {clientWarranties.filter((w) => w.status === 'active' || w.status === 'expiring-soon').length}
+                  </span>
+                </div>
+                <div className="bg-[#EAE9E4] p-3 border border-[#141413]/10">
+                  <span className="text-[10px] text-[#6E6D68] uppercase block">Duration</span>
+                  <span className="text-xl font-semibold text-[#141413]">6 Months</span>
+                </div>
+                <div className="bg-[#EAE9E4] p-3 border border-[#141413]/10">
+                  <span className="text-[10px] text-[#6E6D68] uppercase block">Service Center</span>
+                  <span className="text-xs font-semibold text-[#141413] truncate block mt-1">Pioneer 514</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Top Grid: Registration Form + Live Serial Lookup */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              {/* LEFT (7 cols): Serial Registration Form */}
+              <div className="lg:col-span-7 bg-[#F4F3EF] border border-[#141413]/15 p-6 sm:p-8 space-y-6">
+                <div>
+                  <h3 className="font-editorial text-2xl text-[#141413]">
+                    Register Hardware Serial Number
+                  </h3>
+                  <p className="text-xs text-[#6E6D68] mt-1 leading-relaxed">
+                    Locate the serial number on your product chassis, laser-engraved bottom plate, or invoice receipt.
+                  </p>
+                </div>
+
+                {/* Auto-fill Helper from Recent Orders */}
+                {displayedOrders.length > 0 && (
+                  <div className="bg-[#EAE9E4] p-3 border border-[#141413]/10 space-y-2">
+                    <span className="text-[10px] font-mono-num uppercase tracking-wider text-[#141413] font-semibold block">
+                      Quick Auto-Fill From Your Order History:
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {displayedOrders.slice(0, 4).map((ord) => {
+                        const firstItem = ord.items[0];
+                        return (
+                          <button
+                            key={ord.id}
+                            type="button"
+                            onClick={() => {
+                              if (firstItem) {
+                                setRegModel(firstItem.productName);
+                              }
+                              setRegOrderNumber(ord.orderNumber || ord.id);
+                              setRegPurchaseDate(ord.createdAt?.split('T')[0] || new Date().toISOString().split('T')[0]);
+                              showToast(`Loaded details from order #${ord.orderNumber || ord.id}`);
+                            }}
+                            className="px-2.5 py-1 text-[11px] font-mono-num bg-[#F4F3EF] border border-[#141413]/20 hover:border-[#141413] text-[#141413] cursor-pointer"
+                          >
+                            #{ord.orderNumber || ord.id} ({firstItem ? firstItem.productName.slice(0, 24) + '...' : 'System'})
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <form onSubmit={handleRegisterWarrantySubmit} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-mono-num uppercase tracking-wider text-[#141413] font-semibold mb-1">
+                        Hardware Serial Number *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. C02GK9XXMD6R"
+                        value={regSerial}
+                        onChange={(e) => setRegSerial(e.target.value.toUpperCase())}
+                        className="w-full bg-[#EAE9E4]/60 border border-[#141413]/25 px-3 py-2 text-xs font-mono uppercase text-[#141413] focus:border-[#141413] outline-none"
+                      />
+                      <span className="text-[10px] font-mono text-[#8E8D87] block mt-1">
+                        Apple:  Menu → About This Mac · Windows: 'wmic bios get serialnumber'
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-mono-num uppercase tracking-wider text-[#141413] font-semibold mb-1">
+                        Hardware Category
+                      </label>
+                      <select
+                        value={regCategory}
+                        onChange={(e) => setRegCategory(e.target.value as CategoryId)}
+                        className="w-full bg-[#EAE9E4]/60 border border-[#141413]/25 px-3 py-2 text-xs text-[#141413] focus:border-[#141413] outline-none cursor-pointer"
+                      >
+                        <option value="laptops">Laptops &amp; Notebooks</option>
+                        <option value="phones">Smartphones &amp; iPhones</option>
+                        <option value="desktops">Desktops &amp; Workstations</option>
+                        <option value="monitors">Monitors &amp; Displays</option>
+                        <option value="printers">Printers &amp; Scanners</option>
+                        <option value="tablets">Tablets &amp; iPads</option>
+                        <option value="accessories">Studio Audio &amp; Power</option>
+                        <option value="storage">NVMe &amp; External Storage</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-mono-num uppercase tracking-wider text-[#141413] font-semibold mb-1">
+                      Product Name &amp; Model Specifications *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Apple MacBook Pro 16&quot; (M3 Pro, 18GB, 512GB)"
+                      value={regModel}
+                      onChange={(e) => setRegModel(e.target.value)}
+                      className="w-full bg-[#EAE9E4]/60 border border-[#141413]/25 px-3 py-2 text-xs text-[#141413] focus:border-[#141413] outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-mono-num uppercase tracking-wider text-[#141413] font-semibold mb-1">
+                        Purchase Date (Start of 6-Mo Warranty) *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={regPurchaseDate}
+                        onChange={(e) => setRegPurchaseDate(e.target.value)}
+                        className="w-full bg-[#EAE9E4]/60 border border-[#141413]/25 px-3 py-2 text-xs font-mono text-[#141413] focus:border-[#141413] outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-mono-num uppercase tracking-wider text-[#141413] font-semibold mb-1">
+                        Order / Receipt Reference (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. TS-ORD-1002 or Till 9309020 ref"
+                        value={regOrderNumber}
+                        onChange={(e) => setRegOrderNumber(e.target.value)}
+                        className="w-full bg-[#EAE9E4]/60 border border-[#141413]/25 px-3 py-2 text-xs text-[#141413] focus:border-[#141413] outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-mono-num uppercase tracking-wider text-[#141413] font-semibold mb-1">
+                      Chassis Color / Distinct Notes (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Space Black, includes original 140W MagSafe charger"
+                      value={regNotes}
+                      onChange={(e) => setRegNotes(e.target.value)}
+                      className="w-full bg-[#EAE9E4]/60 border border-[#141413]/25 px-3 py-2 text-xs text-[#141413] focus:border-[#141413] outline-none"
+                    />
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={isSubmittingWarranty}
+                      className="w-full sm:w-auto px-6 py-3 bg-[#141413] text-[#F4F3EF] hover:bg-[#2B2B28] text-xs font-mono-num uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <ShieldCheck className="w-4 h-4 text-[#1F6F43]" />
+                      <span>{isSubmittingWarranty ? 'Activating Coverage...' : 'Register Serial & Activate 6-Month Warranty'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* RIGHT (5 cols): Live Serial Coverage Checker */}
+              <div className="lg:col-span-5 space-y-6">
+                <div className="bg-[#EAE9E4] border border-[#141413]/15 p-6 space-y-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-[#141413]">
+                    <Search className="w-4 h-4 text-[#141413]" />
+                    <span>Instant Serial Coverage Lookup</span>
+                  </div>
+                  <p className="text-xs text-[#6E6D68] leading-relaxed">
+                    Check the current official 6-Month warranty lifespan, factory status, and Nairobi CBD showroom service eligibility for any Tech Sokoni machine.
+                  </p>
+
+                  <form onSubmit={handleLookupSerial} className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Enter Serial (e.g. C02GK9XXMD6R)"
+                      value={lookupQuery}
+                      onChange={(e) => {
+                        setLookupQuery(e.target.value.toUpperCase());
+                        setLookupResult(null);
+                      }}
+                      className="flex-1 bg-[#F4F3EF] border border-[#141413]/25 px-3 py-2 text-xs font-mono uppercase text-[#141413] focus:border-[#141413] outline-none"
+                    />
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-wider hover:bg-[#2B2B28] cursor-pointer"
+                    >
+                      Verify
+                    </button>
+                  </form>
+
+                  {/* Lookup Result Box */}
+                  {lookupResult === 'not_found' && (
+                    <div className="bg-[#F4F3EF] border border-[#D94E34]/30 p-4 space-y-1 text-xs">
+                      <div className="flex items-center gap-2 text-[#D94E34] font-semibold">
+                        <AlertTriangle className="w-4 h-4" />
+                        <span>Serial Not Yet Registered</span>
+                      </div>
+                      <p className="text-[#6E6D68]">
+                        Serial <strong>{lookupQuery}</strong> has not yet been registered in our warranty registry. You can register it using the form on the left to activate your 6-Month coverage.
+                      </p>
+                    </div>
+                  )}
+
+                  {lookupResult && lookupResult !== 'not_found' && (
+                    <div className="bg-[#F4F3EF] border border-[#1F6F43]/40 p-4 space-y-3 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="px-2 py-0.5 bg-[#1F6F43]/15 text-[#1F6F43] font-mono-num font-semibold uppercase text-[10px] tracking-wider">
+                          ✓ Verified Authentic Tech Sokoni Hardware
+                        </span>
+                        <span className="font-mono text-[11px] font-semibold text-[#141413]">
+                          {lookupResult.serialNumber}
+                        </span>
+                      </div>
+
+                      <div>
+                        <h4 className="font-semibold text-sm text-[#141413]">
+                          {lookupResult.modelName}
+                        </h4>
+                        <p className="text-[#6E6D68] text-[11px] mt-0.5">
+                          {lookupResult.coverageSummary}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-[11px] font-mono-num pt-2 border-t border-[#141413]/10">
+                        <div>
+                          <span className="text-[#8E8D87] block text-[9px] uppercase">Registered Date</span>
+                          <span className="text-[#141413] font-medium">{lookupResult.purchaseDate}</span>
+                        </div>
+                        <div>
+                          <span className="text-[#8E8D87] block text-[9px] uppercase">6-Mo Expiry Date</span>
+                          <span className="text-[#141413] font-medium">{lookupResult.warrantyExpiryDate}</span>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 flex items-center justify-between">
+                        <span className="text-[10px] text-[#1F6F43] font-mono-num font-medium">
+                          Status: Active 6-Month Protection
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const matchedProd = products.find((p) =>
+                              lookupResult.modelName.toLowerCase().includes(p.name.toLowerCase()) ||
+                              p.name.toLowerCase().includes(lookupResult.modelName.toLowerCase())
+                            ) || products[0];
+                            openBookViewingModal(matchedProd);
+                            showToast('Opening Diagnostic Appointment Booking...');
+                          }}
+                          className="text-[11px] font-mono-num text-[#141413] underline hover:text-[#1F6F43] cursor-pointer"
+                        >
+                          Book Diagnostic →
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Showroom Service Guarantee Box */}
+                <div className="border border-[#141413]/15 p-6 bg-[#F4F3EF] space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-[#141413] font-mono-num uppercase tracking-wider">
+                    <CheckCircle2 className="w-4 h-4 text-[#1F6F43]" />
+                    <span>6-Month Showroom Service Guarantee</span>
+                  </div>
+                  <ul className="text-xs text-[#5E5D59] space-y-2 list-disc list-inside leading-relaxed">
+                    <li>100% Genuine factory-verified logic boards, batteries &amp; panels.</li>
+                    <li>Walk-in repairs &amp; priority replacement at Kenyatta Pioneer Building, Shop 514, Nairobi CBD.</li>
+                    <li>Free annual thermal repasting, dust purge, and battery diagnostic audits.</li>
+                    <li>Instant repair status updates via WhatsApp hotline: +254 792 620 789.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom: Registered Hardware Portfolio Cards */}
+            <div className="space-y-4 pt-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-editorial text-2xl text-[#141413]">
+                    Your Registered Hardware Systems ({clientWarranties.length})
+                  </h3>
+                  <p className="text-xs text-[#6E6D68]">
+                    Active 6-Month warranty certificates registered to your client profile.
+                  </p>
+                </div>
+
+                {/* Filter Pills */}
+                <div className="flex items-center gap-1.5 bg-[#EAE9E4] p-1 border border-[#141413]/10 self-start">
+                  {(['all', 'active', 'expiring-soon', 'expired'] as const).map((st) => (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() => setWarrantyFilterStatus(st)}
+                      className={`px-3 py-1 text-[10px] font-mono-num uppercase tracking-wider transition-colors cursor-pointer ${
+                        warrantyFilterStatus === st
+                          ? 'bg-[#141413] text-[#F4F3EF]'
+                          : 'text-[#6E6D68] hover:text-[#141413]'
+                      }`}
+                    >
+                      {st.replace('-', ' ')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {filteredWarranties.length === 0 ? (
+                <div className="bg-[#EAE9E4]/40 border border-[#141413]/10 p-12 text-center space-y-2">
+                  <ShieldCheck className="w-8 h-8 text-[#8E8D87] mx-auto stroke-[1.25]" />
+                  <p className="text-sm font-semibold text-[#141413]">No Hardware Registered Yet</p>
+                  <p className="text-xs text-[#6E6D68] max-w-md mx-auto">
+                    Use the registration form above to enter the serial number of your laptop, phone, or desktop to activate official 6-Month warranty tracking.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {filteredWarranties.map((w) => {
+                    const expiryDate = new Date(w.warrantyExpiryDate);
+                    const now = new Date();
+                    const diffTime = expiryDate.getTime() - now.getTime();
+                    const remainingDays = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+                    const isExp = remainingDays === 0;
+
+                    return (
+                      <div
+                        key={w.id}
+                        className="bg-[#F4F3EF] border border-[#141413]/15 p-5 space-y-4 relative hover:border-[#141413]/40 transition-colors"
+                      >
+                        {/* Top Row: Serial & Status */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-sm font-bold text-[#141413] tracking-wide">
+                                {w.serialNumber}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleCopySerial(w.serialNumber)}
+                                title="Copy Serial"
+                                className="text-[#6E6D68] hover:text-[#141413] p-0.5 cursor-pointer"
+                              >
+                                {copiedSerial === w.serialNumber ? (
+                                  <Check className="w-3.5 h-3.5 text-[#1F6F43]" />
+                                ) : (
+                                  <Copy className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                            </div>
+                            <span className="text-[10px] font-mono-num uppercase tracking-wider text-[#8E8D87] block mt-0.5">
+                              ID: {w.id} {w.orderNumber ? `· Order #${w.orderNumber}` : ''}
+                            </span>
+                          </div>
+
+                          <span
+                            className={`px-2.5 py-1 text-[10px] font-mono-num uppercase tracking-wider font-semibold ${
+                              isExp
+                                ? 'bg-[#141413]/10 text-[#8E8D87]'
+                                : remainingDays < 30
+                                ? 'bg-[#D94E34]/15 text-[#D94E34]'
+                                : 'bg-[#1F6F43]/15 text-[#1F6F43]'
+                            }`}
+                          >
+                            {isExp ? 'Expired' : `${remainingDays} Days Left`}
+                          </span>
+                        </div>
+
+                        {/* Middle: Hardware Title & Specs */}
+                        <div>
+                          <h4 className="font-editorial text-lg text-[#141413] leading-snug">
+                            {w.modelName}
+                          </h4>
+                          <p className="text-xs text-[#5E5D59] mt-1 leading-relaxed">
+                            {w.coverageSummary}
+                          </p>
+                          {w.notes && (
+                            <p className="text-[11px] text-[#8E8D87] mt-1 italic">
+                              "{w.notes}"
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Lifespan Visual Meter (6-Months) */}
+                        <div className="space-y-1.5 pt-1">
+                          <div className="flex items-center justify-between text-[10px] font-mono-num text-[#6E6D68]">
+                            <span>Purchased: {w.purchaseDate}</span>
+                            <span>Expires (6 Mo): {w.warrantyExpiryDate}</span>
+                          </div>
+                          <div className="h-1.5 w-full bg-[#EAE9E4] overflow-hidden rounded-full">
+                            <div
+                              className={`h-full transition-all duration-500 ${
+                                isExp
+                                  ? 'bg-[#8E8D87]'
+                                  : remainingDays < 30
+                                  ? 'bg-[#D94E34]'
+                                  : 'bg-[#1F6F43]'
+                              }`}
+                              style={{
+                                width: `${Math.min(
+                                  100,
+                                  Math.max(
+                                    5,
+                                    Math.round((remainingDays / 180) * 100)
+                                  )
+                                )}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Footer Card Actions */}
+                        <div className="pt-2 border-t border-[#141413]/10 flex flex-wrap items-center justify-between gap-3 text-xs font-mono-num">
+                          <div className="flex items-center gap-1.5 text-[#1F6F43]">
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                            <span className="text-[11px]">Official Tech Sokoni Kenya Certificate</span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const matchedProd = products.find((p) =>
+                                  w.modelName.toLowerCase().includes(p.name.toLowerCase()) ||
+                                  p.name.toLowerCase().includes(w.modelName.toLowerCase())
+                                ) || products[0];
+                                openBookViewingModal(matchedProd);
+                                showToast(`Booking diagnostic for serial ${w.serialNumber}...`);
+                              }}
+                              className="px-2.5 py-1 bg-[#141413] text-[#F4F3EF] hover:bg-[#2B2B28] text-[10px] font-mono-num uppercase tracking-wider cursor-pointer"
+                            >
+                              Book Diagnostic
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

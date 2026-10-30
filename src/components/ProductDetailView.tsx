@@ -89,6 +89,22 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
     setSelectedVariations(defaults);
   }, [product?.id]);
 
+  // Handle Fullscreen Zoom Keyboard Shortcuts (Escape to exit, +/- to zoom, 0 to reset)
+  useEffect(() => {
+    if (!isFullscreenZoomOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsFullscreenZoomOpen(false);
+      if (e.key === '+' || e.key === '=') setLightboxZoom((z) => Math.min(4, Number((z + 0.5).toFixed(1))));
+      if (e.key === '-' || e.key === '_') setLightboxZoom((z) => Math.max(1, Number((z - 0.5).toFixed(1))));
+      if (e.key === '0') {
+        setLightboxZoom(1.5);
+        setPanOffset({ x: 0, y: 0 });
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreenZoomOpen]);
+
   // Review submission state
   const [reviewAuthor, setReviewAuthor] = useState('');
   const [reviewRole, setReviewRole] = useState('');
@@ -234,21 +250,80 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
       {/* Main Editorial PDP Split Layout */}
       <div className="max-w-[1440px] mx-auto px-4 sm:px-8 pt-8 sm:pt-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-start">
-          {/* LEFT: Large Product Gallery */}
+          {/* LEFT: Large Product Gallery with High-Resolution Build & Spec Zoom */}
           <div className="lg:col-span-7 lg:sticky lg:top-24 space-y-4">
-            <div className="aspect-square sm:aspect-[4/3] w-full showroom-canvas border border-[#141413]/10 p-8 sm:p-14 flex items-center justify-center relative">
-              <StudioImage
-                src={product.images[selectedImageIdx] || product.images[0]}
-                alt={product.name}
-                priority
-                containerClassName="w-full h-full flex items-center justify-center"
-                className="w-full h-full object-contain drop-shadow-[0_24px_32px_rgba(20,20,19,0.14)]"
-              />
+            <div
+              onMouseEnter={() => setIsHoverZooming(true)}
+              onMouseLeave={() => setIsHoverZooming(false)}
+              onMouseMove={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+                const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+                setZoomCoords({ x, y });
+              }}
+              onClick={() => {
+                setLightboxZoom(2);
+                setPanOffset({ x: 0, y: 0 });
+                setIsFullscreenZoomOpen(true);
+              }}
+              className="aspect-square sm:aspect-[4/3] w-full showroom-canvas border border-[#141413]/10 p-8 sm:p-14 flex items-center justify-center relative overflow-hidden group cursor-crosshair select-none"
+              title="Click or hover to inspect hardware build quality up close"
+            >
+              {/* Product Image with smooth hover magnifying transformation */}
+              <div
+                className="w-full h-full flex items-center justify-center transition-transform duration-150 ease-out pointer-events-none"
+                style={{
+                  transform: isHoverZooming ? 'scale(2.4)' : 'scale(1)',
+                  transformOrigin: `${zoomCoords.x}% ${zoomCoords.y}%`,
+                }}
+              >
+                <StudioImage
+                  src={product.images[selectedImageIdx] || product.images[0]}
+                  alt={product.name}
+                  priority
+                  containerClassName="w-full h-full flex items-center justify-center"
+                  className="w-full h-full object-contain drop-shadow-[0_24px_32px_rgba(20,20,19,0.14)]"
+                />
+              </div>
+
+              {/* Discount Badge */}
               {pricing.hasDiscount && (
-                <div className="absolute top-5 left-5 text-xs font-mono-num uppercase tracking-[0.2em] text-[#D94E34]">
+                <div className="absolute top-5 left-5 text-xs font-mono-num uppercase tracking-[0.2em] text-[#D94E34] pointer-events-none">
                   {pricing.badgeLabel}
                 </div>
               )}
+
+              {/* Top-Right: High-Resolution Zoom Action Button */}
+              <div className="absolute top-4 right-4 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxZoom(2);
+                    setPanOffset({ x: 0, y: 0 });
+                    setIsFullscreenZoomOpen(true);
+                  }}
+                  className="px-3 py-1.5 bg-[#141413]/85 hover:bg-[#141413] text-[#F4F3EF] text-[10px] font-mono-num uppercase tracking-wider flex items-center gap-1.5 shadow-md transition-all backdrop-blur-sm cursor-pointer"
+                >
+                  <Maximize2 className="w-3 h-3" />
+                  <span className="hidden sm:inline">Inspect Build (Zoom)</span>
+                </button>
+              </div>
+
+              {/* Bottom Interactive HUD: Zoom Lens & Build Inspection Indicator */}
+              <div
+                className={`absolute bottom-3 left-3 right-3 flex items-center justify-between text-[10px] font-mono-num pointer-events-none transition-opacity duration-200 ${
+                  isHoverZooming ? 'opacity-100' : 'opacity-0 sm:group-hover:opacity-100'
+                }`}
+              >
+                <div className="bg-[#141413]/90 text-[#F4F3EF] px-2.5 py-1 tracking-wider uppercase flex items-center gap-1.5 shadow-sm">
+                  <ZoomIn className="w-3 h-3 text-[#1F6F43]" />
+                  <span>2.4x Spec &amp; Seam Lens · Move cursor to inspect</span>
+                </div>
+                <div className="bg-[#F4F3EF]/90 border border-[#141413]/10 text-[#141413] px-2 py-1 tracking-widest uppercase hidden sm:block">
+                  Click for Fullscreen Lab
+                </div>
+              </div>
             </div>
 
             {/* Thumbnail Strip if multiple images */}
@@ -258,7 +333,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
                   <button
                     key={idx}
                     onClick={() => setSelectedImageIdx(idx)}
-                    className={`w-20 h-20 bg-[#EAE9E4] p-2 border transition-colors cursor-pointer shrink-0 ${
+                    className={`w-20 h-20 bg-[#EAE9E4] p-2 border transition-colors cursor-pointer shrink-0 relative ${
                       selectedImageIdx === idx
                         ? 'border-[#141413]'
                         : 'border-transparent opacity-60 hover:opacity-100'
@@ -270,6 +345,9 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
                       containerClassName="w-full h-full"
                       className="w-full h-full object-contain"
                     />
+                    <span className="absolute bottom-1 right-1 text-[8px] font-mono-num text-[#6E6D68] bg-[#F4F3EF]/80 px-1">
+                      0{idx + 1}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -610,8 +688,14 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
                 <ShieldCheck className="w-4 h-4 text-[#1F6F43] shrink-0 mt-0.5" />
                 <p className="text-[11px] text-[#6E6D68]">
                   <strong className="text-[#141413]">Warranty:</strong>{' '}
-                  {product.specs?.warranty || '1 Year Official Warranty'} (100% genuine factory-verified
-                  hardware)
+                  {product.specs?.warranty || '6 Months Official Warranty'} (100% genuine factory-verified
+                  hardware) ·{' '}
+                  <button
+                    onClick={() => navigate({ page: 'client-portal', tab: 'warranty' })}
+                    className="underline text-[#141413] hover:text-[#1F6F43] cursor-pointer"
+                  >
+                    Register Serial
+                  </button>
                 </p>
               </div>
             </div>
@@ -697,16 +781,37 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
             )}
 
             {activeTab === 'warranty' && (
-              <div className="space-y-4 text-sm text-[#5E5D59] leading-relaxed">
-                <p className="text-[#141413] font-semibold">
-                  {product.specs?.warranty || '1 Year Official Warranty'}
-                </p>
-                <p>
-                  Every hardware system sold by Tech Sokoni is 100% genuine,
-                  factory-verified, and backed by our 1-Year Local &amp;
-                  Manufacturer Warranty with direct service support at Kenyatta
-                  Pioneer Building, 5th Floor, Shop 514, Nairobi CBD.
-                </p>
+              <div className="space-y-6 text-sm text-[#5E5D59] leading-relaxed">
+                <div>
+                  <h4 className="text-base text-[#141413] font-semibold mb-1">
+                    {product.specs?.warranty || '6 Months Official Tech Sokoni Warranty'}
+                  </h4>
+                  <p>
+                    Every hardware system sold by Tech Sokoni is 100% genuine,
+                    factory-verified, and backed by our official 6-Month Local &amp;
+                    Manufacturer Warranty with direct walk-in diagnostic and replacement
+                    support at Kenyatta Pioneer Building, 5th Floor, Shop 514, Nairobi CBD.
+                  </p>
+                </div>
+
+                <div className="bg-[#EAE9E4] border border-[#141413]/12 p-5 space-y-3">
+                  <div className="flex items-center gap-2 text-[#141413] font-semibold text-sm">
+                    <ShieldCheck className="w-5 h-5 text-[#1F6F43]" />
+                    <span>Official Serial &amp; Hardware Provenance Tracking</span>
+                  </div>
+                  <p className="text-xs text-[#5E5D59] leading-relaxed">
+                    Have you acquired this machine or received your package? Register your unit's
+                    unique hardware serial number inside the Client Portal to activate warranty tracking,
+                    access free diagnostic appointments, and generate an official verifiable certificate.
+                  </p>
+                  <button
+                    onClick={() => navigate({ page: 'client-portal', tab: 'warranty' })}
+                    className="px-4 py-2 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-wider hover:bg-[#2B2B28] cursor-pointer inline-flex items-center gap-2"
+                  >
+                    <span>Register Product Serial in Portal</span>
+                    <ArrowLeft className="w-3.5 h-3.5 rotate-180" />
+                  </button>
+                </div>
               </div>
             )}
 
@@ -848,6 +953,232 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
           Add to Cart
         </button>
       </div>
+
+      {/* =====================================================================
+          HIGH-RESOLUTION SPEC & BUILD QUALITY INSPECTION LIGHTBOX MODAL
+         ===================================================================== */}
+      {isFullscreenZoomOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-[#141413]/95 backdrop-blur-md flex flex-col select-none text-[#F4F3EF]"
+        >
+          {/* Top Control Bar */}
+          <div className="h-16 px-4 sm:px-8 border-b border-[#F4F3EF]/10 flex items-center justify-between shrink-0 bg-[#141413]/60">
+            {/* Left: Product Info */}
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="hidden sm:inline-block px-2 py-0.5 bg-[#F4F3EF]/10 text-[10px] font-mono-num uppercase tracking-widest text-[#1F6F43]">
+                {product.condition} · 6-Mo Warranty
+              </span>
+              <div className="truncate">
+                <h3 className="font-editorial text-base sm:text-lg text-[#F4F3EF] truncate leading-tight">
+                  {product.name}
+                </h3>
+                <p className="text-[10px] font-mono-num text-[#8E8D87] truncate">
+                  High-Resolution Build &amp; Spec Inspection · Image {selectedImageIdx + 1} of{' '}
+                  {product.images.length}
+                </p>
+              </div>
+            </div>
+
+            {/* Center: Interactive Zoom Controls */}
+            <div className="flex items-center gap-1.5 sm:gap-2 bg-[#2B2B28]/80 border border-[#F4F3EF]/15 p-1 rounded-sm">
+              <button
+                type="button"
+                onClick={() => setLightboxZoom((z) => Math.max(1, Number((z - 0.5).toFixed(1))))}
+                disabled={lightboxZoom <= 1}
+                title="Zoom Out (-)"
+                className="w-8 h-8 flex items-center justify-center hover:bg-[#F4F3EF]/10 disabled:opacity-30 disabled:pointer-events-none cursor-pointer text-xs font-mono-num"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
+
+              <span className="w-14 text-center text-xs font-mono-num font-semibold text-[#F4F3EF]">
+                {Math.round(lightboxZoom * 100)}%
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setLightboxZoom((z) => Math.min(4, Number((z + 0.5).toFixed(1))))}
+                disabled={lightboxZoom >= 4}
+                title="Zoom In (+)"
+                className="w-8 h-8 flex items-center justify-center hover:bg-[#F4F3EF]/10 disabled:opacity-30 disabled:pointer-events-none cursor-pointer text-xs font-mono-num"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
+
+              <div className="h-4 w-px bg-[#F4F3EF]/20 mx-1 hidden sm:block" />
+
+              <button
+                type="button"
+                onClick={() => {
+                  setLightboxZoom(1);
+                  setPanOffset({ x: 0, y: 0 });
+                }}
+                className={`px-2 py-1 text-[10px] font-mono-num hidden sm:block cursor-pointer ${
+                  lightboxZoom === 1 ? 'bg-[#F4F3EF] text-[#141413]' : 'hover:bg-[#F4F3EF]/10'
+                }`}
+              >
+                1x
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLightboxZoom(2);
+                  setPanOffset({ x: 0, y: 0 });
+                }}
+                className={`px-2 py-1 text-[10px] font-mono-num hidden sm:block cursor-pointer ${
+                  lightboxZoom === 2 ? 'bg-[#F4F3EF] text-[#141413]' : 'hover:bg-[#F4F3EF]/10'
+                }`}
+              >
+                2x
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLightboxZoom(3.5);
+                  setPanOffset({ x: 0, y: 0 });
+                }}
+                className={`px-2 py-1 text-[10px] font-mono-num hidden sm:block cursor-pointer ${
+                  lightboxZoom === 3.5 ? 'bg-[#F4F3EF] text-[#141413]' : 'hover:bg-[#F4F3EF]/10'
+                }`}
+              >
+                3.5x
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setLightboxZoom(1.5);
+                  setPanOffset({ x: 0, y: 0 });
+                }}
+                title="Reset View (0)"
+                className="w-8 h-8 flex items-center justify-center hover:bg-[#F4F3EF]/10 cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-[#8E8D87]" />
+              </button>
+            </div>
+
+            {/* Right: Close Button */}
+            <button
+              type="button"
+              onClick={() => setIsFullscreenZoomOpen(false)}
+              className="px-3 py-1.5 bg-[#F4F3EF]/10 hover:bg-[#F4F3EF]/20 text-[#F4F3EF] text-xs font-mono-num uppercase tracking-wider flex items-center gap-1.5 cursor-pointer ml-2"
+            >
+              <X className="w-4 h-4" />
+              <span className="hidden sm:inline">Close (Esc)</span>
+            </button>
+          </div>
+
+          {/* Interactive Inspection Canvas (Draggable / Pannable when zoomed) */}
+          <div
+            className="flex-1 relative overflow-hidden flex items-center justify-center cursor-grab active:cursor-grabbing p-4 sm:p-10"
+            onMouseDown={(e) => {
+              if (lightboxZoom > 1) {
+                setIsDragging(true);
+                setDragStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+              }
+            }}
+            onMouseMove={(e) => {
+              if (isDragging && lightboxZoom > 1) {
+                setPanOffset({
+                  x: e.clientX - dragStart.x,
+                  y: e.clientY - dragStart.y,
+                });
+              }
+            }}
+            onMouseUp={() => setIsDragging(false)}
+            onMouseLeave={() => setIsDragging(false)}
+            onDoubleClick={() => {
+              if (lightboxZoom > 1.2) {
+                setLightboxZoom(1);
+                setPanOffset({ x: 0, y: 0 });
+              } else {
+                setLightboxZoom(2.5);
+              }
+            }}
+          >
+            <div
+              className="w-full h-full max-w-5xl max-h-[75vh] flex items-center justify-center transition-transform duration-75 ease-out select-none"
+              style={{
+                transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${lightboxZoom})`,
+                transformOrigin: 'center center',
+              }}
+            >
+              <StudioImage
+                src={product.images[selectedImageIdx] || product.images[0]}
+                alt={`${product.name} High Resolution Close-up`}
+                priority
+                containerClassName="w-full h-full flex items-center justify-center"
+                className="w-full h-full object-contain filter contrast-[1.03]"
+              />
+            </div>
+
+            {/* Floating Navigation & Drag Hint */}
+            <div className="absolute top-4 left-4 pointer-events-none hidden md:flex items-center gap-2 bg-[#141413]/70 px-3 py-1.5 text-[11px] font-mono-num text-[#8E8D87] border border-[#F4F3EF]/10 backdrop-blur-sm">
+              <span className="text-[#1F6F43]">●</span>
+              <span>
+                {lightboxZoom > 1
+                  ? 'Click & drag to pan around chassis, ports & seams · Double-click to zoom out'
+                  : 'Double-click or use zoom buttons to inspect port edges, key travel & serial engraving'}
+              </span>
+            </div>
+          </div>
+
+          {/* Bottom Bar: Multi-Angle Switcher & Hardware Specs */}
+          <div className="px-4 sm:px-8 py-3 border-t border-[#F4F3EF]/10 bg-[#141413]/80 shrink-0 flex flex-col sm:flex-row items-center justify-between gap-3">
+            {/* Thumbnail Switcher */}
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar max-w-full">
+              <span className="text-[10px] font-mono-num text-[#8E8D87] uppercase tracking-wider mr-2 hidden sm:inline">
+                Inspect Angle:
+              </span>
+              {product.images.map((img, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    setSelectedImageIdx(idx);
+                    setPanOffset({ x: 0, y: 0 });
+                  }}
+                  className={`w-14 h-12 bg-[#2B2B28] p-1 border transition-all cursor-pointer relative shrink-0 ${
+                    selectedImageIdx === idx
+                      ? 'border-[#1F6F43] ring-1 ring-[#1F6F43]'
+                      : 'border-[#F4F3EF]/15 opacity-60 hover:opacity-100'
+                  }`}
+                >
+                  <StudioImage
+                    src={img}
+                    alt={`Angle ${idx + 1}`}
+                    containerClassName="w-full h-full"
+                    className="w-full h-full object-contain"
+                  />
+                  <span className="absolute bottom-0.5 right-0.5 text-[7px] font-mono-num bg-[#141413]/90 px-1 text-[#F4F3EF]">
+                    0{idx + 1}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* Quick Specs Highlight */}
+            <div className="flex items-center gap-4 text-xs font-mono-num text-[#8E8D87]">
+              {product.specs?.processor && (
+                <span className="truncate max-w-[220px]">
+                  CPU: <strong className="text-[#F4F3EF]">{product.specs.processor}</strong>
+                </span>
+              )}
+              {product.specs?.screenSize && (
+                <span className="hidden md:inline">
+                  Display: <strong className="text-[#F4F3EF]">{product.specs.screenSize}</strong>
+                </span>
+              )}
+              <span className="text-[#1F6F43] flex items-center gap-1 font-semibold">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>6 Months Verified Warranty</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

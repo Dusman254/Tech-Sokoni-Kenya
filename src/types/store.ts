@@ -226,7 +226,7 @@ export type ActiveRoute =
   | { page: 'admin' }
   | {
       page: 'client-portal';
-      tab?: 'orders' | 'history' | 'profile' | 'track';
+      tab?: 'orders' | 'history' | 'profile' | 'track' | 'warranty';
       initialOrderId?: string;
     }
   | { page: 'track-shipment'; orderId?: string }

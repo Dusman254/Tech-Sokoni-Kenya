@@ -252,7 +252,7 @@ interface StoreContextValue {
   bookingConfig: BookingConfig;
   isBookViewingModalOpen: boolean;
   bookViewingTargetProduct: Product | null;
-  openBookViewingModal: (product: Product) => void;
+  openBookViewingModal: (product?: Product) => void;
   closeBookViewingModal: () => void;
   createViewingAppointment: (
     data: Omit<
@@ -600,14 +600,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   const [bookViewingTargetProduct, setBookViewingTargetProduct] =
     useState<Product | null>(null);
 
-  const openBookViewingModal = (product: Product) => {
-    setBookViewingTargetProduct(product);
-    navigate({ page: 'book-viewing', productId: product.id });
-    analyticsService.track('booking_form_started', {
-      productId: product.id,
-      productName: product.name,
-      productPrice: product.price,
-    });
+  const openBookViewingModal = (product?: Product) => {
+    const target = product || allProducts.find((p) => !p.deletedAt) || null;
+    setBookViewingTargetProduct(target);
+    if (target) {
+      navigate({ page: 'book-viewing', productId: target.id });
+      analyticsService.track('booking_form_started', {
+        productId: target.id,
+        productName: target.name,
+        productPrice: target.price,
+      });
+    } else {
+      navigate({ page: 'book-viewing' });
+    }
   };
 
   const closeBookViewingModal = () => {
