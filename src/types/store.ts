@@ -205,6 +205,29 @@ export interface SiteSettings {
   supportPhone: string;
   supportEmail: string;
   showroomAddress: string;
+  adminNotificationEmail?: string;
+  notifyOnNewOrder?: boolean;
+  notifyOnNewBooking?: boolean;
+  notifyOnWarrantyReg?: boolean;
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpUser?: string;
+  smtpPass?: string;
+  smtpSecure?: boolean;
+}
+
+export interface EmailNotificationLog {
+  id: string;
+  type: 'order' | 'booking' | 'warranty' | 'test';
+  recipient: string;
+  subject: string;
+  summary: string;
+  htmlContent: string;
+  textContent: string;
+  status: 'sent' | 'simulated' | 'failed';
+  error?: string;
+  referenceId?: string;
+  createdAt: string;
 }
 
 export interface CategoryFilterState {

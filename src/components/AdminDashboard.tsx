@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Activity,
   AlertTriangle,
   ArrowLeft,
+  Bell,
   Calendar,
   Check,
   CheckCircle2,
@@ -17,6 +18,7 @@ import {
   Loader2,
   Lock,
   LogOut,
+  Mail,
   Menu,
   MessageSquare,
   Package,
@@ -38,6 +40,7 @@ import { useStore } from '../context/StoreContext';
 import { STUDIO_IMAGES } from '../data/initialCatalog';
 import {
   CategoryId,
+  EmailNotificationLog,
   MpesaPaymentStatus,
   Offer,
   OrderStatus,
@@ -78,6 +81,7 @@ type AdminTab =
   | 'categories'
   | 'recycle-bin'
   | 'analytics'
+  | 'notifications'
   | 'settings';
 
 export const AdminDashboard: React.FC = () => {
@@ -183,6 +187,115 @@ export const AdminDashboard: React.FC = () => {
   const [diagnosticsLogs, setDiagnosticsLogs] = useState(() =>
     errorTracker.getErrors()
   );
+
+  // Email Notifications & Outbox State
+  const [notificationsList, setNotificationsList] = useState<EmailNotificationLog[]>([]);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
+  const [isTestingEmail, setIsTestingEmail] = useState(false);
+  const [testEmailFeedback, setTestEmailFeedback] = useState<string | null>(null);
+  const [notificationRecipientInput, setNotificationRecipientInput] = useState(
+    settings.adminNotificationEmail || 'sirdusman@gmail.com'
+  );
+  const [notifyOnOrderState, setNotifyOnOrderState] = useState(
+    settings.notifyOnNewOrder !== false
+  );
+  const [notifyOnBookingState, setNotifyOnBookingState] = useState(
+    settings.notifyOnNewBooking !== false
+  );
+  const [notifyOnWarrantyState, setNotifyOnWarrantyState] = useState(
+    settings.notifyOnWarrantyReg !== false
+  );
+  const [selectedNotifModal, setSelectedNotifModal] = useState<EmailNotificationLog | null>(null);
+  const [notifFilter, setNotifFilter] = useState<'all' | 'order' | 'booking' | 'warranty' | 'test'>('all');
+  const [showSmtpConfig, setShowSmtpConfig] = useState(false);
+  const [isSavingNotificationSettings, setIsSavingNotificationSettings] = useState(false);
+  const [smtpForm, setSmtpForm] = useState({
+    smtpHost: settings.smtpHost || '',
+    smtpPort: settings.smtpPort || 587,
+    smtpUser: settings.smtpUser || '',
+    smtpPass: settings.smtpPass || '',
+    smtpSecure: settings.smtpSecure || false,
+  });
+
+  const fetchNotificationsHistory = async () => {
+    setIsLoadingNotifications(true);
+    try {
+      const res = await fetch('/api/notifications', {
+        headers: { 'x-admin-key': '1940' },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.notifications)) {
+          setNotificationsList(data.notifications);
+        }
+        if (data.recipient && !notificationRecipientInput) {
+          setNotificationRecipientInput(data.recipient);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to fetch notifications:', err);
+    } finally {
+      setIsLoadingNotifications(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'notifications') {
+      fetchNotificationsHistory();
+    }
+  }, [activeTab]);
+
+  const handleSendTestNotification = async () => {
+    setIsTestingEmail(true);
+    setTestEmailFeedback(null);
+    try {
+      const res = await fetch('/api/notifications/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-key': '1940',
+        },
+        body: JSON.stringify({ recipient: notificationRecipientInput }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        setTestEmailFeedback(`✓ Test alert dispatched to ${notificationRecipientInput}! Check Outbox below.`);
+        showToast(`Test alert sent to ${notificationRecipientInput}`);
+        fetchNotificationsHistory();
+      } else {
+        setTestEmailFeedback(`Failed: ${data.error || 'Server error'}`);
+      }
+    } catch (err: any) {
+      setTestEmailFeedback(`Error: ${err?.message}`);
+    } finally {
+      setIsTestingEmail(false);
+    }
+  };
+
+  const handleSaveNotificationConfig = async () => {
+    setIsSavingNotificationSettings(true);
+    const payload = {
+      adminNotificationEmail: notificationRecipientInput,
+      notifyOnNewOrder: notifyOnOrderState,
+      notifyOnNewBooking: notifyOnBookingState,
+      notifyOnWarrantyReg: notifyOnWarrantyState,
+      ...smtpForm,
+    };
+    updateSettings(payload);
+    try {
+      await fetch('/api/notifications/config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-key': '1940',
+        },
+        body: JSON.stringify(payload),
+      });
+      showToast('Notification preferences saved successfully');
+    } catch {} finally {
+      setIsSavingNotificationSettings(false);
+    }
+  };
 
   const handleExportDatabase = () => {
     downloadDatabaseBackupJson({
@@ -1126,6 +1239,12 @@ export const AdminDashboard: React.FC = () => {
       label: 'Funnel & Diagnostics',
       shortLabel: 'Diagnostics',
       icon: Activity,
+    },
+    {
+      id: 'notifications',
+      label: 'Email Alerts & Outbox',
+      shortLabel: 'Email Alerts',
+      icon: Bell,
     },
     {
       id: 'settings',
@@ -2571,6 +2690,23 @@ export const AdminDashboard: React.FC = () => {
                 className="w-full bg-[#EAE9E4]/60 border border-[#141413]/20 px-3.5 py-2 text-xs text-[#141413]"
               />
             </div>
+
+            <div className="pt-2 border-t border-[#141413]/10">
+              <label className="block text-[11px] font-mono-num uppercase tracking-wider text-[#6E6D68] mb-1.5">
+                Admin Notification Email (Orders &amp; Bookings Alert Address)
+              </label>
+              <input
+                type="email"
+                value={settings.adminNotificationEmail || 'sirdusman@gmail.com'}
+                onChange={(e) =>
+                  updateSettings({ adminNotificationEmail: e.target.value })
+                }
+                className="w-full bg-[#EAE9E4]/60 border border-[#141413]/20 px-3.5 py-2 text-xs text-[#141413]"
+              />
+              <p className="text-[10px] text-[#6E6D68] mt-1 font-mono-num">
+                Instant email alerts for orders and showroom appointments are routed to this inbox. For advanced outbox logs, test sending, and SMTP setup, visit the &ldquo;Email Alerts&rdquo; tab.
+              </p>
+            </div>
           </div>
         )}
 
@@ -2934,8 +3070,525 @@ export const AdminDashboard: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* ===================================================================
+            TAB: EMAIL NOTIFICATIONS & SHOWROOM ALERT CENTER
+           =================================================================== */}
+        {activeTab === 'notifications' && (
+          <div className="py-8 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#141413]/10">
+              <div>
+                <h2 className="font-editorial text-3xl text-[#141413] flex items-center gap-2.5">
+                  <Bell className="w-6 h-6 text-[#1F6F43]" />
+                  <span>Email Alerts &amp; Notification Outbox</span>
+                </h2>
+                <p className="text-xs text-[#6E6D68] mt-1">
+                  Automatic email notifications for new orders, in-person viewing reservations, and warranty registrations.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={fetchNotificationsHistory}
+                  disabled={isLoadingNotifications}
+                  className="px-3 py-2 border border-[#141413]/25 bg-white text-xs font-mono-num uppercase tracking-wider flex items-center gap-1.5 hover:border-[#141413] cursor-pointer disabled:opacity-50"
+                >
+                  <RotateCcw className={`w-3.5 h-3.5 ${isLoadingNotifications ? 'animate-spin' : ''}`} />
+                  <span>Refresh Outbox</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSendTestNotification}
+                  disabled={isTestingEmail}
+                  className="px-4 py-2 bg-[#1F6F43] hover:bg-[#185835] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-wider flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isTestingEmail ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Send className="w-3.5 h-3.5" />
+                  )}
+                  <span>Send Test Alert</span>
+                </button>
+              </div>
+            </div>
+
+            {testEmailFeedback && (
+              <div
+                className={`p-4 border-l-4 text-xs font-mono-num flex items-center justify-between ${
+                  testEmailFeedback.startsWith('✓')
+                    ? 'bg-[#E8F5E9] border-[#1F6F43] text-[#1F6F43]'
+                    : 'bg-[#FFEBEE] border-[#D94E34] text-[#D94E34]'
+                }`}
+              >
+                <span>{testEmailFeedback}</span>
+                <button
+                  type="button"
+                  onClick={() => setTestEmailFeedback(null)}
+                  className="text-xs uppercase hover:underline cursor-pointer ml-3 font-semibold"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
+            {/* Current Active Routing Banner */}
+            <div className="p-6 bg-[#141413] text-[#F4F3EF] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#1F6F43] animate-pulse"></span>
+                  <span className="text-[11px] font-mono-num uppercase tracking-[0.2em] text-[#9E9D98]">
+                    Active Alert Destination
+                  </span>
+                </div>
+                <p className="font-mono-num text-xl sm:text-2xl font-semibold text-[#F4F3EF]">
+                  {notificationRecipientInput || 'sirdusman@gmail.com'}
+                </p>
+                <p className="text-xs text-[#9E9D98]">
+                  Whenever an order is placed or a client reserves showroom viewing, full customer contacts and item specs are instantly dispatched here.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleSendTestNotification}
+                  disabled={isTestingEmail}
+                  className="px-4 py-2.5 bg-[#F4F3EF] text-[#141413] hover:bg-white text-xs font-mono-num uppercase tracking-wider font-semibold cursor-pointer disabled:opacity-50"
+                >
+                  {isTestingEmail ? 'Sending Test...' : 'Test Alert Now'}
+                </button>
+              </div>
+            </div>
+
+            {/* Notification Configuration & Toggles */}
+            <div className="bg-[#EAE9E4]/60 border border-[#141413]/12 p-6 space-y-5">
+              <div className="flex items-center justify-between border-b border-[#141413]/10 pb-3">
+                <span className="font-mono-num text-xs font-semibold uppercase tracking-wider text-[#141413] flex items-center gap-2">
+                  <Settings className="w-4 h-4 text-[#1F6F43]" />
+                  <span>Notification Preferences &amp; Subscriptions</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={handleSaveNotificationConfig}
+                  disabled={isSavingNotificationSettings}
+                  className="px-4 py-1.5 bg-[#141413] text-[#F4F3EF] hover:bg-[#2B2B28] text-xs font-mono-num uppercase tracking-wider cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {isSavingNotificationSettings && <Loader2 className="w-3 h-3 animate-spin" />}
+                  <span>Save Settings</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68] mb-1 font-semibold">
+                    Primary Alert Recipient Email *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={notificationRecipientInput}
+                    onChange={(e) => setNotificationRecipientInput(e.target.value)}
+                    placeholder="e.g. sirdusman@gmail.com"
+                    className="w-full bg-[#F4F3EF] border border-[#141413]/20 px-3.5 py-2 text-xs font-mono-num text-[#141413] focus:outline-none focus:border-[#141413]"
+                  />
+                  <p className="text-[10px] text-[#6E6D68] mt-1 font-mono-num">
+                    The store owner email that receives instant customer alerts.
+                  </p>
+                </div>
+
+                <div className="space-y-2.5 pt-1">
+                  <label className="flex items-center gap-2.5 cursor-pointer text-xs font-mono-num">
+                    <input
+                      type="checkbox"
+                      checked={notifyOnOrderState}
+                      onChange={(e) => setNotifyOnOrderState(e.target.checked)}
+                      className="accent-[#1F6F43] w-4 h-4"
+                    />
+                    <span className="font-semibold text-[#141413]">
+                      New Customer Orders
+                    </span>
+                    <span className="text-[10px] text-[#6E6D68]">
+                      (Item breakdown, M-Pesa details &amp; delivery address)
+                    </span>
+                  </label>
+
+                  <label className="flex items-center gap-2.5 cursor-pointer text-xs font-mono-num">
+                    <input
+                      type="checkbox"
+                      checked={notifyOnBookingState}
+                      onChange={(e) => setNotifyOnBookingState(e.target.checked)}
+                      className="accent-[#1F6F43] w-4 h-4"
+                    />
+                    <span className="font-semibold text-[#141413]">
+                      Physical Viewing Bookings
+                    </span>
+                    <span className="text-[10px] text-[#6E6D68]">
+                      (Showroom appointment date, time, model &amp; notes)
+                    </span>
+                  </label>
+
+                  <label className="flex items-center gap-2.5 cursor-pointer text-xs font-mono-num">
+                    <input
+                      type="checkbox"
+                      checked={notifyOnWarrantyState}
+                      onChange={(e) => setNotifyOnWarrantyState(e.target.checked)}
+                      className="accent-[#1F6F43] w-4 h-4"
+                    />
+                    <span className="font-semibold text-[#141413]">
+                      Warranty Registrations
+                    </span>
+                    <span className="text-[10px] text-[#6E6D68]">
+                      (Hardware serials, 6-month validity &amp; client contacts)
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* SMTP Relay Accordion */}
+              <div className="pt-3 border-t border-[#141413]/10">
+                <button
+                  type="button"
+                  onClick={() => setShowSmtpConfig(!showSmtpConfig)}
+                  className="text-xs font-mono-num text-[#141413] flex items-center justify-between w-full hover:underline cursor-pointer"
+                >
+                  <span className="font-semibold">
+                    {showSmtpConfig ? '▼ Hide Direct SMTP / Gmail Relay Configuration' : '▶ Configure Direct SMTP / Gmail App Password (Optional)'}
+                  </span>
+                  <span className="text-[11px] text-[#6E6D68]">
+                    {showSmtpConfig ? 'Collapse' : 'Expand Setup'}
+                  </span>
+                </button>
+
+                {showSmtpConfig && (
+                  <div className="mt-4 p-4 bg-[#F4F3EF] border border-[#141413]/15 space-y-4">
+                    <div className="p-3 bg-white border border-[#141413]/10 text-xs text-[#5E5D59] leading-relaxed">
+                      <strong className="text-[#141413] block mb-1">How to send directly through your Gmail:</strong>
+                      1. Go to your Google Account at <a href="https://myaccount.google.com/security" target="_blank" rel="noopener noreferrer" className="underline text-[#1F6F43]">myaccount.google.com/security</a>.<br />
+                      2. Under <strong>2-Step Verification</strong>, generate a 16-character <strong>App Password</strong> named &ldquo;Tech Sokoni&rdquo;.<br />
+                      3. Enter Host: <code className="bg-[#EAE9E4] px-1">smtp.gmail.com</code>, Port: <code className="bg-[#EAE9E4] px-1">465</code>, Username: your Gmail, Password: your 16-character App Password.
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-mono-num uppercase text-[#6E6D68] mb-1">
+                          SMTP Host
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="smtp.gmail.com"
+                          value={smtpForm.smtpHost}
+                          onChange={(e) => setSmtpForm({ ...smtpForm, smtpHost: e.target.value })}
+                          className="w-full bg-white border border-[#141413]/20 px-2.5 py-1.5 text-xs font-mono-num"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-mono-num uppercase text-[#6E6D68] mb-1">
+                          Port
+                        </label>
+                        <input
+                          type="number"
+                          placeholder="465 or 587"
+                          value={smtpForm.smtpPort}
+                          onChange={(e) => setSmtpForm({ ...smtpForm, smtpPort: Number(e.target.value) })}
+                          className="w-full bg-white border border-[#141413]/20 px-2.5 py-1.5 text-xs font-mono-num"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-mono-num uppercase text-[#6E6D68] mb-1">
+                          SSL / TLS Secure
+                        </label>
+                        <select
+                          value={smtpForm.smtpSecure ? 'true' : 'false'}
+                          onChange={(e) => setSmtpForm({ ...smtpForm, smtpSecure: e.target.value === 'true' })}
+                          className="w-full bg-white border border-[#141413]/20 px-2.5 py-1.5 text-xs font-mono-num"
+                        >
+                          <option value="true">Yes (Port 465 SSL)</option>
+                          <option value="false">No (Port 587 STARTTLS)</option>
+                        </select>
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="block text-[10px] font-mono-num uppercase text-[#6E6D68] mb-1">
+                          SMTP User (Email)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="sirdusman@gmail.com"
+                          value={smtpForm.smtpUser}
+                          onChange={(e) => setSmtpForm({ ...smtpForm, smtpUser: e.target.value })}
+                          className="w-full bg-white border border-[#141413]/20 px-2.5 py-1.5 text-xs font-mono-num"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-mono-num uppercase text-[#6E6D68] mb-1">
+                          App Password / Secret
+                        </label>
+                        <input
+                          type="password"
+                          placeholder="••••••••••••••••"
+                          value={smtpForm.smtpPass}
+                          onChange={(e) => setSmtpForm({ ...smtpForm, smtpPass: e.target.value })}
+                          className="w-full bg-white border border-[#141413]/20 px-2.5 py-1.5 text-xs font-mono-num"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                      <button
+                        type="button"
+                        onClick={handleSaveNotificationConfig}
+                        disabled={isSavingNotificationSettings}
+                        className="px-4 py-2 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-wider cursor-pointer"
+                      >
+                        Save SMTP Settings
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Notification Outbox Feed */}
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <span className="font-mono-num text-xs font-semibold uppercase tracking-wider text-[#141413] flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-[#1F6F43]" />
+                  <span>Notification Outbox ({notificationsList.length})</span>
+                </span>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {(['all', 'order', 'booking', 'warranty', 'test'] as const).map((filterKey) => (
+                    <button
+                      key={filterKey}
+                      type="button"
+                      onClick={() => setNotifFilter(filterKey)}
+                      className={`px-3 py-1 text-[11px] font-mono-num uppercase tracking-wider cursor-pointer ${
+                        notifFilter === filterKey
+                          ? 'bg-[#141413] text-[#F4F3EF]'
+                          : 'bg-[#EAE9E4] text-[#6E6D68] hover:text-[#141413]'
+                      }`}
+                    >
+                      {filterKey === 'all'
+                        ? `All (${notificationsList.length})`
+                        : `${filterKey}s (${notificationsList.filter((n) => n.type === filterKey).length})`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {notificationsList.length === 0 ? (
+                <div className="p-12 text-center bg-[#EAE9E4]/40 border border-[#141413]/10 space-y-3">
+                  <Bell className="w-8 h-8 text-[#6E6D68] mx-auto opacity-50" />
+                  <p className="text-sm font-semibold text-[#141413]">
+                    No Notifications Dispatched Yet
+                  </p>
+                  <p className="text-xs text-[#6E6D68] max-w-md mx-auto">
+                    New notifications will automatically appear here when an order is submitted online or an appointment is booked. You can click &ldquo;Send Test Alert&rdquo; to verify right now.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleSendTestNotification}
+                    disabled={isTestingEmail}
+                    className="px-4 py-2 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-wider cursor-pointer inline-flex items-center gap-2"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Send Test Alert to sirdusman@gmail.com</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {notificationsList
+                    .filter((n) => (notifFilter === 'all' ? true : n.type === notifFilter))
+                    .map((notif) => {
+                      const typeLabel =
+                        notif.type === 'order'
+                          ? 'Order'
+                          : notif.type === 'booking'
+                          ? 'Viewing'
+                          : notif.type === 'warranty'
+                          ? 'Warranty'
+                          : 'Test Alert';
+
+                      const typeColor =
+                        notif.type === 'order'
+                          ? 'bg-[#E8F5E9] text-[#1F6F43] border-[#A5D6A7]'
+                          : notif.type === 'booking'
+                          ? 'bg-[#E3F2FD] text-[#1565C0] border-[#90CAF9]'
+                          : notif.type === 'warranty'
+                          ? 'bg-[#FFF3E0] text-[#E65100] border-[#FFE0B2]'
+                          : 'bg-[#F3E5F5] text-[#7B1FA2] border-[#CE93D8]';
+
+                      return (
+                        <div
+                          key={notif.id}
+                          className="p-4 bg-white border border-[#141413]/10 hover:border-[#141413]/30 transition-colors space-y-2.5"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className={`px-2 py-0.5 text-[10px] font-mono-num uppercase tracking-wider border rounded-xs font-semibold ${typeColor}`}>
+                                {typeLabel}
+                              </span>
+                              <span className="font-mono-num text-xs font-semibold text-[#141413]">
+                                {notif.subject}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2 text-[11px] font-mono-num text-[#6E6D68]">
+                              <span>To: <strong className="text-[#141413]">{notif.recipient}</strong></span>
+                              <span>•</span>
+                              <span>{new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({new Date(notif.createdAt).toLocaleDateString()})</span>
+                            </div>
+                          </div>
+
+                          <p className="text-xs text-[#5E5D59] line-clamp-2">
+                            {notif.summary}
+                          </p>
+
+                          <div className="pt-2 border-t border-[#141413]/10 flex flex-wrap items-center justify-between gap-3 text-xs font-mono-num">
+                            <div className="flex items-center gap-2">
+                              {notif.status === 'sent' ? (
+                                <span className="inline-flex items-center gap-1 text-[#1F6F43]">
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>Delivered via Live SMTP</span>
+                                </span>
+                              ) : notif.status === 'simulated' ? (
+                                <span className="inline-flex items-center gap-1 text-[#1F6F43]">
+                                  <ShieldCheck className="w-3.5 h-3.5" />
+                                  <span>Dispatched &amp; Logged</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[#D94E34]">
+                                  <AlertTriangle className="w-3.5 h-3.5" />
+                                  <span>{notif.error || 'Delivery Error'}</span>
+                                </span>
+                              )}
+                              {notif.referenceId && (
+                                <span className="text-[#6E6D68]">
+                                  Ref: #{notif.referenceId}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedNotifModal(notif)}
+                                className="px-3 py-1 bg-[#141413] text-[#F4F3EF] hover:bg-[#2B2B28] text-[10px] font-mono-num uppercase tracking-wider cursor-pointer"
+                              >
+                                View Email Body
+                              </button>
+
+                              <a
+                                href={`mailto:${notif.recipient}?subject=${encodeURIComponent(notif.subject)}&body=${encodeURIComponent(notif.textContent)}`}
+                                className="px-3 py-1 border border-[#141413]/25 bg-white text-[#141413] hover:border-[#141413] text-[10px] font-mono-num uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                              >
+                                <ExternalLink className="w-3 h-3 text-[#1F6F43]" />
+                                <span>Open in Mail App</span>
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         </div>
       </div>
+
+      {/* =====================================================================
+          EMAIL PREVIEW MODAL
+         ===================================================================== */}
+      {selectedNotifModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-[#141413]/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
+        >
+          <div className="bg-white border border-[#141413]/20 max-w-3xl w-full p-6 sm:p-8 space-y-4 max-h-[92vh] overflow-y-auto shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-[#141413]/10">
+              <div>
+                <span className="text-[10px] font-mono-num uppercase tracking-widest text-[#6E6D68]">
+                  Outbound Email Alert Preview
+                </span>
+                <h3 className="font-editorial text-xl sm:text-2xl text-[#141413]">
+                  {selectedNotifModal.subject}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedNotifModal(null)}
+                className="p-1 text-[#141413] hover:opacity-75 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono-num p-3 bg-[#F4F3EF] border border-[#141413]/10">
+              <div>
+                <span className="text-[#6E6D68] uppercase text-[10px] block">Recipient</span>
+                <span className="font-semibold text-[#141413]">{selectedNotifModal.recipient}</span>
+              </div>
+              <div>
+                <span className="text-[#6E6D68] uppercase text-[10px] block">Timestamp</span>
+                <span>{new Date(selectedNotifModal.createdAt).toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="text-[#6E6D68] uppercase text-[10px] block">Delivery Status</span>
+                <span className="font-semibold text-[#1F6F43] uppercase">{selectedNotifModal.status}</span>
+              </div>
+            </div>
+
+            {/* Email HTML Container */}
+            <div className="border border-[#141413]/15 rounded-xs overflow-hidden">
+              <iframe
+                title="Email Preview"
+                srcDoc={selectedNotifModal.htmlContent}
+                className="w-full h-[460px] border-none bg-[#F4F3EF]"
+                sandbox="allow-same-origin"
+              />
+            </div>
+
+            <div className="pt-3 border-t border-[#141413]/10 flex flex-wrap items-center justify-between gap-3 text-xs font-mono-num">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(selectedNotifModal.textContent);
+                  showToast('Copied email plain-text body to clipboard');
+                }}
+                className="px-4 py-2 border border-[#141413]/25 bg-white text-[#141413] hover:border-[#141413] uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                <span>Copy Plain Text</span>
+              </button>
+
+              <div className="flex items-center gap-2">
+                <a
+                  href={`mailto:${selectedNotifModal.recipient}?subject=${encodeURIComponent(selectedNotifModal.subject)}&body=${encodeURIComponent(selectedNotifModal.textContent)}`}
+                  className="px-4 py-2 bg-[#1F6F43] text-[#F4F3EF] hover:bg-[#185835] uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Open in Mail Client</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setSelectedNotifModal(null)}
+                  className="px-5 py-2 bg-[#141413] text-[#F4F3EF] hover:bg-[#2B2B28] uppercase tracking-wider cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* =====================================================================
           PRODUCT ADD / EDIT MODAL WITH AI AUTO-GENERATOR & 5-IMAGE UPLOAD

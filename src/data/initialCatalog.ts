@@ -309,4 +309,8 @@ export const INITIAL_SETTINGS: SiteSettings = {
   supportEmail: 'shop@techsokoni.com',
   showroomAddress:
     'Kenyatta Pioneer Building, 5th Floor, Shop 514, Kenyatta Avenue (Next to I&M Building), Nairobi CBD, Kenya',
+  adminNotificationEmail: 'sirdusman@gmail.com',
+  notifyOnNewOrder: true,
+  notifyOnNewBooking: true,
+  notifyOnWarrantyReg: true,
 };

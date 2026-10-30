@@ -26,6 +26,8 @@ import {
   BookingConfig,
   ViewingAppointment,
   ViewingLocation,
+  EmailNotificationLog,
+  WarrantyRegistration,
 } from './src/types/store';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -44,6 +46,8 @@ export interface TechSokoniDatabase {
   viewingAppointments: ViewingAppointment[];
   viewingLocations: ViewingLocation[];
   bookingConfig: BookingConfig;
+  notifications: EmailNotificationLog[];
+  warranties: WarrantyRegistration[];
 }
 
 const DATA_DIR = path.join(__dirname, 'data');
@@ -83,6 +87,8 @@ function getInitialDatabase(): TechSokoniDatabase {
     viewingAppointments: INITIAL_VIEWING_APPOINTMENTS,
     viewingLocations: DEFAULT_VIEWING_LOCATIONS,
     bookingConfig: DEFAULT_BOOKING_CONFIG,
+    notifications: [],
+    warranties: [],
   };
 }
 
@@ -121,6 +127,22 @@ export function initServerDatabase(): TechSokoniDatabase {
             p.images = [];
           }
         });
+        if (!Array.isArray(parsed.notifications)) {
+          parsed.notifications = [];
+        }
+        if (!Array.isArray(parsed.warranties)) {
+          parsed.warranties = [];
+        }
+        if (!parsed.settings) {
+          parsed.settings = INITIAL_SETTINGS;
+        } else {
+          if (!parsed.settings.adminNotificationEmail) {
+            parsed.settings.adminNotificationEmail = 'sirdusman@gmail.com';
+          }
+          if (parsed.settings.notifyOnNewOrder === undefined) parsed.settings.notifyOnNewOrder = true;
+          if (parsed.settings.notifyOnNewBooking === undefined) parsed.settings.notifyOnNewBooking = true;
+          if (parsed.settings.notifyOnWarrantyReg === undefined) parsed.settings.notifyOnWarrantyReg = true;
+        }
         dbMemory = parsed;
         persistDatabaseSync();
         console.log(
@@ -516,3 +538,44 @@ export function deleteViewingLocation(id: string): boolean {
   }
   return false;
 }
+
+export function addNotificationLog(notification: EmailNotificationLog): void {
+  const db = getDatabase();
+  if (!Array.isArray(db.notifications)) {
+    db.notifications = [];
+  }
+  db.notifications.unshift(notification);
+  // Keep the most recent 100 notifications
+  if (db.notifications.length > 100) {
+    db.notifications.pop();
+  }
+  persistDatabaseSync();
+}
+
+export function getNotifications(): EmailNotificationLog[] {
+  const db = getDatabase();
+  return db.notifications || [];
+}
+
+export function addWarrantyRegistration(reg: WarrantyRegistration): WarrantyRegistration {
+  const db = getDatabase();
+  if (!Array.isArray(db.warranties)) {
+    db.warranties = [];
+  }
+  const existingIdx = db.warranties.findIndex(
+    (w) => w.serialNumber.toUpperCase() === reg.serialNumber.toUpperCase()
+  );
+  if (existingIdx >= 0) {
+    db.warranties[existingIdx] = reg;
+  } else {
+    db.warranties.unshift(reg);
+  }
+  persistDatabaseSync();
+  return reg;
+}
+
+export function getWarrantyRegistrations(): WarrantyRegistration[] {
+  const db = getDatabase();
+  return db.warranties || [];
+}
+

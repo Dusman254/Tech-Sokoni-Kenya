@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastUpdated": "2026-10-22T18:38:11.733Z",
+  "lastUpdated": "2026-10-30T15:36:09.545Z",
   "products": [
     {
       "id": "test-cross-browser-phone-prod-1",
@@ -272,6 +272,36 @@
   ],
   "orders": [
     {
+      "customerName": "Wanjiku Kamau",
+      "customerPhone": "0712345678",
+      "customerEmail": "wanjiku@example.com",
+      "shippingAddress": "Delta Corner, Westlands",
+      "city": "Nairobi",
+      "paymentMethod": "M-Pesa Express",
+      "mpesaCode": "SLA89QWE12",
+      "items": [
+        {
+          "productId": "macbook-air-m3",
+          "productName": "Apple MacBook Air 13 (M3, 16GB, 512GB)",
+          "brand": "Apple",
+          "sku": "MBA-13-M3",
+          "quantity": 1,
+          "unitPrice": 165000,
+          "originalPrice": 175000,
+          "image": "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=800&q=80"
+        }
+      ],
+      "subtotal": 165000,
+      "discountTotal": 0,
+      "total": 165000,
+      "id": "ord-1793374569543-ytvn",
+      "orderNumber": "TS-2026-1003",
+      "status": "Processing",
+      "trackingNote": "Order logged with M-Pesa Ref SLA89QWE12. Awaiting dispatch from Kenyatta Pioneer Bldg Shop 514.",
+      "createdAt": "2026-10-30T15:36:09.543Z",
+      "updatedAt": "2026-10-30T15:36:09.543Z"
+    },
+    {
       "customerName": "Alice Otieno",
       "customerPhone": "+254 701 234 567",
       "customerEmail": "alice.otieno@techsokoni.co.ke",
@@ -423,8 +453,32 @@
     }
   ],
   "offers": [],
-  "mpesaTransactions": [],
+  "mpesaTransactions": [
+    {
+      "id": "tx-1793374569543-7cwc",
+      "orderId": "ord-1793374569543-ytvn",
+      "orderNumber": "TS-2026-1003",
+      "customerName": "Wanjiku Kamau",
+      "customerPhone": "0712345678",
+      "customerEmail": "wanjiku@example.com",
+      "amount": 165000,
+      "tillNumber": "9309020",
+      "mpesaCode": "SLA89QWE12",
+      "mpesaMessage": "M-Pesa payment for TS-2026-1003",
+      "status": "Pending Verification",
+      "createdAt": "2026-10-30T15:36:09.543Z"
+    }
+  ],
   "clients": [
+    {
+      "id": "client-1793374569543",
+      "name": "Wanjiku Kamau",
+      "email": "wanjiku@example.com",
+      "phone": "0712345678",
+      "defaultAddress": "Delta Corner, Westlands",
+      "city": "Nairobi",
+      "createdAt": "2026-10-30T15:36:09.543Z"
+    },
     {
       "id": "client-1792510778081",
       "name": "Alice Otieno",
@@ -467,9 +521,59 @@
     "freeShippingThreshold": 0,
     "supportPhone": "+254 792 620 789",
     "supportEmail": "shop@techsokoni.com",
-    "showroomAddress": "Kenyatta Pioneer Building, 5th Floor, Shop 514, Kenyatta Avenue (Next to I&M Building), Nairobi CBD, Kenya"
+    "showroomAddress": "Kenyatta Pioneer Building, 5th Floor, Shop 514, Kenyatta Avenue (Next to I&M Building), Nairobi CBD, Kenya",
+    "adminNotificationEmail": "sirdusman@gmail.com",
+    "notifyOnNewOrder": true,
+    "notifyOnNewBooking": true,
+    "notifyOnWarrantyReg": true
   },
   "viewingAppointments": [
+    {
+      "productId": "macbook-pro-14-m3-pro",
+      "productName": "Apple MacBook Pro 14 (M3 Pro, 18GB, 512GB)",
+      "productBrand": "Apple",
+      "productSku": "MBP-14-M3P",
+      "productImage": "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=800&q=80",
+      "productPrice": 245000,
+      "productCondition": "Brand New Factory Sealed",
+      "productShortSpec": "Apple M3 Pro, 18GB RAM, 512GB SSD",
+      "customerName": "Dismas Sir",
+      "customerPhone": "+254 792 620 789",
+      "customerEmail": "sirdusman@gmail.com",
+      "attendeeCount": 1,
+      "preferredContact": "phone",
+      "customerNotes": "Interested in testing display brightness and keyboard feel in CBD showroom.",
+      "viewingDate": "2026-11-02",
+      "viewingTimeSlot": "11:00 AM",
+      "locationId": "loc-pioneer-cbd",
+      "locationSnapshot": {
+        "id": "loc-pioneer-cbd",
+        "name": "Kenyatta Pioneer Showroom",
+        "building": "Kenyatta Pioneer Building",
+        "floor": "5th Floor",
+        "room": "Shop 514",
+        "address": "Kenyatta Avenue, Nairobi CBD",
+        "mapsUrl": "",
+        "phone": "+254 792 620 789",
+        "whatsapp": "+254 792 620 789",
+        "visitorInstructions": "Take elevator to 5th floor, turn right.",
+        "active": true
+      },
+      "id": "viewing-1793374552630-twhd",
+      "bookingReference": "TSV-2026-3338",
+      "status": "Confirmed",
+      "auditTrail": [
+        {
+          "timestamp": "2026-10-30T15:35:52.630Z",
+          "action": "Booking Created",
+          "newStatus": "Confirmed",
+          "actor": "Dismas Sir",
+          "note": "Physical viewing booked for Apple MacBook Pro 14 (M3 Pro, 18GB, 512GB) on 2026-11-02 at 11:00 AM."
+        }
+      ],
+      "createdAt": "2026-10-30T15:35:52.630Z",
+      "updatedAt": "2026-10-30T15:35:52.630Z"
+    },
     {
       "productId": "prod-thinkpad-x1-carbon-gen11",
       "productName": "Lenovo ThinkPad X1 Carbon Gen 11",
@@ -647,5 +751,43 @@
     "blockedSlots": [],
     "defaultLocationId": "loc-nbi-cbd",
     "requireApproval": false
-  }
+  },
+  "notifications": [
+    {
+      "id": "notif-1793374569545-0euy",
+      "type": "order",
+      "recipient": "sirdusman@gmail.com",
+      "subject": "🛒 [Tech Sokoni] New Order #TS-2026-1003 - KSh 165,000 from Wanjiku Kamau",
+      "summary": "Order #TS-2026-1003 for KSh 165,000 from Wanjiku Kamau (0712345678)",
+      "htmlContent": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>New Order Received #TS-2026-1003</title>\n  <style>\n    body { margin: 0; padding: 0; background-color: #F4F3EF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #141413; }\n    .container { max-width: 620px; margin: 24px auto; background-color: #FFFFFF; border: 1px solid #EAE9E4; border-radius: 4px; overflow: hidden; box-shadow: 0 4px 16px rgba(20,20,19,0.06); }\n    .header { background-color: #141413; padding: 24px 28px; color: #F4F3EF; }\n    .brand { font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase; color: #9E9D98; font-family: monospace; margin-bottom: 6px; }\n    .title { font-size: 20px; font-weight: 700; margin: 0 0 4px 0; color: #F4F3EF; letter-spacing: -0.02em; }\n    .subtitle { font-size: 12px; color: #1F6F43; font-weight: 600; font-family: monospace; text-transform: uppercase; letter-spacing: 0.1em; }\n    .body { padding: 28px; }\n    .badge { display: inline-block; padding: 4px 10px; font-size: 11px; font-family: monospace; font-weight: 600; text-transform: uppercase; border-radius: 2px; }\n    .badge-order { background-color: #E8F5E9; color: #1F6F43; border: 1px solid #A5D6A7; }\n    .badge-booking { background-color: #E3F2FD; color: #1565C0; border: 1px solid #90CAF9; }\n    .badge-warranty { background-color: #FFF3E0; color: #E65100; border: 1px solid #FFE0B2; }\n    .card { background-color: #F8F7F4; border: 1px solid #EAE9E4; padding: 18px; margin-bottom: 20px; }\n    .grid-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }\n    .label { color: #6E6D68; font-size: 12px; font-family: monospace; text-transform: uppercase; }\n    .value { font-weight: 600; color: #141413; }\n    .items-table { width: 100%; border-collapse: collapse; margin-top: 14px; }\n    .items-table th { text-align: left; font-size: 10px; text-transform: uppercase; font-family: monospace; color: #6E6D68; padding: 8px 6px; border-bottom: 2px solid #141413; }\n    .items-table td { padding: 10px 6px; border-bottom: 1px solid #EAE9E4; font-size: 13px; vertical-align: top; }\n    .btn { display: inline-block; padding: 10px 18px; background-color: #141413; color: #F4F3EF !important; text-decoration: none; font-size: 11px; font-family: monospace; text-transform: uppercase; letter-spacing: 0.15em; font-weight: 600; margin-right: 8px; margin-top: 8px; }\n    .btn-secondary { background-color: #1F6F43; }\n    .btn-outline { background-color: #F4F3EF; color: #141413 !important; border: 1px solid #141413; }\n    .footer { background-color: #F4F3EF; padding: 18px 28px; text-align: center; font-size: 11px; color: #6E6D68; font-family: monospace; border-top: 1px solid #EAE9E4; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <div class=\"brand\">Tech Sokoni Kenya — Showroom Dispatch Alert</div>\n      <h1 class=\"title\">New Order Received #TS-2026-1003</h1>\n      <div class=\"subtitle\">Total: KSh 165,000 • Wanjiku Kamau</div>\n    </div>\n    <div class=\"body\">\n      \n    <div style=\"margin-bottom: 20px;\">\n      <span class=\"badge badge-order\">✓ New Customer Order</span>\n      <span style=\"float: right; font-family: monospace; font-size: 12px; color: #6E6D68;\">Order Ref: <strong>TS-2026-1003</strong></span>\n    </div>\n\n    <div class=\"card\">\n      <div style=\"font-size: 11px; font-family: monospace; text-transform: uppercase; color: #6E6D68; margin-bottom: 12px; font-weight: 600;\">Customer &amp; Delivery Details</div>\n      <div class=\"grid-row\"><span class=\"label\">Customer Name:</span><span class=\"value\">Wanjiku Kamau</span></div>\n      <div class=\"grid-row\"><span class=\"label\">Mobile Phone:</span><span class=\"value\"><a href=\"tel:0712345678\" style=\"color:#1F6F43; text-decoration:none;\">0712345678</a></span></div>\n      <div class=\"grid-row\"><span class=\"label\">Email Address:</span><span class=\"value\"><a href=\"mailto:wanjiku@example.com\" style=\"color:#141413;\">wanjiku@example.com</a></span></div>\n      <div class=\"grid-row\"><span class=\"label\">Delivery Address:</span><span class=\"value\">Delta Corner, Westlands</span></div>\n      <div class=\"grid-row\"><span class=\"label\">City / Destination:</span><span class=\"value\">Nairobi</span></div>\n      <div class=\"grid-row\"><span class=\"label\">Payment Method:</span><span class=\"value\">M-Pesa Express</span></div>\n      <div class=\"grid-row\"><span class=\"label\">M-Pesa Reference:</span><span class=\"value\" style=\"color:#1F6F43; font-family:monospace;\">SLA89QWE12</span></div>\n    </div>\n\n    <div style=\"margin-bottom: 20px;\">\n      <div style=\"font-size: 11px; font-family: monospace; text-transform: uppercase; color: #6E6D68; margin-bottom: 8px; font-weight: 600;\">Ordered Equipment (1 item)</div>\n      <table class=\"items-table\">\n        <thead>\n          <tr>\n            <th>Hardware Item</th>\n            <th style=\"text-align: center;\">Qty</th>\n            <th style=\"text-align: right;\">Unit Price</th>\n            <th style=\"text-align: right;\">Line Total</th>\n          </tr>\n        </thead>\n        <tbody>\n          <tr>\n        <td>\n          <strong>Apple MacBook Air 13 (M3, 16GB, 512GB)</strong>\n          \n        </td>\n        <td style=\"text-align: center;\">1</td>\n        <td style=\"text-align: right;\">KSh 165,000</td>\n        <td style=\"text-align: right; font-weight:600;\">KSh 165,000</td>\n      </tr>\n        </tbody>\n      </table>\n    </div>\n\n    <div style=\"border-top: 2px solid #141413; padding-top: 14px; margin-bottom: 24px;\">\n      <div class=\"grid-row\" style=\"font-size: 14px;\"><span class=\"label\">Subtotal:</span><span>KSh 165,000</span></div>\n      <div class=\"grid-row\" style=\"font-size: 14px;\"><span class=\"label\">Nationwide Express Delivery:</span><span style=\"color:#1F6F43; font-weight:600;\">FREE</span></div>\n      <div class=\"grid-row\" style=\"font-size: 18px; font-weight: 700; margin-top: 8px;\"><span style=\"font-family:monospace;\">TOTAL PAYABLE:</span><span style=\"color:#141413;\">KSh 165,000</span></div>\n    </div>\n\n    <div style=\"margin-top: 24px; padding-top: 16px; border-top: 1px dashed #EAE9E4;\">\n      <div style=\"font-size: 11px; font-family: monospace; text-transform: uppercase; color: #6E6D68; margin-bottom: 12px; font-weight: 600;\">Showroom Dispatch Actions</div>\n      <a href=\"tel:0712345678\" class=\"btn\">Call Customer</a>\n      <a href=\"https://wa.me/254712345678?text=Hello%20Wanjiku%20Kamau%2C%20this%20is%20Tech%20Sokoni%20Kenya%20regarding%20your%20order%20%23TS-2026-1003.%20We%20have%20received%20your%20order%20and%20are%20preparing%20it%20for%20dispatch.\" target=\"_blank\" class=\"btn btn-secondary\">WhatsApp Customer</a>\n    </div>\n  \n    </div>\n    <div class=\"footer\">\n      Tech Sokoni Kenya • Kenyatta Pioneer Building, 5th Floor, Shop 514, Nairobi CBD<br>\n      Orders Hotline &amp; WhatsApp: +254 792 620 789 • shop@techsokoni.com\n    </div>\n  </div>\n</body>\n</html>",
+      "textContent": "TECH SOKONI KENYA - NEW ORDER RECEIVED\n====================================================\nOrder Reference: TS-2026-1003\nCustomer: Wanjiku Kamau\nPhone: 0712345678\nEmail: wanjiku@example.com\nAddress: Delta Corner, Westlands, Nairobi\nPayment: M-Pesa Express (M-Pesa Ref: SLA89QWE12)\n\nITEMS:\n- 1x Apple MacBook Air 13 (M3, 16GB, 512GB): KSh 165,000\n\nSubtotal: KSh 165,000\nShipping: FREE\nTOTAL: KSh 165,000\n\nCustomer Hotline / WhatsApp: +254 792 620 789\nShowroom: Kenyatta Pioneer Building Shop 514, Nairobi CBD\n====================================================",
+      "status": "simulated",
+      "referenceId": "TS-2026-1003",
+      "createdAt": "2026-10-30T15:36:09.545Z"
+    },
+    {
+      "id": "notif-1793374552637-v3e6",
+      "type": "booking",
+      "recipient": "sirdusman@gmail.com",
+      "subject": "📅 [Tech Sokoni] New Showroom Viewing #TSV-2026-3338 - Dismas Sir (Apple MacBook Pro 14 (M3 Pro, 18GB, 512GB))",
+      "summary": "Viewing #TSV-2026-3338 for Apple MacBook Pro 14 (M3 Pro, 18GB, 512GB) on 2026-11-02 at 11:00 AM by Dismas Sir (+254 792 620 789)",
+      "htmlContent": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>New Showroom Viewing #TSV-2026-3338</title>\n  <style>\n    body { margin: 0; padding: 0; background-color: #F4F3EF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #141413; }\n    .container { max-width: 620px; margin: 24px auto; background-color: #FFFFFF; border: 1px solid #EAE9E4; border-radius: 4px; overflow: hidden; box-shadow: 0 4px 16px rgba(20,20,19,0.06); }\n    .header { background-color: #141413; padding: 24px 28px; color: #F4F3EF; }\n    .brand { font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase; color: #9E9D98; font-family: monospace; margin-bottom: 6px; }\n    .title { font-size: 20px; font-weight: 700; margin: 0 0 4px 0; color: #F4F3EF; letter-spacing: -0.02em; }\n    .subtitle { font-size: 12px; color: #1F6F43; font-weight: 600; font-family: monospace; text-transform: uppercase; letter-spacing: 0.1em; }\n    .body { padding: 28px; }\n    .badge { display: inline-block; padding: 4px 10px; font-size: 11px; font-family: monospace; font-weight: 600; text-transform: uppercase; border-radius: 2px; }\n    .badge-order { background-color: #E8F5E9; color: #1F6F43; border: 1px solid #A5D6A7; }\n    .badge-booking { background-color: #E3F2FD; color: #1565C0; border: 1px solid #90CAF9; }\n    .badge-warranty { background-color: #FFF3E0; color: #E65100; border: 1px solid #FFE0B2; }\n    .card { background-color: #F8F7F4; border: 1px solid #EAE9E4; padding: 18px; margin-bottom: 20px; }\n    .grid-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }\n    .label { color: #6E6D68; font-size: 12px; font-family: monospace; text-transform: uppercase; }\n    .value { font-weight: 600; color: #141413; }\n    .items-table { width: 100%; border-collapse: collapse; margin-top: 14px; }\n    .items-table th { text-align: left; font-size: 10px; text-transform: uppercase; font-family: monospace; color: #6E6D68; padding: 8px 6px; border-bottom: 2px solid #141413; }\n    .items-table td { padding: 10px 6px; border-bottom: 1px solid #EAE9E4; font-size: 13px; vertical-align: top; }\n    .btn { display: inline-block; padding: 10px 18px; background-color: #141413; color: #F4F3EF !important; text-decoration: none; font-size: 11px; font-family: monospace; text-transform: uppercase; letter-spacing: 0.15em; font-weight: 600; margin-right: 8px; margin-top: 8px; }\n    .btn-secondary { background-color: #1F6F43; }\n    .btn-outline { background-color: #F4F3EF; color: #141413 !important; border: 1px solid #141413; }\n    .footer { background-color: #F4F3EF; padding: 18px 28px; text-align: center; font-size: 11px; color: #6E6D68; font-family: monospace; border-top: 1px solid #EAE9E4; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <div class=\"brand\">Tech Sokoni Kenya — Showroom Dispatch Alert</div>\n      <h1 class=\"title\">New Showroom Viewing #TSV-2026-3338</h1>\n      <div class=\"subtitle\">2026-11-02 at 11:00 AM • Apple MacBook Pro 14 (M3 Pro, 18GB, 512GB)</div>\n    </div>\n    <div class=\"body\">\n      \n    <div style=\"margin-bottom: 20px;\">\n      <span class=\"badge badge-booking\">📅 Showroom Inspection Reserved</span>\n      <span style=\"float: right; font-family: monospace; font-size: 12px; color: #6E6D68;\">Booking Ref: <strong>TSV-2026-3338</strong></span>\n    </div>\n\n    <div class=\"card\">\n      <div style=\"font-size: 11px; font-family: monospace; text-transform: uppercase; color: #6E6D68; margin-bottom: 12px; font-weight: 600;\">Appointment Schedule</div>\n      <div class=\"grid-row\"><span class=\"label\">Inspection Date:</span><span class=\"value\" style=\"color:#1565C0;\">2026-11-02</span></div>\n      <div class=\"grid-row\"><span class=\"label\">Time Slot:</span><span class=\"value\" style=\"color:#1565C0;\">11:00 AM</span></div>\n      <div class=\"grid-row\"><span class=\"label\">Showroom Location:</span><span class=\"value\">Kenyatta Pioneer Showroom</span></div>\n      <div class=\"grid-row\"><span class=\"label\">Hardware for Viewing:</span><span class=\"value\" style=\"font-weight:700;\">Apple MacBook Pro 14 (M3 Pro, 18GB, 512GB)</span></div>\n      <div class=\"grid-row\"><span class=\"label\">Catalog Price:</span><span class=\"value\">KSh 245,000</span></div>\n    </div>\n\n    <div class=\"card\">\n      <div style=\"font-size: 11px; font-family: monospace; text-transform: uppercase; color: #6E6D68; margin-bottom: 12px; font-weight: 600;\">Customer Contact Information</div>\n      <div class=\"grid-row\"><span class=\"label\">Customer Name:</span><span class=\"value\">Dismas Sir</span></div>\n      <div class=\"grid-row\"><span class=\"label\">Mobile Phone:</span><span class=\"value\"><a href=\"tel:+254 792 620 789\" style=\"color:#1F6F43; text-decoration:none;\">+254 792 620 789</a></span></div>\n      <div class=\"grid-row\"><span class=\"label\">Email Address:</span><span class=\"value\"><a href=\"mailto:sirdusman@gmail.com\" style=\"color:#141413;\">sirdusman@gmail.com</a></span></div>\n      <div class=\"grid-row\" style=\"margin-top:10px;\"><span class=\"label\">Customer Notes:</span><span class=\"value\" style=\"font-weight:normal; font-style:italic;\">\"Interested in testing display brightness and keyboard feel in CBD showroom.\"</span></div>\n    </div>\n\n    <div style=\"margin-top: 24px; padding-top: 16px; border-top: 1px dashed #EAE9E4;\">\n      <div style=\"font-size: 11px; font-family: monospace; text-transform: uppercase; color: #6E6D68; margin-bottom: 12px; font-weight: 600;\">Concierge Direct Actions</div>\n      <a href=\"tel:+254 792 620 789\" class=\"btn\">Call Client</a>\n      <a href=\"https://wa.me/254792620789?text=Hello%20Dismas%20Sir%2C%20this%20is%20Tech%20Sokoni%20Showroom%20regarding%20your%20reserved%20viewing%20%23TSV-2026-3338%20for%20the%20Apple%20MacBook%20Pro%2014%20(M3%20Pro%2C%2018GB%2C%20512GB)%20on%202026-11-02%20at%2011%3A00%20AM.\" target=\"_blank\" class=\"btn btn-secondary\">WhatsApp Client</a>\n    </div>\n  \n    </div>\n    <div class=\"footer\">\n      Tech Sokoni Kenya • Kenyatta Pioneer Building, 5th Floor, Shop 514, Nairobi CBD<br>\n      Orders Hotline &amp; WhatsApp: +254 792 620 789 • shop@techsokoni.com\n    </div>\n  </div>\n</body>\n</html>",
+      "textContent": "TECH SOKONI KENYA - SHOWROOM VIEWING RESERVATION\n====================================================\nBooking Reference: TSV-2026-3338\nHardware Model: Apple MacBook Pro 14 (M3 Pro, 18GB, 512GB)\nDate: 2026-11-02\nTime Slot: 11:00 AM\nLocation: Kenyatta Pioneer Building, Shop 514, Nairobi CBD\n\nCUSTOMER:\nName: Dismas Sir\nPhone: +254 792 620 789\nEmail: sirdusman@gmail.com\nNotes: Interested in testing display brightness and keyboard feel in CBD showroom.\n====================================================",
+      "status": "simulated",
+      "referenceId": "TSV-2026-3338",
+      "createdAt": "2026-10-30T15:35:52.637Z"
+    },
+    {
+      "id": "notif-1793374540665-rvtq",
+      "type": "test",
+      "recipient": "sirdusman@gmail.com",
+      "subject": "⚡ [Tech Sokoni] Notification Alert System Verified for sirdusman@gmail.com",
+      "summary": "Test notification successfully dispatched to sirdusman@gmail.com",
+      "htmlContent": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Notification System Active & Connected</title>\n  <style>\n    body { margin: 0; padding: 0; background-color: #F4F3EF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #141413; }\n    .container { max-width: 620px; margin: 24px auto; background-color: #FFFFFF; border: 1px solid #EAE9E4; border-radius: 4px; overflow: hidden; box-shadow: 0 4px 16px rgba(20,20,19,0.06); }\n    .header { background-color: #141413; padding: 24px 28px; color: #F4F3EF; }\n    .brand { font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase; color: #9E9D98; font-family: monospace; margin-bottom: 6px; }\n    .title { font-size: 20px; font-weight: 700; margin: 0 0 4px 0; color: #F4F3EF; letter-spacing: -0.02em; }\n    .subtitle { font-size: 12px; color: #1F6F43; font-weight: 600; font-family: monospace; text-transform: uppercase; letter-spacing: 0.1em; }\n    .body { padding: 28px; }\n    .badge { display: inline-block; padding: 4px 10px; font-size: 11px; font-family: monospace; font-weight: 600; text-transform: uppercase; border-radius: 2px; }\n    .badge-order { background-color: #E8F5E9; color: #1F6F43; border: 1px solid #A5D6A7; }\n    .badge-booking { background-color: #E3F2FD; color: #1565C0; border: 1px solid #90CAF9; }\n    .badge-warranty { background-color: #FFF3E0; color: #E65100; border: 1px solid #FFE0B2; }\n    .card { background-color: #F8F7F4; border: 1px solid #EAE9E4; padding: 18px; margin-bottom: 20px; }\n    .grid-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }\n    .label { color: #6E6D68; font-size: 12px; font-family: monospace; text-transform: uppercase; }\n    .value { font-weight: 600; color: #141413; }\n    .items-table { width: 100%; border-collapse: collapse; margin-top: 14px; }\n    .items-table th { text-align: left; font-size: 10px; text-transform: uppercase; font-family: monospace; color: #6E6D68; padding: 8px 6px; border-bottom: 2px solid #141413; }\n    .items-table td { padding: 10px 6px; border-bottom: 1px solid #EAE9E4; font-size: 13px; vertical-align: top; }\n    .btn { display: inline-block; padding: 10px 18px; background-color: #141413; color: #F4F3EF !important; text-decoration: none; font-size: 11px; font-family: monospace; text-transform: uppercase; letter-spacing: 0.15em; font-weight: 600; margin-right: 8px; margin-top: 8px; }\n    .btn-secondary { background-color: #1F6F43; }\n    .btn-outline { background-color: #F4F3EF; color: #141413 !important; border: 1px solid #141413; }\n    .footer { background-color: #F4F3EF; padding: 18px 28px; text-align: center; font-size: 11px; color: #6E6D68; font-family: monospace; border-top: 1px solid #EAE9E4; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <div class=\"brand\">Tech Sokoni Kenya — Showroom Dispatch Alert</div>\n      <h1 class=\"title\">Notification System Active & Connected</h1>\n      <div class=\"subtitle\">Target: sirdusman@gmail.com • Nairobi Showroom</div>\n    </div>\n    <div class=\"body\">\n      \n    <div style=\"margin-bottom: 20px;\">\n      <span class=\"badge badge-order\">✓ System Test Verified</span>\n    </div>\n\n    <div class=\"card\">\n      <div style=\"font-size: 11px; font-family: monospace; text-transform: uppercase; color: #6E6D68; margin-bottom: 12px; font-weight: 600;\">Diagnostic Verification</div>\n      <div class=\"grid-row\"><span class=\"label\">Recipient Email:</span><span class=\"value\" style=\"color:#1F6F43; font-weight:700;\">sirdusman@gmail.com</span></div>\n      <div class=\"grid-row\"><span class=\"label\">Timestamp (EAT):</span><span class=\"value\">30/10/2026, 18:35:40</span></div>\n      <div class=\"grid-row\"><span class=\"label\">Order Alerts:</span><span class=\"value\" style=\"color:#1F6F43;\">ACTIVE (Dispatches on checkout)</span></div>\n      <div class=\"grid-row\"><span class=\"label\">Booking Alerts:</span><span class=\"value\" style=\"color:#1F6F43;\">ACTIVE (Dispatches on showroom viewing)</span></div>\n      <div class=\"grid-row\"><span class=\"label\">Warranty Alerts:</span><span class=\"value\" style=\"color:#1F6F43;\">ACTIVE (Dispatches on serial registration)</span></div>\n    </div>\n\n    <p style=\"font-size: 13px; line-height: 1.6; color: #4B4A45;\">\n      Your Tech Sokoni email alert center is operational. Whenever a customer places an order online, reserves a physical inspection appointment at Kenyatta Pioneer Building Shop 514, or registers a device serial number, you will receive full customer contact details, items, and quick action links directly here.\n    </p>\n  \n    </div>\n    <div class=\"footer\">\n      Tech Sokoni Kenya • Kenyatta Pioneer Building, 5th Floor, Shop 514, Nairobi CBD<br>\n      Orders Hotline &amp; WhatsApp: +254 792 620 789 • shop@techsokoni.com\n    </div>\n  </div>\n</body>\n</html>",
+      "textContent": "TECH SOKONI KENYA - EMAIL NOTIFICATION SYSTEM TEST\n====================================================\nRecipient: sirdusman@gmail.com\nTimestamp: 30/10/2026, 18:35:40\nStatus: System Verified & Operational\n\nOrder, viewing booking, and warranty alerts are configured to notify you at sirdusman@gmail.com.\n====================================================",
+      "status": "simulated",
+      "createdAt": "2026-10-30T15:35:40.665Z"
+    }
+  ],
+  "warranties": []
 }

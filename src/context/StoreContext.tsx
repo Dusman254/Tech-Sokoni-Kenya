@@ -3003,6 +3003,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       return updated;
     });
 
+    // Sync to server database and trigger admin email alert
+    fetch('/api/warranties', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newReg),
+    }).catch((err) => console.warn('Failed to sync warranty to server:', err));
+
     showToast(`Warranty registered: ${cleanSerial} (6 Months Official Coverage)`);
     return { ok: true, registration: newReg };
   };

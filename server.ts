@@ -23,7 +23,18 @@ import {
   deleteViewingLocation,
   updateBookingConfig,
   updateSiteSettings,
+  getNotifications,
+  addWarrantyRegistration,
+  getWarrantyRegistrations,
 } from './serverDb';
+import {
+  sendOrderNotificationEmail,
+  sendBookingNotificationEmail,
+  sendWarrantyNotificationEmail,
+  sendTestNotificationEmail,
+  getAdminNotificationRecipient,
+  getEmailTransporter,
+} from './serverNotificationService';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -261,13 +272,19 @@ async function startServer() {
   });
 
   // 3. Customer Orders & Details (Placed by customers, viewed/managed by admin)
-  app.post('/api/orders', (req, res) => {
+  app.post('/api/orders', async (req, res) => {
     try {
       const { customerName, customerPhone, shippingAddress, items } = req.body || {};
       if (!customerName || !customerPhone || !shippingAddress || !Array.isArray(items) || items.length === 0) {
         return res.status(400).json({ error: 'Please provide full delivery and customer contact details.' });
       }
       const order = addOrder(req.body);
+
+      // Asynchronously dispatch email notification to store owner (sirdusman@gmail.com)
+      sendOrderNotificationEmail(order).catch((err) => {
+        console.error('[Notification]: Error dispatching order notification:', err?.message || err);
+      });
+
       res.status(201).json({ ok: true, order });
     } catch (err: any) {
       res.status(500).json({ error: err?.message || 'Failed to record order' });
@@ -320,12 +337,83 @@ async function startServer() {
     res.json(db.viewingAppointments);
   });
 
-  app.post('/api/viewings', (req, res) => {
+  app.post('/api/viewings', async (req, res) => {
     try {
       const appt = addViewingAppointment(req.body);
+
+      // Asynchronously dispatch email notification to store owner (sirdusman@gmail.com)
+      sendBookingNotificationEmail(appt).catch((err) => {
+        console.error('[Notification]: Error dispatching booking notification:', err?.message || err);
+      });
+
       res.status(201).json({ ok: true, appointment: appt });
     } catch (err: any) {
       res.status(400).json({ error: err?.message || 'Failed to record appointment' });
+    }
+  });
+
+  // 4b. Warranty Serial Registrations & Notifications
+  app.post('/api/warranties', async (req, res) => {
+    try {
+      const { serialNumber, modelName, purchaseDate } = req.body || {};
+      if (!serialNumber || !modelName || !purchaseDate) {
+        return res.status(400).json({ error: 'Serial number, model, and purchase date are required.' });
+      }
+      const reg = addWarrantyRegistration(req.body);
+
+      sendWarrantyNotificationEmail(reg).catch((err) => {
+        console.error('[Notification]: Error dispatching warranty notification:', err?.message || err);
+      });
+
+      res.status(201).json({ ok: true, registration: reg });
+    } catch (err: any) {
+      res.status(400).json({ error: err?.message || 'Failed to register warranty' });
+    }
+  });
+
+  app.get('/api/warranties', requireAdmin, (_req, res) => {
+    res.json(getWarrantyRegistrations());
+  });
+
+  // 4c. Email Notification History & Test Dispatch
+  app.get('/api/notifications', requireAdmin, (_req, res) => {
+    const history = getNotifications();
+    const transporter = getEmailTransporter();
+    const recipient = getAdminNotificationRecipient();
+    res.json({
+      recipient,
+      isSmtpConfigured: transporter.isConfigured,
+      notifications: history,
+    });
+  });
+
+  app.post('/api/notifications/test', requireAdmin, async (req, res) => {
+    try {
+      const targetEmail = req.body?.recipient || getAdminNotificationRecipient();
+      const result = await sendTestNotificationEmail(targetEmail);
+      res.json({ ok: true, notification: result });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Failed to send test notification' });
+    }
+  });
+
+  app.post('/api/notifications/config', requireAdmin, (req, res) => {
+    try {
+      const { adminNotificationEmail, notifyOnNewOrder, notifyOnNewBooking, notifyOnWarrantyReg, smtpHost, smtpPort, smtpUser, smtpPass, smtpSecure } = req.body || {};
+      const updated = updateSiteSettings({
+        adminNotificationEmail,
+        notifyOnNewOrder,
+        notifyOnNewBooking,
+        notifyOnWarrantyReg,
+        smtpHost,
+        smtpPort,
+        smtpUser,
+        smtpPass,
+        smtpSecure,
+      });
+      res.json({ ok: true, settings: updated });
+    } catch (err: any) {
+      res.status(400).json({ error: err?.message || 'Failed to update notification settings' });
     }
   });
 
