@@ -193,6 +193,7 @@ export interface ClientAccount {
   city: string;
   authProvider?: 'password' | 'google';
   photoURL?: string;
+  mfaEnabled?: boolean;
   createdAt: string;
 }
 

@@ -123,11 +123,24 @@ export const AdminDashboard: React.FC = () => {
     viewingLocations,
     isFirebaseConnected,
     showToast,
+    sendMfaCode,
+    verifyMfaCode,
   } = useStore();
 
-  // Hidden Admin Passcode Gate State
+  // Hidden Admin Passcode & 2-Step Verification Gate State
   const [passcodeInput, setPasscodeInput] = useState('');
   const [passcodeError, setPasscodeError] = useState(false);
+  const [adminMfaStep, setAdminMfaStep] = useState<'passcode' | '2step_code'>('passcode');
+  const [adminMfaCode, setAdminMfaCode] = useState('');
+  const [adminMfaError, setAdminMfaError] = useState('');
+  const [adminMfaCooldown, setAdminMfaCooldown] = useState(0);
+  const [isAdminMfaVerifying, setIsAdminMfaVerifying] = useState(false);
+
+  useEffect(() => {
+    if (adminMfaCooldown <= 0) return;
+    const timer = setInterval(() => setAdminMfaCooldown((prev) => Math.max(0, prev - 1)), 1000);
+    return () => clearInterval(timer);
+  }, [adminMfaCooldown]);
 
   const [activeTab, setActiveTab] = useState<AdminTab>('products');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -605,16 +618,54 @@ export const AdminDashboard: React.FC = () => {
     featured: true,
   });
 
-  // Handle Admin Passcode Gate Submission
+  // Handle Admin Passcode & 2-Step Verification Gate Submission
   const handlePasscodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const ok = authenticateAdmin(passcodeInput);
-    if (!ok) {
+    if (passcodeInput.trim() === '1940') {
+      setPasscodeError(false);
+      setAdminMfaStep('2step_code');
+      setAdminMfaCooldown(60);
+      setAdminMfaError('');
+      setAdminMfaCode('');
+      sendMfaCode('sirdusman@gmail.com', 'admin_login').catch(() => {});
+      showToast('Two-step verification code sent to sirdusman@gmail.com');
+    } else {
       setPasscodeError(true);
       setPasscodeInput('');
+    }
+  };
+
+  const handleAdminMfaVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanCode = adminMfaCode.trim();
+    if (!cleanCode || cleanCode.length !== 6) {
+      setAdminMfaError('Please enter the 6-digit security code sent to sirdusman@gmail.com.');
+      return;
+    }
+    setAdminMfaError('');
+    setIsAdminMfaVerifying(true);
+    try {
+      const res = await verifyMfaCode('sirdusman@gmail.com', cleanCode, 'admin_login');
+      if (res.ok && res.verified) {
+        authenticateAdmin('1940');
+        showToast('Executive authorization confirmed.');
+      } else {
+        setAdminMfaError(res.error || 'Invalid security code. Please check your email or resend.');
+      }
+    } finally {
+      setIsAdminMfaVerifying(false);
+    }
+  };
+
+  const handleResendAdminMfa = async () => {
+    if (adminMfaCooldown > 0) return;
+    setAdminMfaError('');
+    const res = await sendMfaCode('sirdusman@gmail.com', 'admin_login');
+    if (res.ok) {
+      setAdminMfaCooldown(60);
+      showToast('A new 6-digit security code has been sent to sirdusman@gmail.com.');
     } else {
-      setPasscodeError(false);
-      setPasscodeInput('');
+      setAdminMfaError(res.error || 'Failed to dispatch security code.');
     }
   };
 
@@ -1070,14 +1121,18 @@ export const AdminDashboard: React.FC = () => {
   };
 
   // =========================================================================
-  // SECURITY GATE: Hidden Passcode Authentication (No hint shown anywhere)
+  // SECURITY GATE: 2-Step Verification (Passcode + Email OTP to sirdusman@gmail.com)
   // =========================================================================
   if (!isAdminAuthenticated) {
     return (
       <div className="min-h-[82vh] showroom-canvas flex items-center justify-center px-4 py-12">
         <div className="bg-[#F4F3EF] border border-[#141413]/20 max-w-sm w-full p-8 shadow-2xl text-center space-y-5">
           <div className="w-12 h-12 bg-[#141413] text-[#F4F3EF] mx-auto flex items-center justify-center">
-            <Lock className="w-5 h-5 stroke-[1.5]" />
+            {adminMfaStep === 'passcode' ? (
+              <Lock className="w-5 h-5 stroke-[1.5]" />
+            ) : (
+              <ShieldCheck className="w-5 h-5 text-[#1F6F43] stroke-[1.5]" />
+            )}
           </div>
 
           <div>
@@ -1085,40 +1140,100 @@ export const AdminDashboard: React.FC = () => {
               TECH SOKONI · RESTRICTED ACCESS
             </p>
             <h1 className="font-editorial text-3xl text-[#141413] mt-1">
-              Executive Authorization
+              {adminMfaStep === 'passcode'
+                ? 'Executive Authorization'
+                : 'Two-Step Verification'}
             </h1>
-            <p className="text-xs text-[#6E6D68] mt-1">
-              Enter authorization key to unlock the Management Console.
+            <p className="text-xs text-[#6E6D68] mt-1 leading-relaxed">
+              {adminMfaStep === 'passcode'
+                ? 'Enter authorization key to begin Management Console verification.'
+                : 'A 6-digit security code was dispatched to sirdusman@gmail.com. Enter code to unlock.'}
             </p>
           </div>
 
-          <form onSubmit={handlePasscodeSubmit} className="space-y-4">
-            <input
-              type="password"
-              required
-              autoFocus
-              value={passcodeInput}
-              onChange={(e) => {
-                setPasscodeInput(e.target.value);
-                setPasscodeError(false);
-              }}
-              placeholder="Authorization Code"
-              className="w-full bg-[#EAE9E4] border border-[#141413]/25 px-4 py-3 text-center font-mono-num text-sm tracking-[0.3em] text-[#141413] focus:outline-none focus:border-[#141413]"
-            />
+          {adminMfaStep === 'passcode' ? (
+            <form onSubmit={handlePasscodeSubmit} className="space-y-4">
+              <input
+                type="password"
+                required
+                autoFocus
+                value={passcodeInput}
+                onChange={(e) => {
+                  setPasscodeInput(e.target.value);
+                  setPasscodeError(false);
+                }}
+                placeholder="Authorization Code"
+                className="w-full bg-[#EAE9E4] border border-[#141413]/25 px-4 py-3 text-center font-mono-num text-sm tracking-[0.3em] text-[#141413] focus:outline-none focus:border-[#141413]"
+              />
 
-            {passcodeError && (
-              <p className="text-xs font-mono-num text-[#D94E34]">
-                Access denied. Invalid authorization code.
-              </p>
-            )}
+              {passcodeError && (
+                <p className="text-xs font-mono-num text-[#D94E34]">
+                  Access denied. Invalid authorization code.
+                </p>
+              )}
 
-            <button
-              type="submit"
-              className="w-full py-3 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-[0.2em] hover:bg-[#2B2B28] transition-colors cursor-pointer"
-            >
-              Authenticate
-            </button>
-          </form>
+              <button
+                type="submit"
+                className="w-full py-3 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-[0.2em] hover:bg-[#2B2B28] transition-colors cursor-pointer"
+              >
+                Continue to Verification
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleAdminMfaVerify} className="space-y-4">
+              <div className="space-y-1">
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  maxLength={6}
+                  value={adminMfaCode}
+                  onChange={(e) => {
+                    setAdminMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6));
+                    setAdminMfaError('');
+                  }}
+                  placeholder="000000"
+                  className="w-full bg-white border border-[#141413]/30 py-3 text-center font-mono text-2xl font-bold tracking-[0.35em] text-[#141413] focus:outline-none focus:border-[#141413]"
+                />
+              </div>
+
+              {adminMfaError && (
+                <p className="text-xs font-mono-num text-[#D94E34]">
+                  {adminMfaError}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={isAdminMfaVerifying || adminMfaCode.trim().length !== 6}
+                className="w-full py-3 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-[0.2em] hover:bg-[#2B2B28] transition-colors cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>{isAdminMfaVerifying ? 'Verifying...' : 'Unlock Management Console'}</span>
+              </button>
+
+              <div className="flex items-center justify-between text-xs font-mono-num pt-1">
+                <button
+                  type="button"
+                  disabled={adminMfaCooldown > 0}
+                  onClick={handleResendAdminMfa}
+                  className="text-[#6E6D68] hover:text-[#141413] underline cursor-pointer disabled:opacity-50 disabled:no-underline"
+                >
+                  {adminMfaCooldown > 0 ? `Resend (${adminMfaCooldown}s)` : 'Resend Code'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAdminMfaStep('passcode');
+                    setAdminMfaError('');
+                  }}
+                  className="text-[#6E6D68] hover:text-[#141413] underline cursor-pointer"
+                >
+                  Re-enter Code
+                </button>
+              </div>
+            </form>
+          )}
 
           <button
             onClick={() => navigate({ page: 'home' })}

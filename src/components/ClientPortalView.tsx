@@ -230,6 +230,12 @@ export const ClientPortalView: React.FC = () => {
     confirmNewPassword,
     passwordResetCode,
     clearPasswordResetCode,
+    sendOtpResetCode,
+    verifyOtpResetCode,
+    completeOtpPasswordReset,
+    sendMfaCode,
+    verifyMfaCode,
+    toggleClientMfa,
     addToCart,
     navigate,
     warrantyRegistrations,
@@ -238,10 +244,12 @@ export const ClientPortalView: React.FC = () => {
     showToast,
     categories,
     openBookViewingModal,
+    viewingAppointments,
+    isAdminAuthenticated,
   } = useStore();
 
   const [authMode, setAuthMode] = useState<
-    'login' | 'signup' | 'forgot-password' | 'reset-password'
+    'login' | 'signup' | 'forgot-password' | 'reset-password' | 'mfa-challenge'
   >('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -253,45 +261,53 @@ export const ClientPortalView: React.FC = () => {
   const [resetSuccess, setResetSuccess] = useState('');
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
 
-  // Dedicated Password Reset States
+  // 3-Step Email OTP Password Reset States (Strict Requirement: 6-digit code, NO link)
+  const [otpStep, setOtpStep] = useState<
+    'enter-email' | 'enter-code' | 'enter-password' | 'completed'
+  >('enter-email');
+  const [otpEmail, setOtpEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [resetToken, setResetToken] = useState('');
+  const [otpCooldown, setOtpCooldown] = useState(0);
+
+  // Two-Step Verification (MFA) States
+  const [mfaEmail, setMfaEmail] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaCooldown, setMfaCooldown] = useState(0);
+
+  // Password Input Toggles
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
-  const [verifiedEmail, setVerifiedEmail] = useState('');
-  const [codeError, setCodeError] = useState('');
-  const [manualCode, setManualCode] = useState('');
-  const [showManualCodeInput, setShowManualCodeInput] = useState(false);
-  const [isSubmittingReset, setIsSubmittingReset] = useState(false);
-  const [resetCompleted, setResetCompleted] = useState(false);
 
-  // Automatically switch to reset-password view if an email reset link (oobCode) is present
+  // Cooldown timers
+  useEffect(() => {
+    if (otpCooldown <= 0) return;
+    const timer = setInterval(() => setOtpCooldown((prev) => Math.max(0, prev - 1)), 1000);
+    return () => clearInterval(timer);
+  }, [otpCooldown]);
+
+  useEffect(() => {
+    if (mfaCooldown <= 0) return;
+    const timer = setInterval(() => setMfaCooldown((prev) => Math.max(0, prev - 1)), 1000);
+    return () => clearInterval(timer);
+  }, [mfaCooldown]);
+
+  // If an external reset code is detected in query params, route to OTP forgot-password view
   useEffect(() => {
     if (passwordResetCode) {
-      setAuthMode('reset-password');
-      setIsVerifyingCode(true);
-      setCodeError('');
-      setAuthError('');
-      verifyResetCode(passwordResetCode).then((res) => {
-        setIsVerifyingCode(false);
-        if (res.ok && res.email) {
-          setVerifiedEmail(res.email);
-          setEmail(res.email);
-        } else {
-          setCodeError(
-            res.error ||
-              'This password reset link is invalid or has already expired.'
-          );
-        }
-      });
+      setAuthMode('forgot-password');
+      setOtpStep('enter-email');
+      clearPasswordResetCode();
     }
-  }, [passwordResetCode]);
+  }, [passwordResetCode, clearPasswordResetCode]);
 
   // Portal view tabs: 'history' | 'orders' | 'profile' | 'track' | 'warranty'
+  // Portal view tabs: 'history' | 'orders' | 'warranty' | 'bookings' | 'profile' | 'track'
   const [activeTab, setActiveTab] = useState<
-    'orders' | 'history' | 'profile' | 'track' | 'warranty'
-  >(route.page === 'client-portal' && route.tab ? route.tab : 'history');
+    'orders' | 'history' | 'profile' | 'track' | 'warranty' | 'bookings'
+  >(route.page === 'client-portal' && route.tab ? (route.tab as any) : 'history');
 
   // Dedicated Warranty Registration & Serial Tracking State
   const [regSerial, setRegSerial] = useState('');
@@ -331,14 +347,53 @@ export const ClientPortalView: React.FC = () => {
     setIsSubmittingAuth(true);
     try {
       const res = await loginClient(email, password);
+      if (res.requiresMfa) {
+        setMfaEmail(email.trim().toLowerCase());
+        setMfaCode('');
+        setAuthMode('mfa-challenge');
+        setMfaCooldown(60);
+        showToast('Two-step verification code sent to your email.');
+        return;
+      }
       if (!res.ok) {
         setAuthError(
           res.error ||
-            'Invalid email or password. Please verify your credentials or create an account.'
+            'Invalid email or password. Please verify your credentials or click "Forgot Password?".'
         );
       }
     } finally {
       setIsSubmittingAuth(false);
+    }
+  };
+
+  const handleVerifyMfa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanCode = mfaCode.trim();
+    if (!cleanCode || cleanCode.length !== 6) {
+      setAuthError('Please enter the 6-digit verification code sent to your email.');
+      return;
+    }
+    setAuthError('');
+    setIsSubmittingAuth(true);
+    try {
+      const res = await verifyMfaCode(mfaEmail, cleanCode, 'client_login');
+      if (!res.ok) {
+        setAuthError(res.error || 'Invalid verification code. Please check your email and try again.');
+      }
+    } finally {
+      setIsSubmittingAuth(false);
+    }
+  };
+
+  const handleResendMfa = async () => {
+    if (mfaCooldown > 0) return;
+    setAuthError('');
+    const res = await sendMfaCode(mfaEmail, 'client_login');
+    if (res.ok) {
+      showToast('A new 6-digit verification code has been dispatched.');
+      setMfaCooldown(60);
+    } else {
+      setAuthError(res.error || 'Failed to resend code.');
     }
   };
 
@@ -384,77 +439,104 @@ export const ClientPortalView: React.FC = () => {
     }
   };
 
-  const handleForgotPassword = async (e: React.FormEvent) => {
+  // 3-Step Email OTP Password Reset Handlers (Strictly NO link - 6-digit code flow)
+  const handleSendResetCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanEmail = email.trim();
-    if (!cleanEmail) {
-      setAuthError('Please enter your client email to receive a password reset link.');
-      setResetSuccess('');
+    const cleanEmail = (otpEmail || email).trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setAuthError('Please enter a valid email address.');
       return;
     }
     setAuthError('');
-    setResetSuccess('');
     setIsSubmittingAuth(true);
     try {
-      const res = await resetPassword(cleanEmail);
+      const res = await sendOtpResetCode(cleanEmail);
       if (!res.ok) {
-        setAuthError(res.error || 'Failed to send password reset email.');
+        setAuthError(res.error || 'Failed to send verification code. Please try again.');
       } else {
-        setResetSuccess(
-          `Password reset link dispatched to ${cleanEmail}. Please check your inbox and click the link inside to set your new password.`
-        );
+        setOtpEmail(cleanEmail);
+        setOtpStep('enter-code');
+        setOtpCooldown(60);
+        showToast(`Verification code sent to ${cleanEmail}`);
       }
     } finally {
       setIsSubmittingAuth(false);
     }
   };
 
-  const handleConfirmReset = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleResendResetCode = async () => {
+    if (otpCooldown > 0) return;
     setAuthError('');
-    const codeToUse = passwordResetCode || manualCode.trim();
-    if (!codeToUse) {
-      setAuthError('No reset security code detected. Please request a new password reset email or paste your code below.');
-      return;
-    }
-    if (!newPassword || newPassword.length < 6) {
-      setAuthError('New password must be at least 6 characters long.');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setAuthError('Passwords do not match. Please ensure both passwords match.');
-      return;
-    }
-
-    setIsSubmittingReset(true);
-    try {
-      const res = await confirmNewPassword(codeToUse, newPassword);
-      if (res.ok) {
-        setResetCompleted(true);
-      } else {
-        setAuthError(
-          res.error ||
-            'Failed to reset password. The link may have expired or already been used. Please request a new link.'
-        );
-      }
-    } finally {
-      setIsSubmittingReset(false);
+    const res = await sendOtpResetCode(otpEmail);
+    if (res.ok) {
+      showToast('A new 6-digit code has been sent to your email.');
+      setOtpCooldown(60);
+    } else {
+      setAuthError(res.error || 'Failed to resend code.');
     }
   };
 
-  // Orders belonging to this client
+  const handleVerifyResetCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanCode = otpCode.trim();
+    if (!cleanCode || cleanCode.length !== 6) {
+      setAuthError('Please enter the 6-digit code from your email.');
+      return;
+    }
+    setAuthError('');
+    setIsSubmittingAuth(true);
+    try {
+      const res = await verifyOtpResetCode(otpEmail, cleanCode);
+      if (!res.ok || !res.resetToken) {
+        setAuthError(res.error || 'Invalid or expired code. Please request a new code.');
+      } else {
+        setResetToken(res.resetToken);
+        setOtpStep('enter-password');
+        showToast('Code verified! Enter your new password.');
+      }
+    } finally {
+      setIsSubmittingAuth(false);
+    }
+  };
+
+  const handleCompletePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPassword || newPassword.length < 6) {
+      setAuthError('Password must be at least 6 characters long.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setAuthError('Passwords do not match. Please verify.');
+      return;
+    }
+    setAuthError('');
+    setIsSubmittingAuth(true);
+    try {
+      const res = await completeOtpPasswordReset(otpEmail, resetToken, newPassword);
+      if (!res.ok) {
+        setAuthError(res.error || 'Failed to reset password. Please try again.');
+      } else {
+        setOtpStep('completed');
+      }
+    } finally {
+      setIsSubmittingAuth(false);
+    }
+  };
+
+  // Orders strictly belonging to this client (NEVER fall back to storewide orders!)
   const displayedOrders = useMemo(() => {
-    if (!currentClient) return orders;
-    const clientPhoneTail = currentClient.phone.replace(/\D/g, '').slice(-8);
-    const clientOrders = orders.filter((o) => {
-      const orderPhoneTail = o.customerPhone.replace(/\D/g, '').slice(-8);
+    if (!currentClient) return [];
+    const clientEmail = (currentClient.email || '').toLowerCase().trim();
+    const clientPhoneTail = currentClient.phone ? currentClient.phone.replace(/\D/g, '').slice(-8) : '';
+    return orders.filter((o) => {
+      const orderEmail = (o.customerEmail || '').toLowerCase().trim();
+      const orderPhoneTail = o.customerPhone ? o.customerPhone.replace(/\D/g, '').slice(-8) : '';
       return (
         o.clientId === currentClient.id ||
-        o.customerEmail.toLowerCase() === currentClient.email.toLowerCase() ||
+        (Boolean(clientEmail) && Boolean(orderEmail) && orderEmail === clientEmail) ||
         (clientPhoneTail.length >= 7 && orderPhoneTail === clientPhoneTail)
       );
     });
-    return clientOrders.length > 0 ? clientOrders : orders;
   }, [orders, currentClient]);
 
   // Filtered orders for the Order History tab
@@ -547,18 +629,33 @@ export const ClientPortalView: React.FC = () => {
     };
   }, [displayedOrders]);
 
-  // Client's registered warranties
+  // Client's registered warranties strictly isolated (NEVER fall back to all warranties!)
   const clientWarranties = useMemo(() => {
-    if (!currentClient) return warrantyRegistrations;
+    if (!currentClient) return [];
     const clientEmail = (currentClient.email || '').toLowerCase().trim();
-    const clientPhone = (currentClient.phone || '').trim();
-    const userW = warrantyRegistrations.filter((w) => {
-      const emailMatch = clientEmail && w.clientEmail.toLowerCase().trim() === clientEmail;
-      const phoneMatch = clientPhone && w.clientPhone && (w.clientPhone.includes(clientPhone) || clientPhone.includes(w.clientPhone));
+    const clientPhoneTail = currentClient.phone ? currentClient.phone.replace(/\D/g, '').slice(-8) : '';
+    return warrantyRegistrations.filter((w) => {
+      const wEmail = (w.clientEmail || '').toLowerCase().trim();
+      const wPhoneTail = w.clientPhone ? w.clientPhone.replace(/\D/g, '').slice(-8) : '';
+      const emailMatch = Boolean(clientEmail && wEmail && wEmail === clientEmail);
+      const phoneMatch = Boolean(clientPhoneTail.length >= 7 && wPhoneTail === clientPhoneTail);
       return emailMatch || phoneMatch;
     });
-    return userW.length > 0 ? userW : warrantyRegistrations;
   }, [warrantyRegistrations, currentClient]);
+
+  // Client's showroom viewing appointments strictly isolated
+  const clientViewings = useMemo(() => {
+    if (!currentClient) return [];
+    const clientEmail = (currentClient.email || '').toLowerCase().trim();
+    const clientPhoneTail = currentClient.phone ? currentClient.phone.replace(/\D/g, '').slice(-8) : '';
+    return (viewingAppointments || []).filter((a) => {
+      const aEmail = (a.customerEmail || '').toLowerCase().trim();
+      const aPhoneTail = a.customerPhone ? a.customerPhone.replace(/\D/g, '').slice(-8) : '';
+      const emailMatch = Boolean(clientEmail && aEmail && aEmail === clientEmail);
+      const phoneMatch = Boolean(clientPhoneTail.length >= 7 && aPhoneTail === clientPhoneTail);
+      return emailMatch || phoneMatch;
+    });
+  }, [viewingAppointments, currentClient]);
 
   const filteredWarranties = useMemo(() => {
     return clientWarranties.filter((w) => {
@@ -650,11 +747,15 @@ export const ClientPortalView: React.FC = () => {
               ? 'Create Client Account'
               : authMode === 'forgot-password'
               ? 'Reset Account Password'
+              : authMode === 'mfa-challenge'
+              ? 'Two-Step Verification'
               : 'Choose New Password'}
           </h1>
           <p className="text-xs text-[#6E6D68] text-center mt-1.5">
             {authMode === 'forgot-password'
-              ? "We'll send a secure password reset link to your registered email address."
+              ? 'We will send a 6-digit verification code to your email to verify your identity before creating a new password.'
+              : authMode === 'mfa-challenge'
+              ? 'Enter the 6-digit security code dispatched to your email to verify your identity.'
               : authMode === 'reset-password'
               ? 'Enter and confirm your new secure password to access your account.'
               : 'Track real-time delivery status, M-Pesa payment confirmations, and download official PDF receipts.'}
@@ -890,16 +991,18 @@ export const ClientPortalView: React.FC = () => {
             </form>
           )}
 
-          {/* VIEW 3: FORGOT PASSWORD */}
+          {/* VIEW 3: 3-STEP EMAIL OTP PASSWORD RESET (STRICT REQUIREMENT: NO LINK, 6-DIGIT CODE SENT TO EMAIL) */}
           {authMode === 'forgot-password' && (
             <div className="space-y-4 mt-6">
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2 mb-2">
                 <button
                   type="button"
                   onClick={() => {
                     setAuthMode('login');
                     setAuthError('');
-                    setResetSuccess('');
+                    setOtpStep('enter-email');
+                    setOtpCode('');
+                    setResetToken('');
                   }}
                   className="text-xs font-mono-num uppercase tracking-wider text-[#6E6D68] hover:text-[#141413] flex items-center gap-1.5 cursor-pointer"
                 >
@@ -908,191 +1011,149 @@ export const ClientPortalView: React.FC = () => {
                 </button>
               </div>
 
-              <div className="border border-[#141413]/15 bg-[#EAE9E4]/50 p-4 space-y-2">
-                <div className="flex items-center gap-2">
-                  <KeyRound className="w-4 h-4 text-[#141413]" />
-                  <h3 className="font-semibold text-xs text-[#141413] uppercase tracking-wider">
-                    Secure Password Reset
-                  </h3>
+              {/* Step Progress Indicators */}
+              <div className="grid grid-cols-3 gap-1 border-b border-[#141413]/10 pb-3">
+                <div
+                  className={`text-center py-1 text-[10px] font-mono-num uppercase tracking-wider ${
+                    otpStep === 'enter-email'
+                      ? 'border-b-2 border-[#141413] text-[#141413] font-bold'
+                      : 'text-[#6E6D68]'
+                  }`}
+                >
+                  1. Email
                 </div>
-                <p className="text-xs text-[#5E5D59] leading-relaxed">
-                  Enter the email address tied to your account. We will send you an email with a secure link so you can create a new password.
-                </p>
+                <div
+                  className={`text-center py-1 text-[10px] font-mono-num uppercase tracking-wider ${
+                    otpStep === 'enter-code'
+                      ? 'border-b-2 border-[#141413] text-[#141413] font-bold'
+                      : 'text-[#6E6D68]'
+                  }`}
+                >
+                  2. 6-Digit Code
+                </div>
+                <div
+                  className={`text-center py-1 text-[10px] font-mono-num uppercase tracking-wider ${
+                    otpStep === 'enter-password' || otpStep === 'completed'
+                      ? 'border-b-2 border-[#141413] text-[#141413] font-bold'
+                      : 'text-[#6E6D68]'
+                  }`}
+                >
+                  3. New Password
+                </div>
               </div>
 
-              <form onSubmit={handleForgotPassword} className="space-y-4">
-                <div>
-                  <label className="block text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68] mb-1">
-                    Registered Client Email *
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      className="w-full bg-[#EAE9E4]/60 border border-[#141413]/20 pl-3.5 pr-10 py-2.5 text-xs text-[#141413]"
-                    />
-                    <Mail className="w-4 h-4 text-[#6E6D68] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              {/* STEP 1: Enter Email to Send 6-Digit Code */}
+              {otpStep === 'enter-email' && (
+                <form onSubmit={handleSendResetCode} className="space-y-4">
+                  <div className="border border-[#141413]/15 bg-[#EAE9E4]/50 p-4 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <KeyRound className="w-4 h-4 text-[#141413]" />
+                      <h3 className="font-semibold text-xs text-[#141413] uppercase tracking-wider">
+                        Email OTP Verification
+                      </h3>
+                    </div>
+                    <p className="text-xs text-[#5E5D59] leading-relaxed">
+                      Enter your account email. We will send a 6-digit verification code to your email. Enter that code on the next screen to create your new password.
+                    </p>
                   </div>
-                </div>
 
-                <button
-                  type="submit"
-                  disabled={isSubmittingAuth}
-                  className="w-full py-3 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-[0.2em] hover:bg-[#2B2B28] transition-colors cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>{isSubmittingAuth ? 'Sending Reset Email...' : 'Send Password Reset Link'}</span>
-                </button>
-              </form>
+                  <div>
+                    <label className="block text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68] mb-1">
+                      Registered Client Email *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="email"
+                        required
+                        value={otpEmail || email}
+                        onChange={(e) => {
+                          setOtpEmail(e.target.value);
+                          setEmail(e.target.value);
+                        }}
+                        placeholder="client@example.com"
+                        className="w-full bg-[#EAE9E4]/60 border border-[#141413]/20 pl-3.5 pr-10 py-2.5 text-xs text-[#141413]"
+                      />
+                      <Mail className="w-4 h-4 text-[#6E6D68] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
+                  </div>
 
-              <div className="pt-2 text-center border-t border-[#141413]/10">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowManualCodeInput((prev) => !prev);
-                    setAuthError('');
-                  }}
-                  className="text-[11px] font-mono-num text-[#6E6D68] hover:text-[#141413] underline cursor-pointer"
-                >
-                  Already received your reset link or code? Click here to change password
-                </button>
-              </div>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingAuth}
+                    className="w-full py-3 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-[0.2em] hover:bg-[#2B2B28] transition-colors cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>{isSubmittingAuth ? 'Sending 6-Digit Code...' : 'Send 6-Digit Verification Code'}</span>
+                  </button>
+                </form>
+              )}
 
-              {showManualCodeInput && (
-                <div className="p-3 bg-[#EAE9E4]/60 border border-[#141413]/15 space-y-2">
-                  <label className="block text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68]">
-                    Paste Reset Code or Full Link
-                  </label>
-                  <div className="flex gap-2">
+              {/* STEP 2: Enter 6-Digit Code */}
+              {otpStep === 'enter-code' && (
+                <form onSubmit={handleVerifyResetCode} className="space-y-4">
+                  <div className="p-3.5 bg-[#1F6F43]/10 border border-[#1F6F43]/30 space-y-1 text-left">
+                    <p className="text-[10px] font-mono-num uppercase tracking-wider text-[#1F6F43] font-semibold">
+                      Code Sent to Email
+                    </p>
+                    <p className="text-xs text-[#141413] leading-relaxed">
+                      We dispatched a 6-digit code to <span className="font-mono font-bold">{otpEmail}</span>. Enter it below to verify your identity.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68] mb-1 text-center">
+                      Enter 6-Digit Security Code *
+                    </label>
                     <input
                       type="text"
-                      value={manualCode}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val.includes('oobCode=')) {
-                          try {
-                            const urlObj = new URL(val);
-                            const c = urlObj.searchParams.get('oobCode');
-                            setManualCode(c || val);
-                            return;
-                          } catch {
-                            // ignore
-                          }
-                        }
-                        setManualCode(val);
-                      }}
-                      placeholder="Paste oobCode or link from email"
-                      className="flex-1 bg-[#F4F3EF] border border-[#141413]/20 px-2.5 py-1.5 text-xs font-mono-num"
+                      required
+                      maxLength={6}
+                      autoFocus
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="000000"
+                      className="w-full bg-white border border-[#141413]/30 py-3 text-center text-2xl font-mono tracking-[0.35em] text-[#141413] font-bold focus:border-[#141413] focus:outline-none"
                     />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmittingAuth || otpCode.trim().length !== 6}
+                    className="w-full py-3 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-[0.2em] hover:bg-[#2B2B28] transition-colors cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>{isSubmittingAuth ? 'Verifying Code...' : 'Verify Code & Proceed'}</span>
+                  </button>
+
+                  <div className="flex items-center justify-between text-xs font-mono-num pt-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        if (!manualCode.trim()) return;
-                        setAuthMode('reset-password');
-                        setIsVerifyingCode(true);
-                        verifyResetCode(manualCode.trim()).then((res) => {
-                          setIsVerifyingCode(false);
-                          if (res.ok && res.email) {
-                            setVerifiedEmail(res.email);
-                            setEmail(res.email);
-                          } else {
-                            setCodeError(res.error || 'Invalid reset code.');
-                          }
-                        });
-                      }}
-                      className="px-3 py-1.5 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase cursor-pointer"
+                      disabled={otpCooldown > 0}
+                      onClick={handleResendResetCode}
+                      className="text-[#6E6D68] hover:text-[#141413] underline cursor-pointer disabled:opacity-50 disabled:no-underline"
                     >
-                      Verify
+                      {otpCooldown > 0 ? `Resend Code (${otpCooldown}s)` : 'Resend Code'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setOtpStep('enter-email')}
+                      className="text-[#6E6D68] hover:text-[#141413] underline cursor-pointer"
+                    >
+                      Change Email
                     </button>
                   </div>
-                </div>
+                </form>
               )}
-            </div>
-          )}
 
-          {/* VIEW 4: RESET PASSWORD USING LINK / CODE */}
-          {authMode === 'reset-password' && (
-            <div className="space-y-4 mt-6">
-              <div className="flex items-center justify-between mb-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    clearPasswordResetCode();
-                    setAuthMode('login');
-                    setAuthError('');
-                    setResetCompleted(false);
-                  }}
-                  className="text-xs font-mono-num uppercase tracking-wider text-[#6E6D68] hover:text-[#141413] flex items-center gap-1.5 cursor-pointer"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Return to Sign In</span>
-                </button>
-
-                {passwordResetCode && (
-                  <span className="text-[10px] font-mono-num text-[#1F6F43] bg-[#1F6F43]/10 px-2 py-0.5 border border-[#1F6F43]/20">
-                    Email Link Active
-                  </span>
-                )}
-              </div>
-
-              {resetCompleted ? (
-                <div className="p-6 bg-[#1F6F43]/10 border border-[#1F6F43]/30 text-center space-y-3">
-                  <CheckCircle2 className="w-10 h-10 text-[#1F6F43] mx-auto" />
-                  <h3 className="font-editorial text-2xl text-[#141413]">Password Reset Complete!</h3>
-                  <p className="text-xs text-[#5E5D59] leading-relaxed max-w-sm mx-auto">
-                    Your Tech Sokoni password has been updated successfully. You can now log into your client portal with your new password.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      clearPasswordResetCode();
-                      setAuthMode('login');
-                      setPassword('');
-                      setAuthError('');
-                      setResetSuccess('Password reset successfully. Please sign in below.');
-                    }}
-                    className="w-full py-3 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-[0.2em] hover:bg-[#2B2B28] cursor-pointer mt-3"
-                  >
-                    Proceed to Sign In
-                  </button>
-                </div>
-              ) : isVerifyingCode ? (
-                <div className="py-12 text-center space-y-3">
-                  <div className="w-7 h-7 border-2 border-[#141413] border-t-transparent rounded-full animate-spin mx-auto" />
-                  <p className="text-xs font-mono-num uppercase tracking-wider text-[#6E6D68]">
-                    Verifying security link from email...
-                  </p>
-                </div>
-              ) : codeError ? (
-                <div className="p-5 bg-[#D94E34]/10 border border-[#D94E34]/30 space-y-3 text-left">
-                  <p className="text-xs font-semibold text-[#D94E34]">{codeError}</p>
-                  <p className="text-[11px] text-[#5E5D59] leading-relaxed">
-                    Security links expire after a short period or once used. Please request a fresh reset email to create a new password.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      clearPasswordResetCode();
-                      setAuthMode('forgot-password');
-                      setAuthError('');
-                      setCodeError('');
-                    }}
-                    className="w-full py-2.5 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-wider cursor-pointer"
-                  >
-                    Request New Reset Link
-                  </button>
-                </div>
-              ) : (
-                <form onSubmit={handleConfirmReset} className="space-y-4">
-                  <div className="p-3.5 bg-[#EAE9E4]/60 border border-[#141413]/12 space-y-1">
-                    <p className="text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68]">
-                      Account Being Reset
+              {/* STEP 3: Create New Password */}
+              {otpStep === 'enter-password' && (
+                <form onSubmit={handleCompletePasswordReset} className="space-y-4">
+                  <div className="p-3.5 bg-[#1F6F43]/10 border border-[#1F6F43]/30 space-y-1">
+                    <p className="text-[10px] font-mono-num uppercase tracking-wider text-[#1F6F43] font-semibold">
+                      Code Verified Successfully
                     </p>
-                    <p className="text-xs font-semibold text-[#141413] font-mono">
-                      {verifiedEmail || email || 'Registered Client Account'}
+                    <p className="text-xs text-[#5E5D59]">
+                      Set a new password for <span className="font-mono text-[#141413]">{otpEmail}</span>.
                     </p>
                   </div>
 
@@ -1146,14 +1207,103 @@ export const ClientPortalView: React.FC = () => {
 
                   <button
                     type="submit"
-                    disabled={isSubmittingReset}
+                    disabled={isSubmittingAuth}
                     className="w-full py-3 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-[0.2em] hover:bg-[#2B2B28] transition-colors cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
                   >
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>{isSubmittingReset ? 'Updating Password...' : 'Save New Password & Sign In'}</span>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>{isSubmittingAuth ? 'Updating Password...' : 'Save New Password & Finish'}</span>
                   </button>
                 </form>
               )}
+
+              {/* STEP 4: Reset Completed */}
+              {otpStep === 'completed' && (
+                <div className="p-6 bg-[#1F6F43]/10 border border-[#1F6F43]/30 text-center space-y-3">
+                  <CheckCircle2 className="w-10 h-10 text-[#1F6F43] mx-auto" />
+                  <h3 className="font-editorial text-2xl text-[#141413]">Password Reset Complete!</h3>
+                  <p className="text-xs text-[#5E5D59] leading-relaxed max-w-sm mx-auto">
+                    Your password has been securely updated. You can now log into your client portal with your new password.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode('login');
+                      setPassword('');
+                      setAuthError('');
+                      setResetSuccess('Password reset successfully! Please sign in with your new password below.');
+                    }}
+                    className="w-full py-3 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-[0.2em] hover:bg-[#2B2B28] cursor-pointer mt-3"
+                  >
+                    Proceed to Sign In
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* VIEW 4: TWO-STEP VERIFICATION (MFA) CHALLENGE */}
+          {authMode === 'mfa-challenge' && (
+            <div className="space-y-4 mt-6">
+              <div className="border border-[#141413]/15 bg-[#EAE9E4]/50 p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-[#1F6F43]" />
+                  <h3 className="font-semibold text-xs text-[#141413] uppercase tracking-wider">
+                    Two-Step Verification
+                  </h3>
+                </div>
+                <p className="text-xs text-[#5E5D59] leading-relaxed">
+                  For your account security, a 6-digit verification code was sent to{' '}
+                  <span className="font-mono font-bold text-[#141413]">{mfaEmail}</span>.
+                </p>
+              </div>
+
+              <form onSubmit={handleVerifyMfa} className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68] mb-1 text-center">
+                    Enter 6-Digit Security Code *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={6}
+                    autoFocus
+                    value={mfaCode}
+                    onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="000000"
+                    className="w-full bg-white border border-[#141413]/30 py-3 text-center text-2xl font-mono tracking-[0.35em] text-[#141413] font-bold focus:border-[#141413] focus:outline-none"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSubmittingAuth || mfaCode.trim().length !== 6}
+                  className="w-full py-3 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-[0.2em] hover:bg-[#2B2B28] transition-colors cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>{isSubmittingAuth ? 'Verifying...' : 'Verify & Enter Portal'}</span>
+                </button>
+
+                <div className="flex items-center justify-between text-xs font-mono-num pt-2">
+                  <button
+                    type="button"
+                    disabled={mfaCooldown > 0}
+                    onClick={handleResendMfa}
+                    className="text-[#6E6D68] hover:text-[#141413] underline cursor-pointer disabled:opacity-50 disabled:no-underline"
+                  >
+                    {mfaCooldown > 0 ? `Resend Code (${mfaCooldown}s)` : 'Resend Code'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode('login');
+                      setAuthError('');
+                    }}
+                    className="text-[#6E6D68] hover:text-[#141413] underline cursor-pointer"
+                  >
+                    Back to Sign In
+                  </button>
+                </div>
+              </form>
             </div>
           )}
 
@@ -1192,20 +1342,42 @@ export const ClientPortalView: React.FC = () => {
               />
             )}
             <div>
-              <p className="text-[11px] font-mono-num uppercase tracking-[0.22em] text-[#6E6D68]">
-                TECH SOKONI KENYA · CLIENT PORTAL
-              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-block px-2 py-0.5 text-[9px] font-mono-num uppercase tracking-wider bg-[#141413] text-[#F4F3EF]">
+                  Client Account
+                </span>
+                {currentClient.mfaEnabled && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-mono-num uppercase tracking-wider bg-[#1F6F43]/15 text-[#1F6F43] border border-[#1F6F43]/30">
+                    <ShieldCheck className="w-3 h-3" />
+                    2-Step Protected
+                  </span>
+                )}
+                {(currentClient.email.toLowerCase() === 'sirdusman@gmail.com' || isAdminAuthenticated) && (
+                  <span className="inline-block px-2 py-0.5 text-[9px] font-mono-num uppercase tracking-wider bg-[#D94E34]/15 text-[#D94E34] border border-[#D94E34]/30 font-bold">
+                    Store Administrator
+                  </span>
+                )}
+              </div>
               <h1 className="font-editorial text-3xl sm:text-5xl text-[#141413] mt-1">
                 Welcome, {currentClient.name}
               </h1>
               <p className="text-xs font-mono-num text-[#5E5D59] mt-1">
-                {currentClient.email} · {currentClient.phone} ·{' '}
-                {currentClient.defaultAddress}, {currentClient.city}
+                {currentClient.email} · {currentClient.phone || 'No phone'} ·{' '}
+                {currentClient.defaultAddress || 'Nairobi'}, {currentClient.city || 'Nairobi'}
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            {(currentClient.email.toLowerCase() === 'sirdusman@gmail.com' || isAdminAuthenticated) && (
+              <button
+                onClick={() => navigate({ page: 'admin' })}
+                className="px-4 py-2 bg-[#D94E34] text-white text-xs font-mono-num uppercase tracking-wider hover:bg-[#B73D26] flex items-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>Admin Dashboard</span>
+              </button>
+            )}
             <button
               onClick={() => navigate({ page: 'category', categoryId: 'all' })}
               className="px-4 py-2 border border-[#141413]/25 text-xs font-mono-num uppercase tracking-wider text-[#141413] hover:border-[#141413] flex items-center gap-1.5 cursor-pointer"
@@ -1218,7 +1390,7 @@ export const ClientPortalView: React.FC = () => {
               className="px-4 py-2 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-wider hover:bg-[#2B2B28] flex items-center gap-1.5 cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span>Sign Out</span>
+              <span>Sign Out / Switch</span>
             </button>
           </div>
         </div>
@@ -1263,6 +1435,18 @@ export const ClientPortalView: React.FC = () => {
           >
             <ShieldCheck className="w-3.5 h-3.5 text-[#1F6F43]" />
             <span>Warranty &amp; Serials ({clientWarranties.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('bookings')}
+            className={`px-4 py-2.5 text-xs font-mono-num uppercase tracking-widest flex items-center gap-2 cursor-pointer transition-colors ${
+              activeTab === 'bookings'
+                ? 'bg-[#141413] text-[#F4F3EF]'
+                : 'bg-[#EAE9E4] text-[#5E5D59] hover:text-[#141413]'
+            }`}
+          >
+            <Calendar className="w-3.5 h-3.5 text-[#D94E34]" />
+            <span>Showroom Bookings ({clientViewings.length})</span>
           </button>
 
           <button
@@ -1926,6 +2110,132 @@ export const ClientPortalView: React.FC = () => {
                 className="w-full bg-[#EAE9E4]/60 border border-[#141413]/20 px-3.5 py-2 text-xs"
               />
             </div>
+
+            {/* Two-Step Verification (MFA) Security Settings */}
+            <div className="pt-6 border-t border-[#141413]/15 mt-6 space-y-3">
+              <div>
+                <h3 className="font-semibold text-sm text-[#141413] flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#1F6F43]" />
+                  <span>Two-Step Verification (MFA)</span>
+                </h3>
+                <p className="text-xs text-[#6E6D68] mt-1 leading-relaxed">
+                  Adds an extra layer of security to your client account. When enabled, a 6-digit security code is dispatched to <span className="font-mono text-[#141413] font-bold">{currentClient.email}</span> every time you sign in.
+                </p>
+              </div>
+              <div className="flex items-center justify-between p-3.5 bg-[#EAE9E4]/60 border border-[#141413]/15">
+                <div>
+                  <span className="text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68]">Status:</span>
+                  <span className={`ml-2 text-xs font-mono-num font-bold ${currentClient.mfaEnabled ? 'text-[#1F6F43]' : 'text-[#6E6D68]'}`}>
+                    {currentClient.mfaEnabled ? 'ENABLED & PROTECTED' : 'DISABLED'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => toggleClientMfa(currentClient.email, !currentClient.mfaEnabled)}
+                  className={`px-4 py-2 text-xs font-mono-num uppercase tracking-wider transition-colors cursor-pointer border ${
+                    currentClient.mfaEnabled
+                      ? 'bg-[#1F6F43] text-white border-[#1F6F43] hover:bg-[#185834]'
+                      : 'bg-[#141413] text-[#F4F3EF] border-[#141413] hover:bg-[#2B2B28]'
+                  }`}
+                >
+                  {currentClient.mfaEnabled ? 'Turn Off Two-Step' : 'Turn On Two-Step'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =====================================================================
+            VIEW: SHOWROOM VIEWING APPOINTMENTS (STRICTLY ISOLATED TO CLIENT)
+           ===================================================================== */}
+        {activeTab === 'bookings' && (
+          <div className="py-8 space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 className="font-editorial text-2xl sm:text-3xl text-[#141413]">
+                  My Showroom Viewing Appointments
+                </h2>
+                <p className="text-xs text-[#6E6D68] mt-1">
+                  Physical testing appointments reserved at our Nairobi CBD showroom.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => openBookViewingModal()}
+                className="px-4 py-2 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-wider hover:bg-[#2B2B28] flex items-center gap-1.5 cursor-pointer"
+              >
+                <Calendar className="w-3.5 h-3.5 text-[#D94E34]" />
+                <span>Book New Viewing</span>
+              </button>
+            </div>
+
+            {clientViewings.length === 0 ? (
+              <div className="bg-[#EAE9E4]/40 border border-[#141413]/12 p-8 text-center space-y-3">
+                <Calendar className="w-8 h-8 text-[#6E6D68] mx-auto" />
+                <h3 className="font-editorial text-xl text-[#141413]">No Appointments Scheduled</h3>
+                <p className="text-xs text-[#6E6D68] max-w-md mx-auto">
+                  You have not scheduled any physical showroom hardware inspection appointments yet.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => openBookViewingModal()}
+                  className="px-4 py-2 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-wider hover:bg-[#2B2B28] cursor-pointer mt-2"
+                >
+                  Book In-Person Viewing
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {clientViewings.map((appt) => (
+                  <div
+                    key={appt.id}
+                    className="bg-[#F4F3EF] border border-[#141413]/15 p-5 space-y-3 shadow-sm flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-[10px] text-[#6E6D68] tracking-widest uppercase">
+                          Ref: {appt.bookingReference}
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 text-[9px] font-mono-num uppercase font-semibold border ${
+                            appt.status === 'Confirmed'
+                              ? 'bg-[#1F6F43]/10 text-[#1F6F43] border-[#1F6F43]/30'
+                              : appt.status === 'Completed'
+                              ? 'bg-[#141413]/10 text-[#141413] border-[#141413]/30'
+                              : appt.status === 'Cancelled'
+                              ? 'bg-[#D94E34]/10 text-[#D94E34] border-[#D94E34]/30'
+                              : 'bg-amber-500/10 text-amber-700 border-amber-500/30'
+                          }`}
+                        >
+                          {appt.status}
+                        </span>
+                      </div>
+                      <h3 className="font-semibold text-sm text-[#141413] mt-2 line-clamp-2">
+                        {appt.productName}
+                      </h3>
+                      <div className="mt-3 space-y-1.5 text-xs text-[#5E5D59]">
+                        <p className="flex items-center gap-1.5 font-mono">
+                          <Calendar className="w-3.5 h-3.5 text-[#6E6D68]" />
+                          <span>Date: {appt.viewingDate}</span>
+                        </p>
+                        <p className="flex items-center gap-1.5 font-mono">
+                          <Clock className="w-3.5 h-3.5 text-[#6E6D68]" />
+                          <span>Time: {appt.viewingTimeSlot}</span>
+                        </p>
+                        <p className="flex items-center gap-1.5 text-[11px] text-[#6E6D68]">
+                          <span>Kenyatta Pioneer Bldg, 5th Flr, Shop 514</span>
+                        </p>
+                      </div>
+                    </div>
+                    {appt.customerNotes && (
+                      <p className="text-[11px] text-[#6E6D68] italic border-t border-[#141413]/10 pt-2 mt-2">
+                        Note: &ldquo;{appt.customerNotes}&rdquo;
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

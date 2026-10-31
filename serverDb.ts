@@ -72,17 +72,7 @@ function getInitialDatabase(): TechSokoniDatabase {
     categories: CATEGORIES,
     offers: INITIAL_OFFERS,
     mpesaTransactions: [],
-    clients: [
-      {
-        id: 'client-brian-mwangi',
-        name: 'Brian Mwangi',
-        email: 'brian.mwangi@techfirm.co.ke',
-        phone: '+254 722 410 932',
-        defaultAddress: 'Riverside Drive, Westlands',
-        city: 'Nairobi',
-        createdAt: '2026-03-01T08:00:00Z',
-      },
-    ],
+    clients: [],
     settings: INITIAL_SETTINGS,
     viewingAppointments: INITIAL_VIEWING_APPOINTMENTS,
     viewingLocations: DEFAULT_VIEWING_LOCATIONS,
@@ -142,6 +132,14 @@ export function initServerDatabase(): TechSokoniDatabase {
           if (parsed.settings.notifyOnNewOrder === undefined) parsed.settings.notifyOnNewOrder = true;
           if (parsed.settings.notifyOnNewBooking === undefined) parsed.settings.notifyOnNewBooking = true;
           if (parsed.settings.notifyOnWarrantyReg === undefined) parsed.settings.notifyOnWarrantyReg = true;
+        }
+        if (Array.isArray(parsed.clients)) {
+          parsed.clients = parsed.clients.filter((c) => c.id !== 'client-brian-mwangi');
+        }
+        if (Array.isArray(parsed.viewingAppointments)) {
+          parsed.viewingAppointments = parsed.viewingAppointments.filter(
+            (v) => v.id !== 'viewing-tsv-2026-0001' && v.id !== 'viewing-tsv-2026-0002'
+          );
         }
         dbMemory = parsed;
         persistDatabaseSync();
@@ -578,4 +576,94 @@ export function getWarrantyRegistrations(): WarrantyRegistration[] {
   const db = getDatabase();
   return db.warranties || [];
 }
+
+export function updateClientPassword(email: string, newPasswordPlain: string): boolean {
+  const db = getDatabase();
+  const normalized = email.trim().toLowerCase();
+  const client = db.clients.find((c) => c.email.toLowerCase() === normalized);
+  if (client) {
+    client.password = newPasswordPlain;
+    persistDatabaseSync();
+    return true;
+  }
+  // If client account doesn't exist yet in local array, create profile with new password
+  db.clients.unshift({
+    id: `client-${Date.now()}`,
+    name: email.split('@')[0],
+    email: normalized,
+    phone: '',
+    password: newPasswordPlain,
+    defaultAddress: '',
+    city: 'Nairobi',
+    createdAt: new Date().toISOString(),
+  });
+  persistDatabaseSync();
+  return true;
+}
+
+export function updateClientMfa(email: string, enabled: boolean): boolean {
+  const db = getDatabase();
+  const normalized = email.trim().toLowerCase();
+  const client = db.clients.find((c) => c.email.toLowerCase() === normalized);
+  if (client) {
+    client.mfaEnabled = enabled;
+    persistDatabaseSync();
+    return true;
+  }
+  return false;
+}
+
+
+export function findClientByEmail(email: string): ClientAccount | undefined {
+  const db = getDatabase();
+  const normalized = (email || '').trim().toLowerCase();
+  return db.clients.find((c) => c.email.toLowerCase() === normalized);
+}
+
+export function saveOrUpdateClient(clientData: Partial<ClientAccount> & { email: string }): ClientAccount {
+  const db = getDatabase();
+  const normalized = clientData.email.trim().toLowerCase();
+  const existingIdx = db.clients.findIndex((c) => c.email.toLowerCase() === normalized);
+
+  if (existingIdx >= 0) {
+    db.clients[existingIdx] = {
+      ...db.clients[existingIdx],
+      ...clientData,
+      email: normalized,
+    };
+    persistDatabaseSync();
+    return db.clients[existingIdx];
+  }
+
+  const newClient: ClientAccount = {
+    id: clientData.id || `client-${Date.now()}`,
+    uid: clientData.uid,
+    name: clientData.name || normalized.split('@')[0],
+    email: normalized,
+    phone: clientData.phone || '',
+    password: clientData.password,
+    defaultAddress: clientData.defaultAddress || '',
+    city: clientData.city || 'Nairobi',
+    authProvider: clientData.authProvider || 'password',
+    photoURL: clientData.photoURL,
+    mfaEnabled: clientData.mfaEnabled ?? false,
+    createdAt: clientData.createdAt || new Date().toISOString(),
+  };
+
+  db.clients.unshift(newClient);
+  persistDatabaseSync();
+  return newClient;
+}
+
+export function verifyClientPassword(email: string, passwordPlain: string): ClientAccount | null {
+  const client = findClientByEmail(email);
+  if (!client) return null;
+  // If client has password set, verify match
+  if (client.password && client.password === passwordPlain) {
+    return client;
+  }
+  return null;
+}
+
+
 

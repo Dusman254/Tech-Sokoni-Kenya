@@ -122,7 +122,7 @@ interface StoreContextValue {
   loginClient: (
     email: string,
     password: string
-  ) => Promise<{ ok: boolean; error?: string }>;
+  ) => Promise<{ ok: boolean; requiresMfa?: boolean; client?: ClientAccount; error?: string }>;
   registerClient: (
     data: Omit<ClientAccount, 'id' | 'createdAt'>
   ) => Promise<{ ok: boolean; client?: ClientAccount; error?: string }>;
@@ -139,6 +139,17 @@ interface StoreContextValue {
   confirmNewPassword: (code: string, newPassword: string) => Promise<{ ok: boolean; error?: string }>;
   passwordResetCode: string | null;
   clearPasswordResetCode: () => void;
+
+  // 6-digit Email OTP Password Reset (NO link flow)
+  sendOtpResetCode: (email: string) => Promise<{ ok: boolean; message?: string; error?: string }>;
+  verifyOtpResetCode: (email: string, code: string) => Promise<{ ok: boolean; resetToken?: string; error?: string }>;
+  completeOtpPasswordReset: (email: string, resetToken: string, newPassword: string) => Promise<{ ok: boolean; message?: string; error?: string }>;
+
+  // Two-Step Verification (MFA / 2FA)
+  sendMfaCode: (email: string, purpose?: 'client_login' | 'admin_login') => Promise<{ ok: boolean; message?: string; error?: string }>;
+  verifyMfaCode: (email: string, code: string, purpose?: 'client_login' | 'admin_login') => Promise<{ ok: boolean; verified?: boolean; client?: ClientAccount; error?: string }>;
+  toggleClientMfa: (email: string, enabled: boolean) => Promise<{ ok: boolean; mfaEnabled?: boolean; error?: string }>;
+
 
   // Category Filters (Persisted in Local Storage)
   categoryFilters: Record<string, CategoryFilterState>;
@@ -453,42 +464,7 @@ function normalizeProduct(p: any): Product {
   };
 }
 
-const INITIAL_WARRANTIES: WarrantyRegistration[] = [
-  {
-    id: 'war-001',
-    serialNumber: 'C02GK9XXMD6R',
-    modelName: 'Apple MacBook Pro 16" (M3 Pro)',
-    category: 'laptops',
-    clientEmail: 'sirdusman@gmail.com',
-    clientPhone: '0792620789',
-    clientName: 'Showroom Client',
-    orderNumber: 'TS-ORD-1002',
-    purchaseDate: '2026-08-15',
-    warrantyMonths: 6,
-    warrantyExpiryDate: '2027-02-15',
-    status: 'active',
-    coverageSummary: '6 Months Official Tech Sokoni Hardware & Labor Coverage',
-    notes: 'Registered with original invoice TS-INV-2026-884. Verified Apple Silicon logic board and Liquid Retina display.',
-    registeredAt: '2026-08-15T09:30:00.000Z',
-  },
-  {
-    id: 'war-002',
-    serialNumber: '5CD23491KL',
-    modelName: 'HP EliteBook 840 G10',
-    category: 'laptops',
-    clientEmail: 'sirdusman@gmail.com',
-    clientPhone: '0792620789',
-    clientName: 'Showroom Client',
-    orderNumber: 'TS-ORD-1001',
-    purchaseDate: '2026-06-10',
-    warrantyMonths: 6,
-    warrantyExpiryDate: '2026-12-10',
-    status: 'active',
-    coverageSummary: '6 Months Official Tech Sokoni Hardware & Labor Coverage',
-    notes: 'Official enterprise registration. Sealed magnesium chassis verified at Pioneer Showroom.',
-    registeredAt: '2026-06-10T11:15:00.000Z',
-  },
-];
+const INITIAL_WARRANTIES: WarrantyRegistration[] = [];
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -1270,32 +1246,56 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // Client Auth Actions (Firebase Auth + Firestore `clients` sync)
+  // Client Auth Actions (Firebase Auth + Server DB + Firestore `clients` sync)
   const loginClient = async (
     email: string,
     password: string
-  ): Promise<{ ok: boolean; error?: string }> => {
+  ): Promise<{ ok: boolean; requiresMfa?: boolean; client?: ClientAccount; error?: string }> => {
     const normalized = email.trim().toLowerCase();
+    const cleanPass = password.trim();
 
-    // First check existing Firestore/seeded client profiles (for instant demo accounts or local profiles)
-    const localMatch = clients.find(
-      (c) =>
-        c.email.toLowerCase() === normalized &&
-        (c.password === password || password === 'demo')
-    );
-
-    if (localMatch && password === 'demo') {
-      setCurrentClient(localMatch);
-      showToast(`Welcome back, ${localMatch.name}`);
-      return { ok: true };
+    if (!normalized || !cleanPass) {
+      return { ok: false, error: 'Please enter both your email address and password.' };
     }
 
+    // 1. Try server-side authentication with MFA check
     try {
-      const cred = await signInWithEmailAndPassword(auth, normalized, password);
+      const resp = await fetch('/api/auth/client-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: normalized, password: cleanPass }),
+      });
+      const data = await resp.json();
+
+      if (resp.ok && data.ok) {
+        if (data.requiresMfa) {
+          // Trigger MFA verification code dispatch
+          await sendMfaCode(normalized, 'client_login');
+          return { ok: true, requiresMfa: true, client: data.client };
+        }
+        if (data.client) {
+          setCurrentClient(data.client);
+          setClients((prev) => [
+            data.client,
+            ...prev.filter((c) => c.id !== data.client.id && c.email.toLowerCase() !== normalized),
+          ]);
+          showToast(`Welcome back, ${data.client.name}`);
+          return { ok: true, client: data.client };
+        }
+      }
+    } catch {}
+
+    // 2. Try Firebase Auth
+    try {
+      const cred = await signInWithEmailAndPassword(auth, normalized, cleanPass);
       const clientProfile = await fetchOrCreateClientForFirebaseUser(
         cred.user,
         clientsRef.current
       );
+      if (clientProfile.mfaEnabled) {
+        await sendMfaCode(normalized, 'client_login');
+        return { ok: true, requiresMfa: true, client: clientProfile };
+      }
       setCurrentClient(clientProfile);
       setClients((prev) => {
         const exists = prev.some((c) => c.id === clientProfile.id);
@@ -1304,28 +1304,26 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
           : [clientProfile, ...prev];
       });
       showToast(`Welcome back, ${clientProfile.name}`);
-      return { ok: true };
+      return { ok: true, client: clientProfile };
     } catch (fbErr: any) {
-      // If account exists in seeded/synced client accounts, sign them in cleanly
+      // 3. Fallback: match local client if password strictly matches
+      const localMatch = clients.find(
+        (c) => c.email.toLowerCase() === normalized && c.password === cleanPass
+      );
       if (localMatch) {
+        if (localMatch.mfaEnabled) {
+          await sendMfaCode(normalized, 'client_login');
+          return { ok: true, requiresMfa: true, client: localMatch };
+        }
         setCurrentClient(localMatch);
         showToast(`Welcome back, ${localMatch.name}`);
-        return { ok: true };
+        return { ok: true, client: localMatch };
       }
 
-      const code = fbErr?.code || '';
-      if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
-        return {
-          ok: false,
-          error:
-            'Invalid email or password. Please verify your credentials or create a new client account.',
-        };
-      }
       return {
         ok: false,
         error:
-          fbErr?.message ||
-          'Unable to sign in with those credentials. Please check your email and password.',
+          'Incorrect email or password. Please verify your credentials or click "Forgot Password?" to reset.',
       };
     }
   };
@@ -1335,6 +1333,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   ): Promise<{ ok: boolean; client?: ClientAccount; error?: string }> => {
     const normalizedEmail = data.email.trim().toLowerCase();
     const pwd = data.password || 'password123';
+
+    // Register on server database first
+    fetch('/api/auth/client-register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...data, email: normalizedEmail, password: pwd }),
+    }).catch(() => {});
 
     try {
       const cred = await createUserWithEmailAndPassword(
@@ -1452,6 +1457,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       await signOut(auth);
     } catch {}
     setCurrentClient(null);
+    try {
+      localStorage.removeItem(STORAGE_KEYS.CURRENT_CLIENT);
+    } catch {}
     showToast('Signed out of Client Area');
   };
 
@@ -1597,6 +1605,176 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
     if (typeof window !== 'undefined' && window.history?.replaceState) {
       const cleanUrl = window.location.origin + window.location.pathname;
       window.history.replaceState({}, document.title, cleanUrl);
+    }
+  };
+
+  // 6-Digit Email OTP Password Reset (Strict Requirement: Code sent to email, verified before new password)
+  const sendOtpResetCode = async (
+    email: string
+  ): Promise<{ ok: boolean; message?: string; error?: string }> => {
+    const clean = email.trim().toLowerCase();
+    if (!clean || !clean.includes('@')) {
+      return { ok: false, error: 'Please enter a valid email address.' };
+    }
+    try {
+      const resp = await fetch('/api/auth/send-reset-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: clean }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        return { ok: false, error: data.error || 'Failed to send verification code.' };
+      }
+      return { ok: true, message: data.message };
+    } catch (err: any) {
+      return { ok: false, error: 'Network error sending verification code. Please check connection.' };
+    }
+  };
+
+  const verifyOtpResetCode = async (
+    email: string,
+    code: string
+  ): Promise<{ ok: boolean; resetToken?: string; error?: string }> => {
+    const clean = email.trim().toLowerCase();
+    const cleanCode = code.trim();
+    if (!clean || !cleanCode) {
+      return { ok: false, error: 'Email and 6-digit verification code are required.' };
+    }
+    try {
+      const resp = await fetch('/api/auth/verify-reset-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: clean, code: cleanCode }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        return { ok: false, error: data.error || 'Invalid or expired verification code.' };
+      }
+      return { ok: true, resetToken: data.resetToken };
+    } catch (err: any) {
+      return { ok: false, error: 'Network error verifying code.' };
+    }
+  };
+
+  const completeOtpPasswordReset = async (
+    email: string,
+    resetToken: string,
+    newPassword: string
+  ): Promise<{ ok: boolean; message?: string; error?: string }> => {
+    const clean = email.trim().toLowerCase();
+    const cleanPass = newPassword.trim();
+    if (!clean || !resetToken || !cleanPass) {
+      return { ok: false, error: 'All fields are required.' };
+    }
+    if (cleanPass.length < 6) {
+      return { ok: false, error: 'Password must be at least 6 characters long.' };
+    }
+    try {
+      const resp = await fetch('/api/auth/complete-password-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: clean, resetToken, newPassword: cleanPass }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        return { ok: false, error: data.error || 'Failed to update password.' };
+      }
+      // Update locally if client profile exists
+      setClients((prev) =>
+        prev.map((c) =>
+          c.email.toLowerCase() === clean ? { ...c, password: cleanPass } : c
+        )
+      );
+      showToast('Password updated! You can now log in with your new password.');
+      return { ok: true, message: data.message };
+    } catch (err: any) {
+      return { ok: false, error: 'Network error saving new password.' };
+    }
+  };
+
+  // Two-Step Verification (MFA) Methods
+  const sendMfaCode = async (
+    email: string,
+    purpose: 'client_login' | 'admin_login' = 'client_login'
+  ): Promise<{ ok: boolean; message?: string; error?: string }> => {
+    try {
+      const resp = await fetch('/api/auth/send-mfa-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), purpose }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        return { ok: false, error: data.error || 'Failed to send security code.' };
+      }
+      return { ok: true, message: data.message };
+    } catch (err: any) {
+      return { ok: false, error: 'Network error sending 2-step verification code.' };
+    }
+  };
+
+  const verifyMfaCode = async (
+    email: string,
+    code: string,
+    purpose: 'client_login' | 'admin_login' = 'client_login'
+  ): Promise<{ ok: boolean; verified?: boolean; client?: ClientAccount; error?: string }> => {
+    try {
+      const resp = await fetch('/api/auth/verify-mfa-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          code: code.trim(),
+          purpose,
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        return { ok: false, error: data.error || 'Invalid security code.' };
+      }
+      if (purpose === 'client_login' && data.client) {
+        setCurrentClient(data.client);
+        setClients((prev) => [
+          data.client,
+          ...prev.filter((c) => c.id !== data.client.id && c.email.toLowerCase() !== data.client.email.toLowerCase()),
+        ]);
+        showToast(`Verification successful. Welcome back, ${data.client.name}`);
+      }
+      return { ok: true, verified: true, client: data.client };
+    } catch (err: any) {
+      return { ok: false, error: 'Network error verifying security code.' };
+    }
+  };
+
+  const toggleClientMfa = async (
+    email: string,
+    enabled: boolean
+  ): Promise<{ ok: boolean; mfaEnabled?: boolean; error?: string }> => {
+    try {
+      const resp = await fetch('/api/auth/toggle-mfa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), enabled }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        return { ok: false, error: data.error || 'Failed to update 2-step verification settings.' };
+      }
+      if (currentClient && currentClient.email.toLowerCase() === email.trim().toLowerCase()) {
+        const updated = { ...currentClient, mfaEnabled: enabled };
+        setCurrentClient(updated);
+        setClients((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+        saveClientToFirestore(updated).catch(() => {});
+      }
+      showToast(
+        enabled
+          ? 'Two-step verification activated for your account.'
+          : 'Two-step verification turned off.'
+      );
+      return { ok: true, mfaEnabled: enabled };
+    } catch (err: any) {
+      return { ok: false, error: 'Failed to update 2-step verification settings.' };
     }
   };
 
@@ -3057,6 +3235,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
         confirmNewPassword,
         passwordResetCode,
         clearPasswordResetCode,
+        sendOtpResetCode,
+        verifyOtpResetCode,
+        completeOtpPasswordReset,
+        sendMfaCode,
+        verifyMfaCode,
+        toggleClientMfa,
         categoryFilters,
         getCategoryFilters,
         setCategoryFilters,

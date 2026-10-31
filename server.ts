@@ -26,12 +26,20 @@ import {
   getNotifications,
   addWarrantyRegistration,
   getWarrantyRegistrations,
+  updateClientPassword,
+  updateClientMfa,
+  findClientByEmail,
+  saveOrUpdateClient,
+  verifyClientPassword,
 } from './serverDb';
 import {
   sendOrderNotificationEmail,
   sendBookingNotificationEmail,
   sendWarrantyNotificationEmail,
   sendTestNotificationEmail,
+  sendPasswordResetCodeEmail,
+  sendTwoFactorCodeEmail,
+  sendPasswordChangedConfirmationEmail,
   getAdminNotificationRecipient,
   getEmailTransporter,
 } from './serverNotificationService';
@@ -452,6 +460,379 @@ async function startServer() {
     const updated = updateSiteSettings(req.body);
     res.json(updated);
   });
+
+  // ============================================================================
+  // Client & Admin Authentication, Email OTP Password Reset, and MFA / 2FA
+  // ============================================================================
+
+  interface VerificationEntry {
+    code: string;
+    email: string;
+    purpose: string;
+    expiresAt: number;
+    attempts: number;
+    verifiedToken?: string;
+    clientName?: string;
+  }
+
+  const verificationCodes = new Map<string, VerificationEntry>();
+
+  function generate6DigitCode(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  // Rate limiter for security OTP codes (max 15 requests per 10 minutes per IP)
+  const otpRateLimiter = createRateLimiter({
+    maxRequests: 15,
+    windowMs: 10 * 60 * 1000,
+  });
+
+  // Clean expired OTP verification entries every 5 minutes
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of verificationCodes.entries()) {
+      if (now > entry.expiresAt) {
+        verificationCodes.delete(key);
+      }
+    }
+  }, 5 * 60 * 1000);
+
+  // 1. Send Password Reset OTP Code (NO LINK - 6 DIGIT CODE STRICTLY)
+  app.post('/api/auth/send-reset-code', otpRateLimiter, async (req: Request, res: Response) => {
+    try {
+      const email = (req.body?.email || '').trim().toLowerCase();
+      if (!email || !email.includes('@')) {
+        return res.status(400).json({ error: 'Please enter a valid email address.' });
+      }
+
+      const client = findClientByEmail(email);
+      const code = generate6DigitCode();
+      const key = `reset:${email}`;
+
+      verificationCodes.set(key, {
+        code,
+        email,
+        purpose: 'password_reset',
+        expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes expiry
+        attempts: 0,
+        clientName: client?.name || email.split('@')[0],
+      });
+
+      console.log(`[AUTH-OTP]: Generated reset code ${code} for ${email}`);
+
+      // Dispatch 6-digit OTP code directly to user's email
+      const emailResult = await sendPasswordResetCodeEmail(email, code, client?.name);
+
+      return res.json({
+        ok: true,
+        message: `A 6-digit verification code has been dispatched to ${email}.`,
+        isSimulated: emailResult?.status === 'simulated',
+      });
+    } catch (err: any) {
+      console.error('[AUTH-OTP]: Error sending password reset code:', err?.message || err);
+      return res.status(500).json({ error: 'Failed to send verification code. Please try again.' });
+    }
+  });
+
+  // 2. Verify 6-digit OTP Code
+  app.post('/api/auth/verify-reset-code', (req: Request, res: Response) => {
+    try {
+      const email = (req.body?.email || '').trim().toLowerCase();
+      const code = (req.body?.code || '').trim();
+
+      if (!email || !code) {
+        return res.status(400).json({ error: 'Email and verification code are required.' });
+      }
+
+      const key = `reset:${email}`;
+      const entry = verificationCodes.get(key);
+
+      if (!entry) {
+        return res.status(400).json({
+          error: 'No active verification code found or it has expired. Please request a new code.',
+        });
+      }
+
+      if (Date.now() > entry.expiresAt) {
+        verificationCodes.delete(key);
+        return res.status(400).json({ error: 'This verification code has expired. Please request a new code.' });
+      }
+
+      if (entry.code !== code) {
+        entry.attempts++;
+        if (entry.attempts >= 5) {
+          verificationCodes.delete(key);
+          return res.status(400).json({
+            error: 'Too many incorrect attempts. For security reasons, please request a new verification code.',
+          });
+        }
+        return res.status(400).json({
+          error: `Incorrect code. ${5 - entry.attempts} attempts remaining.`,
+        });
+      }
+
+      // Generate secure one-time reset token
+      const resetToken = `rst-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+      entry.verifiedToken = resetToken;
+
+      return res.json({
+        ok: true,
+        resetToken,
+        message: 'Code verified successfully. You can now set your new password.',
+      });
+    } catch (err: any) {
+      console.error('[AUTH-OTP]: Error verifying reset code:', err?.message || err);
+      return res.status(500).json({ error: 'Failed to verify code. Please try again.' });
+    }
+  });
+
+  // 3. Complete Password Reset with New Password
+  app.post('/api/auth/complete-password-reset', async (req: Request, res: Response) => {
+    try {
+      const email = (req.body?.email || '').trim().toLowerCase();
+      const resetToken = (req.body?.resetToken || '').trim();
+      const newPassword = (req.body?.newPassword || '').trim();
+
+      if (!email || !resetToken || !newPassword) {
+        return res.status(400).json({ error: 'Email, reset token, and new password are required.' });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+      }
+
+      const key = `reset:${email}`;
+      const entry = verificationCodes.get(key);
+
+      if (!entry || entry.verifiedToken !== resetToken) {
+        return res.status(403).json({
+          error: 'Invalid or expired password reset session. Please request a new code.',
+        });
+      }
+
+      // Update password in database
+      updateClientPassword(email, newPassword);
+
+      // Clean up token
+      verificationCodes.delete(key);
+
+      // Send confirmation email
+      sendPasswordChangedConfirmationEmail(email, entry.clientName).catch((err) => {
+        console.error('[AUTH-OTP]: Error sending confirmation email:', err?.message || err);
+      });
+
+      return res.json({
+        ok: true,
+        message: 'Your password has been securely updated. You can now log in with your new password.',
+      });
+    } catch (err: any) {
+      console.error('[AUTH-OTP]: Error updating password:', err?.message || err);
+      return res.status(500).json({ error: 'Failed to update password.' });
+    }
+  });
+
+  // 4. Send Multi-Factor Authentication (MFA / 2FA) 6-digit Code
+  app.post('/api/auth/send-mfa-code', otpRateLimiter, async (req: Request, res: Response) => {
+    try {
+      const purpose = (req.body?.purpose || 'client_login') as 'client_login' | 'admin_login';
+      let email = (req.body?.email || '').trim().toLowerCase();
+
+      if (purpose === 'admin_login') {
+        email = getAdminNotificationRecipient().toLowerCase();
+      }
+
+      if (!email || !email.includes('@')) {
+        return res.status(400).json({ error: 'A valid email is required for two-step verification.' });
+      }
+
+      const client = findClientByEmail(email);
+      const code = generate6DigitCode();
+      const key = `mfa:${purpose}:${email}`;
+
+      verificationCodes.set(key, {
+        code,
+        email,
+        purpose,
+        expiresAt: Date.now() + 10 * 60 * 1000,
+        attempts: 0,
+        clientName: purpose === 'admin_login' ? 'Showroom Admin' : client?.name || email.split('@')[0],
+      });
+
+      console.log(`[AUTH-MFA]: Generated ${purpose} MFA code ${code} for ${email}`);
+
+      const contextLabel = purpose === 'admin_login' ? 'Administrator Security Gate' : 'Client Account Sign In';
+      const emailResult = await sendTwoFactorCodeEmail(
+        email,
+        code,
+        purpose,
+        purpose === 'admin_login' ? 'Showroom Administrator' : client?.name
+      );
+
+      return res.json({
+        ok: true,
+        email,
+        message: `Security code sent to ${email}.`,
+        isSimulated: emailResult?.status === 'simulated',
+      });
+    } catch (err: any) {
+      console.error('[AUTH-MFA]: Error sending MFA code:', err?.message || err);
+      return res.status(500).json({ error: 'Failed to send two-step verification code.' });
+    }
+  });
+
+  // 5. Verify Multi-Factor Authentication (MFA / 2FA) 6-digit Code
+  app.post('/api/auth/verify-mfa-code', (req: Request, res: Response) => {
+    try {
+      const purpose = (req.body?.purpose || 'client_login') as 'client_login' | 'admin_login';
+      let email = (req.body?.email || '').trim().toLowerCase();
+
+      if (purpose === 'admin_login') {
+        email = getAdminNotificationRecipient().toLowerCase();
+      }
+
+      const code = (req.body?.code || '').trim();
+
+      if (!email || !code) {
+        return res.status(400).json({ error: 'Email and verification code are required.' });
+      }
+
+      const key = `mfa:${purpose}:${email}`;
+      const entry = verificationCodes.get(key);
+
+      if (!entry) {
+        return res.status(400).json({
+          error: 'Verification code not found or has expired. Please request a new code.',
+        });
+      }
+
+      if (Date.now() > entry.expiresAt) {
+        verificationCodes.delete(key);
+        return res.status(400).json({ error: 'This verification code has expired. Please request a new code.' });
+      }
+
+      if (entry.code !== code) {
+        entry.attempts++;
+        if (entry.attempts >= 5) {
+          verificationCodes.delete(key);
+          return res.status(400).json({
+            error: 'Too many incorrect attempts. Please request a new code.',
+          });
+        }
+        return res.status(400).json({
+          error: `Incorrect security code. ${5 - entry.attempts} attempts remaining.`,
+        });
+      }
+
+      // Validated
+      verificationCodes.delete(key);
+
+      let client = null;
+      if (purpose === 'client_login') {
+        client = findClientByEmail(email);
+      }
+
+      return res.json({
+        ok: true,
+        verified: true,
+        client,
+        message: 'Two-step verification verified successfully.',
+      });
+    } catch (err: any) {
+      console.error('[AUTH-MFA]: Error verifying MFA code:', err?.message || err);
+      return res.status(500).json({ error: 'Failed to verify two-step code.' });
+    }
+  });
+
+  // 6. Direct Client Sign In with password check and MFA awareness
+  app.post('/api/auth/client-login', (req: Request, res: Response) => {
+    try {
+      const email = (req.body?.email || '').trim().toLowerCase();
+      const password = (req.body?.password || '').trim();
+
+      if (!email || !password) {
+        return res.status(400).json({ error: 'Email and password are required.' });
+      }
+
+      const client = findClientByEmail(email);
+      if (!client || client.password !== password) {
+        return res.status(401).json({ error: 'Incorrect email or password.' });
+      }
+
+      // If MFA is enabled for this client, flag that MFA challenge is required
+      if (client.mfaEnabled) {
+        return res.json({
+          ok: true,
+          requiresMfa: true,
+          email: client.email,
+          name: client.name,
+        });
+      }
+
+      return res.json({
+        ok: true,
+        requiresMfa: false,
+        client,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: 'Failed to process login.' });
+    }
+  });
+
+  // 7. Client Registration
+  app.post('/api/auth/client-register', (req: Request, res: Response) => {
+    try {
+      const { name, email, phone, password, defaultAddress, city, mfaEnabled } = req.body || {};
+      if (!email || !password) {
+        return res.status(400).json({ error: 'Email and password are required.' });
+      }
+
+      const saved = saveOrUpdateClient({
+        name: name || email.split('@')[0],
+        email: email.trim().toLowerCase(),
+        phone: phone || '',
+        password,
+        defaultAddress: defaultAddress || '',
+        city: city || 'Nairobi',
+        mfaEnabled: Boolean(mfaEnabled),
+      });
+
+      return res.status(201).json({ ok: true, client: saved });
+    } catch (err: any) {
+      return res.status(500).json({ error: 'Failed to register account.' });
+    }
+  });
+
+  // 8. Toggle Client MFA
+  app.post('/api/auth/toggle-mfa', (req: Request, res: Response) => {
+    try {
+      const email = (req.body?.email || '').trim().toLowerCase();
+      const enabled = Boolean(req.body?.enabled);
+
+      if (!email) {
+        return res.status(400).json({ error: 'Email is required.' });
+      }
+
+      const updated = updateClientMfa(email, enabled);
+      return res.json({ ok: true, mfaEnabled: enabled, updated });
+    } catch (err: any) {
+      return res.status(500).json({ error: 'Failed to update two-step verification settings.' });
+    }
+  });
+
+  // 9. Sync Client Profile
+  app.post('/api/auth/sync-client', (req: Request, res: Response) => {
+    try {
+      const clientData = req.body;
+      if (!clientData || !clientData.email) {
+        return res.status(400).json({ error: 'Client email is required.' });
+      }
+      const saved = saveOrUpdateClient(clientData);
+      return res.json({ ok: true, client: saved });
+    } catch (err: any) {
+      return res.status(500).json({ error: 'Failed to sync client profile.' });
+    }
+  });
+
 
   // Health check endpoint
   app.get('/api/health', (_req, res) => {

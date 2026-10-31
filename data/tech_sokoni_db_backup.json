@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastUpdated": "2026-10-30T15:36:09.545Z",
+  "lastUpdated": "2026-10-31T17:57:45.268Z",
   "products": [
     {
       "id": "test-cross-browser-phone-prod-1",
@@ -471,6 +471,17 @@
   ],
   "clients": [
     {
+      "id": "client-1793469401585",
+      "name": "sirdusman",
+      "email": "sirdusman@gmail.com",
+      "phone": "",
+      "password": "SecurePassword2026!",
+      "defaultAddress": "",
+      "city": "Nairobi",
+      "createdAt": "2026-10-31T17:56:41.585Z",
+      "mfaEnabled": true
+    },
+    {
       "id": "client-1793374569543",
       "name": "Wanjiku Kamau",
       "email": "wanjiku@example.com",
@@ -496,15 +507,6 @@
       "defaultAddress": "Delta Corner, Westlands",
       "city": "Nairobi",
       "createdAt": "2026-10-20T10:08:20.805Z"
-    },
-    {
-      "id": "client-brian-mwangi",
-      "name": "Brian Mwangi",
-      "email": "brian.mwangi@techfirm.co.ke",
-      "phone": "+254 722 410 932",
-      "defaultAddress": "Riverside Drive, Westlands",
-      "city": "Nairobi",
-      "createdAt": "2026-03-01T08:00:00Z"
     }
   ],
   "settings": {
@@ -597,110 +599,6 @@
       ],
       "createdAt": "2026-10-20T10:08:39.221Z",
       "updatedAt": "2026-10-20T10:08:39.221Z"
-    },
-    {
-      "id": "viewing-tsv-2026-0001",
-      "bookingReference": "TSV-2026-0001",
-      "productId": "prod-thinkpad-x1-carbon-gen11",
-      "productName": "Lenovo ThinkPad X1 Carbon Gen 11",
-      "productBrand": "Lenovo",
-      "productSku": "LN-X1C11-1370P",
-      "productImage": "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?auto=format&fit=crop&w=900&q=80",
-      "productPrice": 245000,
-      "productCondition": "New",
-      "productShortSpec": "Core i7-1370P · 32GB LPDDR5 · 1TB NVMe · 14\" 2.8K OLED 400-nit · 1.12kg",
-      "customerName": "Brian Mwangi",
-      "customerPhone": "+254 722 410 932",
-      "customerEmail": "brian.mwangi@techfirm.co.ke",
-      "attendeeCount": 1,
-      "preferredContact": "whatsapp",
-      "customerNotes": "I want to physically test keyboard travel, trackpoint sensitivity, and verify the OLED display for color grading.",
-      "viewingDate": "2026-10-21",
-      "viewingTimeSlot": "11:00 AM",
-      "locationId": "loc-nbi-cbd",
-      "locationSnapshot": {
-        "id": "loc-nbi-cbd",
-        "name": "Tech Sokoni Flagship Showroom",
-        "address": "Kenyatta Avenue, Nairobi CBD, Kenya",
-        "building": "Kenyatta Pioneer Building (Next to I&M Building)",
-        "floor": "5th Floor",
-        "room": "Shop 514",
-        "mapsUrl": "https://maps.google.com/?q=Kenyatta+Pioneer+Building+Nairobi",
-        "phone": "+254 792 620 789",
-        "whatsapp": "+254 792 620 789",
-        "visitorInstructions": "Take the passenger lifts to Floor 5, turn right down the boutique gallery corridor to Shop 514. Inform our showroom concierge of your booking reference.",
-        "active": true
-      },
-      "status": "Confirmed",
-      "internalNotes": "Client verified on WhatsApp. Unit pre-staged in Pioneer Shop 514 inspection booth.",
-      "assignedStaff": "Kevin Oduor (Showroom Lead)",
-      "auditTrail": [
-        {
-          "timestamp": "2026-10-20T05:55:23.645Z",
-          "action": "Booking Created",
-          "newStatus": "Pending Confirmation",
-          "actor": "customer",
-          "note": "Customer submitted appointment online."
-        },
-        {
-          "timestamp": "2026-10-20T07:55:23.645Z",
-          "action": "Appointment Confirmed",
-          "previousStatus": "Pending Confirmation",
-          "newStatus": "Confirmed",
-          "actor": "Kevin Oduor",
-          "note": "Slot confirmed and laptop pre-staged in Showroom booth."
-        }
-      ],
-      "createdAt": "2026-10-20T05:55:23.645Z",
-      "updatedAt": "2026-10-20T07:55:23.645Z"
-    },
-    {
-      "id": "viewing-tsv-2026-0002",
-      "bookingReference": "TSV-2026-0002",
-      "productId": "prod-macbook-pro-16-m3-max",
-      "productName": "Apple MacBook Pro 16\" M3 Max",
-      "productBrand": "Apple",
-      "productSku": "AP-MBP16-M3MAX",
-      "productImage": "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=900&q=80",
-      "productPrice": 485000,
-      "productCondition": "New",
-      "productShortSpec": "M3 Max 16-Core CPU / 40-Core GPU · 64GB Unified · 1TB SSD · Space Black",
-      "customerName": "Amina Hassan",
-      "customerPhone": "+254 711 890 234",
-      "customerEmail": "amina.hassan@studio.or.ke",
-      "attendeeCount": 2,
-      "preferredContact": "phone",
-      "customerNotes": "Need to inspect Space Black finish, battery cycle count, and official Apple 1-Year warranty activation.",
-      "viewingDate": "2026-10-22",
-      "viewingTimeSlot": "02:30 PM",
-      "locationId": "loc-nbi-cbd",
-      "locationSnapshot": {
-        "id": "loc-nbi-cbd",
-        "name": "Tech Sokoni Flagship Showroom",
-        "address": "Kenyatta Avenue, Nairobi CBD, Kenya",
-        "building": "Kenyatta Pioneer Building (Next to I&M Building)",
-        "floor": "5th Floor",
-        "room": "Shop 514",
-        "mapsUrl": "https://maps.google.com/?q=Kenyatta+Pioneer+Building+Nairobi",
-        "phone": "+254 792 620 789",
-        "whatsapp": "+254 792 620 789",
-        "visitorInstructions": "Take the passenger lifts to Floor 5, turn right down the boutique gallery corridor to Shop 514. Inform our showroom concierge of your booking reference.",
-        "active": true
-      },
-      "status": "Pending Confirmation",
-      "internalNotes": "Customer requested phone call prior to visiting.",
-      "assignedStaff": "Grace Wanjiku",
-      "auditTrail": [
-        {
-          "timestamp": "2026-10-20T08:55:23.645Z",
-          "action": "Booking Created",
-          "newStatus": "Pending Confirmation",
-          "actor": "customer",
-          "note": "Customer submitted appointment online."
-        }
-      ],
-      "createdAt": "2026-10-20T08:55:23.645Z",
-      "updatedAt": "2026-10-20T08:55:23.645Z"
     }
   ],
   "viewingLocations": [
@@ -753,6 +651,53 @@
     "requireApproval": false
   },
   "notifications": [
+    {
+      "id": "notif-1793469465268-jrrp",
+      "type": "test",
+      "recipient": "sirdusman@gmail.com",
+      "subject": "🛡️ [Tech Sokoni] Two-Step Verification Code: 100326",
+      "summary": "Two-step verification code [100326] dispatched to sirdusman@gmail.com for admin_login",
+      "htmlContent": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Two-Step Verification Code</title>\n  <style>\n    body { margin: 0; padding: 0; background-color: #F4F3EF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #141413; }\n    .container { max-width: 620px; margin: 24px auto; background-color: #FFFFFF; border: 1px solid #EAE9E4; border-radius: 4px; overflow: hidden; box-shadow: 0 4px 16px rgba(20,20,19,0.06); }\n    .header { background-color: #141413; padding: 24px 28px; color: #F4F3EF; }\n    .brand { font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase; color: #9E9D98; font-family: monospace; margin-bottom: 6px; }\n    .title { font-size: 20px; font-weight: 700; margin: 0 0 4px 0; color: #F4F3EF; letter-spacing: -0.02em; }\n    .subtitle { font-size: 12px; color: #1F6F43; font-weight: 600; font-family: monospace; text-transform: uppercase; letter-spacing: 0.1em; }\n    .body { padding: 28px; }\n    .badge { display: inline-block; padding: 4px 10px; font-size: 11px; font-family: monospace; font-weight: 600; text-transform: uppercase; border-radius: 2px; }\n    .badge-order { background-color: #E8F5E9; color: #1F6F43; border: 1px solid #A5D6A7; }\n    .badge-booking { background-color: #E3F2FD; color: #1565C0; border: 1px solid #90CAF9; }\n    .badge-warranty { background-color: #FFF3E0; color: #E65100; border: 1px solid #FFE0B2; }\n    .card { background-color: #F8F7F4; border: 1px solid #EAE9E4; padding: 18px; margin-bottom: 20px; }\n    .grid-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }\n    .label { color: #6E6D68; font-size: 12px; font-family: monospace; text-transform: uppercase; }\n    .value { font-weight: 600; color: #141413; }\n    .items-table { width: 100%; border-collapse: collapse; margin-top: 14px; }\n    .items-table th { text-align: left; font-size: 10px; text-transform: uppercase; font-family: monospace; color: #6E6D68; padding: 8px 6px; border-bottom: 2px solid #141413; }\n    .items-table td { padding: 10px 6px; border-bottom: 1px solid #EAE9E4; font-size: 13px; vertical-align: top; }\n    .btn { display: inline-block; padding: 10px 18px; background-color: #141413; color: #F4F3EF !important; text-decoration: none; font-size: 11px; font-family: monospace; text-transform: uppercase; letter-spacing: 0.15em; font-weight: 600; margin-right: 8px; margin-top: 8px; }\n    .btn-secondary { background-color: #1F6F43; }\n    .btn-outline { background-color: #F4F3EF; color: #141413 !important; border: 1px solid #141413; }\n    .footer { background-color: #F4F3EF; padding: 18px 28px; text-align: center; font-size: 11px; color: #6E6D68; font-family: monospace; border-top: 1px solid #EAE9E4; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <div class=\"brand\">Tech Sokoni Kenya — Showroom Dispatch Alert</div>\n      <h1 class=\"title\">Two-Step Verification Code</h1>\n      <div class=\"subtitle\">Tech Sokoni Showroom Admin Access • sirdusman@gmail.com</div>\n    </div>\n    <div class=\"body\">\n      \n    <div style=\"margin-bottom: 20px;\">\n      <span class=\"badge badge-booking\" style=\"background-color:#E8F5E9; color:#1F6F43; border-color:#A5D6A7;\">\n        🛡️ Two-Step Verification (2FA / MFA)\n      </span>\n    </div>\n\n    <p style=\"font-size: 14px; color: #141413; line-height: 1.5; margin-bottom: 16px;\">\n      Hello Showroom Administrator, A login or security verification was requested for <strong>sirdusman@gmail.com</strong> on <strong>Tech Sokoni Showroom Admin Access</strong>.\n    </p>\n\n    <div style=\"background-color: #141413; color: #F4F3EF; text-align: center; padding: 24px; margin: 24px 0; border-radius: 4px;\">\n      <div style=\"font-size: 11px; font-family: monospace; letter-spacing: 0.2em; text-transform: uppercase; color: #9E9D98; margin-bottom: 8px;\">\n        Security Verification Code\n      </div>\n      <div style=\"font-family: monospace; font-size: 38px; font-weight: 700; letter-spacing: 0.35em; color: #F4F3EF;\">\n        100326\n      </div>\n      <div style=\"font-size: 11px; color: #1F6F43; margin-top: 8px; font-family: monospace;\">\n        ⏱ Valid for 10 minutes • Single-use\n      </div>\n    </div>\n\n    <div class=\"card\" style=\"font-size: 12px; line-height: 1.6; color: #5E5D59;\">\n      Enter this code on your device to complete your sign-in. Never share this code with anyone. Tech Sokoni staff will never ask for your verification code.\n    </div>\n  \n    </div>\n    <div class=\"footer\">\n      Tech Sokoni Kenya • Kenyatta Pioneer Building, 5th Floor, Shop 514, Nairobi CBD<br>\n      Orders Hotline &amp; WhatsApp: +254 792 620 789 • shop@techsokoni.com\n    </div>\n  </div>\n</body>\n</html>",
+      "textContent": "TECH SOKONI KENYA - TWO-STEP VERIFICATION CODE\n====================================================\nHello Showroom Administrator,\nVerification code for Tech Sokoni Showroom Admin Access:\n\nYOUR 6-DIGIT CODE:\n100326\n\n(Valid for 10 minutes)\n\nEnter this code in your browser to complete authentication.\n====================================================",
+      "status": "simulated",
+      "referenceId": "MFA-100326",
+      "createdAt": "2026-10-31T17:57:45.268Z"
+    },
+    {
+      "id": "notif-1793469445973-94df",
+      "type": "test",
+      "recipient": "sirdusman@gmail.com",
+      "subject": "🛡️ [Tech Sokoni] Two-Step Verification Code: 543609",
+      "summary": "Two-step verification code [543609] dispatched to sirdusman@gmail.com for client_login",
+      "htmlContent": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Two-Step Verification Code</title>\n  <style>\n    body { margin: 0; padding: 0; background-color: #F4F3EF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #141413; }\n    .container { max-width: 620px; margin: 24px auto; background-color: #FFFFFF; border: 1px solid #EAE9E4; border-radius: 4px; overflow: hidden; box-shadow: 0 4px 16px rgba(20,20,19,0.06); }\n    .header { background-color: #141413; padding: 24px 28px; color: #F4F3EF; }\n    .brand { font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase; color: #9E9D98; font-family: monospace; margin-bottom: 6px; }\n    .title { font-size: 20px; font-weight: 700; margin: 0 0 4px 0; color: #F4F3EF; letter-spacing: -0.02em; }\n    .subtitle { font-size: 12px; color: #1F6F43; font-weight: 600; font-family: monospace; text-transform: uppercase; letter-spacing: 0.1em; }\n    .body { padding: 28px; }\n    .badge { display: inline-block; padding: 4px 10px; font-size: 11px; font-family: monospace; font-weight: 600; text-transform: uppercase; border-radius: 2px; }\n    .badge-order { background-color: #E8F5E9; color: #1F6F43; border: 1px solid #A5D6A7; }\n    .badge-booking { background-color: #E3F2FD; color: #1565C0; border: 1px solid #90CAF9; }\n    .badge-warranty { background-color: #FFF3E0; color: #E65100; border: 1px solid #FFE0B2; }\n    .card { background-color: #F8F7F4; border: 1px solid #EAE9E4; padding: 18px; margin-bottom: 20px; }\n    .grid-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }\n    .label { color: #6E6D68; font-size: 12px; font-family: monospace; text-transform: uppercase; }\n    .value { font-weight: 600; color: #141413; }\n    .items-table { width: 100%; border-collapse: collapse; margin-top: 14px; }\n    .items-table th { text-align: left; font-size: 10px; text-transform: uppercase; font-family: monospace; color: #6E6D68; padding: 8px 6px; border-bottom: 2px solid #141413; }\n    .items-table td { padding: 10px 6px; border-bottom: 1px solid #EAE9E4; font-size: 13px; vertical-align: top; }\n    .btn { display: inline-block; padding: 10px 18px; background-color: #141413; color: #F4F3EF !important; text-decoration: none; font-size: 11px; font-family: monospace; text-transform: uppercase; letter-spacing: 0.15em; font-weight: 600; margin-right: 8px; margin-top: 8px; }\n    .btn-secondary { background-color: #1F6F43; }\n    .btn-outline { background-color: #F4F3EF; color: #141413 !important; border: 1px solid #141413; }\n    .footer { background-color: #F4F3EF; padding: 18px 28px; text-align: center; font-size: 11px; color: #6E6D68; font-family: monospace; border-top: 1px solid #EAE9E4; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <div class=\"brand\">Tech Sokoni Kenya — Showroom Dispatch Alert</div>\n      <h1 class=\"title\">Two-Step Verification Code</h1>\n      <div class=\"subtitle\">Tech Sokoni Client Sign-In • sirdusman@gmail.com</div>\n    </div>\n    <div class=\"body\">\n      \n    <div style=\"margin-bottom: 20px;\">\n      <span class=\"badge badge-booking\" style=\"background-color:#E8F5E9; color:#1F6F43; border-color:#A5D6A7;\">\n        🛡️ Two-Step Verification (2FA / MFA)\n      </span>\n    </div>\n\n    <p style=\"font-size: 14px; color: #141413; line-height: 1.5; margin-bottom: 16px;\">\n      Hello sirdusman, A login or security verification was requested for <strong>sirdusman@gmail.com</strong> on <strong>Tech Sokoni Client Sign-In</strong>.\n    </p>\n\n    <div style=\"background-color: #141413; color: #F4F3EF; text-align: center; padding: 24px; margin: 24px 0; border-radius: 4px;\">\n      <div style=\"font-size: 11px; font-family: monospace; letter-spacing: 0.2em; text-transform: uppercase; color: #9E9D98; margin-bottom: 8px;\">\n        Security Verification Code\n      </div>\n      <div style=\"font-family: monospace; font-size: 38px; font-weight: 700; letter-spacing: 0.35em; color: #F4F3EF;\">\n        543609\n      </div>\n      <div style=\"font-size: 11px; color: #1F6F43; margin-top: 8px; font-family: monospace;\">\n        ⏱ Valid for 10 minutes • Single-use\n      </div>\n    </div>\n\n    <div class=\"card\" style=\"font-size: 12px; line-height: 1.6; color: #5E5D59;\">\n      Enter this code on your device to complete your sign-in. Never share this code with anyone. Tech Sokoni staff will never ask for your verification code.\n    </div>\n  \n    </div>\n    <div class=\"footer\">\n      Tech Sokoni Kenya • Kenyatta Pioneer Building, 5th Floor, Shop 514, Nairobi CBD<br>\n      Orders Hotline &amp; WhatsApp: +254 792 620 789 • shop@techsokoni.com\n    </div>\n  </div>\n</body>\n</html>",
+      "textContent": "TECH SOKONI KENYA - TWO-STEP VERIFICATION CODE\n====================================================\nHello sirdusman,\nVerification code for Tech Sokoni Client Sign-In:\n\nYOUR 6-DIGIT CODE:\n543609\n\n(Valid for 10 minutes)\n\nEnter this code in your browser to complete authentication.\n====================================================",
+      "status": "simulated",
+      "referenceId": "MFA-543609",
+      "createdAt": "2026-10-31T17:57:25.973Z"
+    },
+    {
+      "id": "notif-1793469401606-cjyn",
+      "type": "test",
+      "recipient": "sirdusman@gmail.com",
+      "subject": "✅ [Tech Sokoni] Your Account Password Was Successfully Updated",
+      "summary": "Password change confirmation email dispatched to sirdusman@gmail.com",
+      "htmlContent": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Password Updated Successfully</title>\n  <style>\n    body { margin: 0; padding: 0; background-color: #F4F3EF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #141413; }\n    .container { max-width: 620px; margin: 24px auto; background-color: #FFFFFF; border: 1px solid #EAE9E4; border-radius: 4px; overflow: hidden; box-shadow: 0 4px 16px rgba(20,20,19,0.06); }\n    .header { background-color: #141413; padding: 24px 28px; color: #F4F3EF; }\n    .brand { font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase; color: #9E9D98; font-family: monospace; margin-bottom: 6px; }\n    .title { font-size: 20px; font-weight: 700; margin: 0 0 4px 0; color: #F4F3EF; letter-spacing: -0.02em; }\n    .subtitle { font-size: 12px; color: #1F6F43; font-weight: 600; font-family: monospace; text-transform: uppercase; letter-spacing: 0.1em; }\n    .body { padding: 28px; }\n    .badge { display: inline-block; padding: 4px 10px; font-size: 11px; font-family: monospace; font-weight: 600; text-transform: uppercase; border-radius: 2px; }\n    .badge-order { background-color: #E8F5E9; color: #1F6F43; border: 1px solid #A5D6A7; }\n    .badge-booking { background-color: #E3F2FD; color: #1565C0; border: 1px solid #90CAF9; }\n    .badge-warranty { background-color: #FFF3E0; color: #E65100; border: 1px solid #FFE0B2; }\n    .card { background-color: #F8F7F4; border: 1px solid #EAE9E4; padding: 18px; margin-bottom: 20px; }\n    .grid-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }\n    .label { color: #6E6D68; font-size: 12px; font-family: monospace; text-transform: uppercase; }\n    .value { font-weight: 600; color: #141413; }\n    .items-table { width: 100%; border-collapse: collapse; margin-top: 14px; }\n    .items-table th { text-align: left; font-size: 10px; text-transform: uppercase; font-family: monospace; color: #6E6D68; padding: 8px 6px; border-bottom: 2px solid #141413; }\n    .items-table td { padding: 10px 6px; border-bottom: 1px solid #EAE9E4; font-size: 13px; vertical-align: top; }\n    .btn { display: inline-block; padding: 10px 18px; background-color: #141413; color: #F4F3EF !important; text-decoration: none; font-size: 11px; font-family: monospace; text-transform: uppercase; letter-spacing: 0.15em; font-weight: 600; margin-right: 8px; margin-top: 8px; }\n    .btn-secondary { background-color: #1F6F43; }\n    .btn-outline { background-color: #F4F3EF; color: #141413 !important; border: 1px solid #141413; }\n    .footer { background-color: #F4F3EF; padding: 18px 28px; text-align: center; font-size: 11px; color: #6E6D68; font-family: monospace; border-top: 1px solid #EAE9E4; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <div class=\"brand\">Tech Sokoni Kenya — Showroom Dispatch Alert</div>\n      <h1 class=\"title\">Password Updated Successfully</h1>\n      <div class=\"subtitle\">Account: sirdusman@gmail.com</div>\n    </div>\n    <div class=\"body\">\n      \n    <div style=\"margin-bottom: 20px;\">\n      <span class=\"badge badge-order\">✓ Password Updated</span>\n    </div>\n\n    <p style=\"font-size: 14px; color: #141413; line-height: 1.5; margin-bottom: 16px;\">\n      Hello sirdusman, Your Tech Sokoni account password for <strong>sirdusman@gmail.com</strong> was successfully changed on <strong>31/10/2026, 20:56:41 (EAT)</strong>.\n    </p>\n\n    <div class=\"card\" style=\"font-size: 12px; line-height: 1.6; color: #5E5D59;\">\n      You can now sign in using your new password. If you did not make this change, please contact our showroom concierge immediately at <a href=\"tel:+254792620789\" style=\"color:#1F6F43;\">+254 792 620 789</a> or <a href=\"mailto:shop@techsokoni.com\" style=\"color:#141413;\">shop@techsokoni.com</a>.\n    </div>\n  \n    </div>\n    <div class=\"footer\">\n      Tech Sokoni Kenya • Kenyatta Pioneer Building, 5th Floor, Shop 514, Nairobi CBD<br>\n      Orders Hotline &amp; WhatsApp: +254 792 620 789 • shop@techsokoni.com\n    </div>\n  </div>\n</body>\n</html>",
+      "textContent": "TECH SOKONI KENYA - PASSWORD UPDATED\n====================================================\nHello sirdusman,\nYour account password for sirdusman@gmail.com was successfully updated on 31/10/2026, 20:56:41 (EAT).\n\nIf you made this change, no further action is required.\nIf you did not authorize this, contact us immediately at +254 792 620 789.\n====================================================",
+      "status": "simulated",
+      "createdAt": "2026-10-31T17:56:41.606Z"
+    },
+    {
+      "id": "notif-1793469316486-m367",
+      "type": "test",
+      "recipient": "sirdusman@gmail.com",
+      "subject": "🔐 [Tech Sokoni] Your 6-Digit Password Reset Verification Code: 414370",
+      "summary": "Password reset verification code [414370] dispatched to sirdusman@gmail.com",
+      "htmlContent": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Password Reset Verification</title>\n  <style>\n    body { margin: 0; padding: 0; background-color: #F4F3EF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #141413; }\n    .container { max-width: 620px; margin: 24px auto; background-color: #FFFFFF; border: 1px solid #EAE9E4; border-radius: 4px; overflow: hidden; box-shadow: 0 4px 16px rgba(20,20,19,0.06); }\n    .header { background-color: #141413; padding: 24px 28px; color: #F4F3EF; }\n    .brand { font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase; color: #9E9D98; font-family: monospace; margin-bottom: 6px; }\n    .title { font-size: 20px; font-weight: 700; margin: 0 0 4px 0; color: #F4F3EF; letter-spacing: -0.02em; }\n    .subtitle { font-size: 12px; color: #1F6F43; font-weight: 600; font-family: monospace; text-transform: uppercase; letter-spacing: 0.1em; }\n    .body { padding: 28px; }\n    .badge { display: inline-block; padding: 4px 10px; font-size: 11px; font-family: monospace; font-weight: 600; text-transform: uppercase; border-radius: 2px; }\n    .badge-order { background-color: #E8F5E9; color: #1F6F43; border: 1px solid #A5D6A7; }\n    .badge-booking { background-color: #E3F2FD; color: #1565C0; border: 1px solid #90CAF9; }\n    .badge-warranty { background-color: #FFF3E0; color: #E65100; border: 1px solid #FFE0B2; }\n    .card { background-color: #F8F7F4; border: 1px solid #EAE9E4; padding: 18px; margin-bottom: 20px; }\n    .grid-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }\n    .label { color: #6E6D68; font-size: 12px; font-family: monospace; text-transform: uppercase; }\n    .value { font-weight: 600; color: #141413; }\n    .items-table { width: 100%; border-collapse: collapse; margin-top: 14px; }\n    .items-table th { text-align: left; font-size: 10px; text-transform: uppercase; font-family: monospace; color: #6E6D68; padding: 8px 6px; border-bottom: 2px solid #141413; }\n    .items-table td { padding: 10px 6px; border-bottom: 1px solid #EAE9E4; font-size: 13px; vertical-align: top; }\n    .btn { display: inline-block; padding: 10px 18px; background-color: #141413; color: #F4F3EF !important; text-decoration: none; font-size: 11px; font-family: monospace; text-transform: uppercase; letter-spacing: 0.15em; font-weight: 600; margin-right: 8px; margin-top: 8px; }\n    .btn-secondary { background-color: #1F6F43; }\n    .btn-outline { background-color: #F4F3EF; color: #141413 !important; border: 1px solid #141413; }\n    .footer { background-color: #F4F3EF; padding: 18px 28px; text-align: center; font-size: 11px; color: #6E6D68; font-family: monospace; border-top: 1px solid #EAE9E4; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <div class=\"brand\">Tech Sokoni Kenya — Showroom Dispatch Alert</div>\n      <h1 class=\"title\">Password Reset Verification</h1>\n      <div class=\"subtitle\">Authorization Code for sirdusman@gmail.com</div>\n    </div>\n    <div class=\"body\">\n      \n    <div style=\"margin-bottom: 20px;\">\n      <span class=\"badge badge-order\" style=\"background-color:#FFF3E0; color:#E65100; border-color:#FFE0B2;\">\n        🔐 Password Reset Authorization\n      </span>\n    </div>\n\n    <p style=\"font-size: 14px; color: #141413; line-height: 1.5; margin-bottom: 16px;\">\n      Hello, We received a request to reset the password for your Tech Sokoni account (<strong>sirdusman@gmail.com</strong>).\n    </p>\n\n    <div style=\"background-color: #141413; color: #F4F3EF; text-align: center; padding: 24px; margin: 24px 0; border-radius: 4px;\">\n      <div style=\"font-size: 11px; font-family: monospace; letter-spacing: 0.2em; text-transform: uppercase; color: #9E9D98; margin-bottom: 8px;\">\n        Your 6-Digit Verification Code\n      </div>\n      <div style=\"font-family: monospace; font-size: 38px; font-weight: 700; letter-spacing: 0.35em; color: #F4F3EF;\">\n        414370\n      </div>\n      <div style=\"font-size: 11px; color: #C5A028; margin-top: 8px; font-family: monospace;\">\n        ⏱ Valid for 10 minutes • Do not share this code\n      </div>\n    </div>\n\n    <div class=\"card\" style=\"font-size: 12px; line-height: 1.6; color: #5E5D59;\">\n      <strong style=\"color: #141413; display: block; margin-bottom: 4px;\">Next Steps:</strong>\n      1. Return to the Tech Sokoni verification screen in your browser.<br>\n      2. Enter the 6-digit code: <code style=\"font-family: monospace; font-weight: bold; color: #141413;\">414370</code>.<br>\n      3. Enter and confirm your new secure password.<br><br>\n      <span style=\"color: #6E6D68; font-size: 11px;\">If you did not request a password reset, no action is needed. Your existing password remains secure.</span>\n    </div>\n  \n    </div>\n    <div class=\"footer\">\n      Tech Sokoni Kenya • Kenyatta Pioneer Building, 5th Floor, Shop 514, Nairobi CBD<br>\n      Orders Hotline &amp; WhatsApp: +254 792 620 789 • shop@techsokoni.com\n    </div>\n  </div>\n</body>\n</html>",
+      "textContent": "TECH SOKONI KENYA - PASSWORD RESET VERIFICATION\n====================================================\nHello,\nWe received a request to reset your Tech Sokoni account password.\n\nYOUR 6-DIGIT VERIFICATION CODE:\n414370\n\n(Valid for 10 minutes)\n\nEnter this 6-digit code in the Tech Sokoni portal to verify your identity and choose a new password.\n\nIf you did not request this, you can safely ignore this email.\n====================================================",
+      "status": "simulated",
+      "referenceId": "RESET-414370",
+      "createdAt": "2026-10-31T17:55:16.486Z"
+    },
     {
       "id": "notif-1793374569545-0euy",
       "type": "order",

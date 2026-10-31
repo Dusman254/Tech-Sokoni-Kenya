@@ -527,3 +527,209 @@ async function dispatchAndRecordNotification(payload: {
   addNotificationLog(logEntry);
   return logEntry;
 }
+
+// ============================================================================
+// 5. 6-Digit Password Reset Code Email Dispatch
+// ============================================================================
+
+export async function sendPasswordResetCodeEmail(
+  recipient: string,
+  code: string,
+  clientName?: string
+): Promise<EmailNotificationLog> {
+  const subject = `🔐 [Tech Sokoni] Your 6-Digit Password Reset Verification Code: ${code}`;
+  const greeting = clientName ? `Hello ${clientName},` : 'Hello,';
+
+  const bodyContent = `
+    <div style="margin-bottom: 20px;">
+      <span class="badge badge-order" style="background-color:#FFF3E0; color:#E65100; border-color:#FFE0B2;">
+        🔐 Password Reset Authorization
+      </span>
+    </div>
+
+    <p style="font-size: 14px; color: #141413; line-height: 1.5; margin-bottom: 16px;">
+      ${greeting} We received a request to reset the password for your Tech Sokoni account (<strong>${recipient}</strong>).
+    </p>
+
+    <div style="background-color: #141413; color: #F4F3EF; text-align: center; padding: 24px; margin: 24px 0; border-radius: 4px;">
+      <div style="font-size: 11px; font-family: monospace; letter-spacing: 0.2em; text-transform: uppercase; color: #9E9D98; margin-bottom: 8px;">
+        Your 6-Digit Verification Code
+      </div>
+      <div style="font-family: monospace; font-size: 38px; font-weight: 700; letter-spacing: 0.35em; color: #F4F3EF;">
+        ${code}
+      </div>
+      <div style="font-size: 11px; color: #C5A028; margin-top: 8px; font-family: monospace;">
+        ⏱ Valid for 10 minutes • Do not share this code
+      </div>
+    </div>
+
+    <div class="card" style="font-size: 12px; line-height: 1.6; color: #5E5D59;">
+      <strong style="color: #141413; display: block; margin-bottom: 4px;">Next Steps:</strong>
+      1. Return to the Tech Sokoni verification screen in your browser.<br>
+      2. Enter the 6-digit code: <code style="font-family: monospace; font-weight: bold; color: #141413;">${code}</code>.<br>
+      3. Enter and confirm your new secure password.<br><br>
+      <span style="color: #6E6D68; font-size: 11px;">If you did not request a password reset, no action is needed. Your existing password remains secure.</span>
+    </div>
+  `;
+
+  const htmlContent = buildHtmlWrapper(
+    'Password Reset Verification',
+    `Authorization Code for ${recipient}`,
+    bodyContent
+  );
+
+  const textContent = `TECH SOKONI KENYA - PASSWORD RESET VERIFICATION
+====================================================
+${greeting}
+We received a request to reset your Tech Sokoni account password.
+
+YOUR 6-DIGIT VERIFICATION CODE:
+${code}
+
+(Valid for 10 minutes)
+
+Enter this 6-digit code in the Tech Sokoni portal to verify your identity and choose a new password.
+
+If you did not request this, you can safely ignore this email.
+====================================================`;
+
+  return await dispatchAndRecordNotification({
+    type: 'test',
+    recipient,
+    subject,
+    summary: `Password reset verification code [${code}] dispatched to ${recipient}`,
+    htmlContent,
+    textContent,
+    referenceId: `RESET-${code}`,
+  });
+}
+
+// ============================================================================
+// 6. Two-Step Verification (MFA) Code Email Dispatch
+// ============================================================================
+
+export async function sendTwoFactorCodeEmail(
+  recipient: string,
+  code: string,
+  context: 'client_login' | 'admin_login' | 'enable_mfa',
+  clientName?: string
+): Promise<EmailNotificationLog> {
+  const contextTitle =
+    context === 'admin_login'
+      ? 'Tech Sokoni Showroom Admin Access'
+      : context === 'enable_mfa'
+      ? 'Enable Two-Step Verification'
+      : 'Tech Sokoni Client Sign-In';
+
+  const subject = `🛡️ [Tech Sokoni] Two-Step Verification Code: ${code}`;
+  const greeting = clientName ? `Hello ${clientName},` : 'Hello,';
+
+  const bodyContent = `
+    <div style="margin-bottom: 20px;">
+      <span class="badge badge-booking" style="background-color:#E8F5E9; color:#1F6F43; border-color:#A5D6A7;">
+        🛡️ Two-Step Verification (2FA / MFA)
+      </span>
+    </div>
+
+    <p style="font-size: 14px; color: #141413; line-height: 1.5; margin-bottom: 16px;">
+      ${greeting} A login or security verification was requested for <strong>${recipient}</strong> on <strong>${contextTitle}</strong>.
+    </p>
+
+    <div style="background-color: #141413; color: #F4F3EF; text-align: center; padding: 24px; margin: 24px 0; border-radius: 4px;">
+      <div style="font-size: 11px; font-family: monospace; letter-spacing: 0.2em; text-transform: uppercase; color: #9E9D98; margin-bottom: 8px;">
+        Security Verification Code
+      </div>
+      <div style="font-family: monospace; font-size: 38px; font-weight: 700; letter-spacing: 0.35em; color: #F4F3EF;">
+        ${code}
+      </div>
+      <div style="font-size: 11px; color: #1F6F43; margin-top: 8px; font-family: monospace;">
+        ⏱ Valid for 10 minutes • Single-use
+      </div>
+    </div>
+
+    <div class="card" style="font-size: 12px; line-height: 1.6; color: #5E5D59;">
+      Enter this code on your device to complete your sign-in. Never share this code with anyone. Tech Sokoni staff will never ask for your verification code.
+    </div>
+  `;
+
+  const htmlContent = buildHtmlWrapper(
+    'Two-Step Verification Code',
+    `${contextTitle} • ${recipient}`,
+    bodyContent
+  );
+
+  const textContent = `TECH SOKONI KENYA - TWO-STEP VERIFICATION CODE
+====================================================
+${greeting}
+Verification code for ${contextTitle}:
+
+YOUR 6-DIGIT CODE:
+${code}
+
+(Valid for 10 minutes)
+
+Enter this code in your browser to complete authentication.
+====================================================`;
+
+  return await dispatchAndRecordNotification({
+    type: 'test',
+    recipient,
+    subject,
+    summary: `Two-step verification code [${code}] dispatched to ${recipient} for ${context}`,
+    htmlContent,
+    textContent,
+    referenceId: `MFA-${code}`,
+  });
+}
+
+// ============================================================================
+// 7. Password Changed Confirmation Email
+// ============================================================================
+
+export async function sendPasswordChangedConfirmationEmail(
+  recipient: string,
+  clientName?: string
+): Promise<EmailNotificationLog> {
+  const subject = `✅ [Tech Sokoni] Your Account Password Was Successfully Updated`;
+  const greeting = clientName ? `Hello ${clientName},` : 'Hello,';
+  const timestamp = new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' });
+
+  const bodyContent = `
+    <div style="margin-bottom: 20px;">
+      <span class="badge badge-order">✓ Password Updated</span>
+    </div>
+
+    <p style="font-size: 14px; color: #141413; line-height: 1.5; margin-bottom: 16px;">
+      ${greeting} Your Tech Sokoni account password for <strong>${recipient}</strong> was successfully changed on <strong>${timestamp} (EAT)</strong>.
+    </p>
+
+    <div class="card" style="font-size: 12px; line-height: 1.6; color: #5E5D59;">
+      You can now sign in using your new password. If you did not make this change, please contact our showroom concierge immediately at <a href="tel:+254792620789" style="color:#1F6F43;">+254 792 620 789</a> or <a href="mailto:shop@techsokoni.com" style="color:#141413;">shop@techsokoni.com</a>.
+    </div>
+  `;
+
+  const htmlContent = buildHtmlWrapper(
+    'Password Updated Successfully',
+    `Account: ${recipient}`,
+    bodyContent
+  );
+
+  const textContent = `TECH SOKONI KENYA - PASSWORD UPDATED
+====================================================
+${greeting}
+Your account password for ${recipient} was successfully updated on ${timestamp} (EAT).
+
+If you made this change, no further action is required.
+If you did not authorize this, contact us immediately at +254 792 620 789.
+====================================================`;
+
+  return await dispatchAndRecordNotification({
+    type: 'test',
+    recipient,
+    subject,
+    summary: `Password change confirmation email dispatched to ${recipient}`,
+    htmlContent,
+    textContent,
+  });
+}
+
