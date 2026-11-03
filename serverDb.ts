@@ -58,9 +58,11 @@ const BACKUP_FILE = path.join(DATA_DIR, 'tech_sokoni_db_backup.json');
 let dbMemory: TechSokoniDatabase | null = null;
 
 function ensureDataDirectory() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+  } catch {}
 }
 
 function getInitialDatabase(): TechSokoniDatabase {

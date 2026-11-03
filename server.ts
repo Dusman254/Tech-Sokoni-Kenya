@@ -139,29 +139,44 @@ interface ServerTelemetryError {
 const serverTelemetryErrors: ServerTelemetryError[] = [];
 const MAX_SERVER_ERROR_LOGS = 50;
 
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
+export const app = express();
 
-  // Security Headers
-  app.use((_req, res, next) => {
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-    res.setHeader('X-XSS-Protection', '1; mode=block');
-    next();
-  });
+// Handle URL prefix normalization for Vercel Serverless Function rewrites
+app.use((req, _res, next) => {
+  if (
+    process.env.VERCEL &&
+    req.url &&
+    !req.url.startsWith('/api') &&
+    !req.url.startsWith('/uploads') &&
+    !req.url.startsWith('/assets') &&
+    !req.url.startsWith('/@')
+  ) {
+    req.url = '/api' + (req.url.startsWith('/') ? req.url : '/' + req.url);
+  }
+  next();
+});
 
-  app.use(express.json({ limit: '25mb' }));
+// Security Headers
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  next();
+});
 
-  // Uploads directory for persistent local product images
-  const uploadsDir = path.resolve(process.cwd(), 'uploads');
+app.use(express.json({ limit: '25mb' }));
+
+// Uploads directory for persistent local product images
+const uploadsDir = path.resolve(process.cwd(), 'uploads');
+try {
   if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
   }
-  app.use('/uploads', express.static(uploadsDir));
+} catch {}
+app.use('/uploads', express.static(uploadsDir));
 
-  // Initialize persistent server database (loads from disk or seeds initial catalog)
-  initServerDatabase();
+// Initialize persistent server database (loads from disk or seeds initial catalog)
+initServerDatabase();
 
   // Admin Authentication Middleware (Protecting admin-only data and mutations)
   function requireAdmin(req: Request, res: Response, next: NextFunction) {
@@ -1256,23 +1271,28 @@ STRICT FIDELITY RULES:
     });
   });
 
+export default app;
+
+if (!process.env.VERCEL) {
+  const PORT = Number(process.env.PORT) || 3000;
   if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
+    createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
+    }).then((vite) => {
+      app.use(vite.middlewares);
+      app.listen(PORT, '0.0.0.0', () => {
+        console.log(`Tech Sokoni server running on http://0.0.0.0:${PORT}`);
+      });
     });
-    app.use(vite.middlewares);
   } else {
     const distPath = path.resolve(__dirname, 'dist');
     app.use(express.static(distPath));
     app.get('*', (_req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Tech Sokoni server running on http://0.0.0.0:${PORT}`);
+    });
   }
-
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Tech Sokoni server running on http://0.0.0.0:${PORT}`);
-  });
 }
-
-startServer();

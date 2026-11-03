@@ -1,5 +1,15 @@
 {
   "installCommand": "npm install --legacy-peer-deps",
   "buildCommand": "npm run build",
-  "framework": "vite"
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
+  ]
 }
