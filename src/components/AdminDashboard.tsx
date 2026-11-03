@@ -222,12 +222,18 @@ export const AdminDashboard: React.FC = () => {
   const [notifFilter, setNotifFilter] = useState<'all' | 'order' | 'booking' | 'warranty' | 'test'>('all');
   const [showSmtpConfig, setShowSmtpConfig] = useState(false);
   const [isSavingNotificationSettings, setIsSavingNotificationSettings] = useState(false);
+  const [isVerifyingSmtp, setIsVerifyingSmtp] = useState(false);
+  const [smtpVerifyFeedback, setSmtpVerifyFeedback] = useState<{
+    ok: boolean;
+    message: string;
+  } | null>(null);
+
   const [smtpForm, setSmtpForm] = useState({
     smtpHost: settings.smtpHost || '',
-    smtpPort: settings.smtpPort || 587,
+    smtpPort: settings.smtpPort || 465,
     smtpUser: settings.smtpUser || '',
     smtpPass: settings.smtpPass || '',
-    smtpSecure: settings.smtpSecure || false,
+    smtpSecure: settings.smtpSecure !== undefined ? settings.smtpSecure : true,
   });
 
   const fetchNotificationsHistory = async () => {
@@ -236,6 +242,10 @@ export const AdminDashboard: React.FC = () => {
       const res = await fetch('/api/notifications', {
         headers: { 'x-admin-key': '1940' },
       });
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.notifications)) {
@@ -270,9 +280,21 @@ export const AdminDashboard: React.FC = () => {
         },
         body: JSON.stringify({ recipient: notificationRecipientInput }),
       });
-      const data = await res.json();
+
+      const contentType = res.headers.get('content-type') || '';
+      let data: any = {};
+      if (contentType.includes('application/json')) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        throw new Error(text.slice(0, 120).replace(/<[^>]*>/g, '').trim() || `Server error (${res.status})`);
+      }
+
       if (res.ok && data.ok) {
-        setTestEmailFeedback(`✓ Test alert dispatched to ${notificationRecipientInput}! Check Outbox below.`);
+        const statusNote = data.isSimulated
+          ? ' (Logged to local Outbox — add SMTP to send directly to external inbox)'
+          : ' (Delivered via Live SMTP)';
+        setTestEmailFeedback(`✓ Test alert dispatched to ${notificationRecipientInput}!${statusNote} Check Outbox below.`);
         showToast(`Test alert sent to ${notificationRecipientInput}`);
         fetchNotificationsHistory();
       } else {
@@ -282,6 +304,41 @@ export const AdminDashboard: React.FC = () => {
       setTestEmailFeedback(`Error: ${err?.message}`);
     } finally {
       setIsTestingEmail(false);
+    }
+  };
+
+  const handleTestSmtpConnection = async () => {
+    setIsVerifyingSmtp(true);
+    setSmtpVerifyFeedback(null);
+    try {
+      const res = await fetch('/api/notifications/verify-smtp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-key': '1940',
+        },
+        body: JSON.stringify(smtpForm),
+      });
+
+      const contentType = res.headers.get('content-type') || '';
+      let data: any = {};
+      if (contentType.includes('application/json')) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        throw new Error(text.slice(0, 120).replace(/<[^>]*>/g, '').trim() || `Server error (${res.status})`);
+      }
+
+      if (data.ok) {
+        setSmtpVerifyFeedback({ ok: true, message: data.message });
+        showToast('SMTP connected and authenticated successfully!');
+      } else {
+        setSmtpVerifyFeedback({ ok: false, message: data.error || 'Verification failed.' });
+      }
+    } catch (err: any) {
+      setSmtpVerifyFeedback({ ok: false, message: err?.message || 'Network error during SMTP test.' });
+    } finally {
+      setIsVerifyingSmtp(false);
     }
   };
 
@@ -296,7 +353,7 @@ export const AdminDashboard: React.FC = () => {
     };
     updateSettings(payload);
     try {
-      await fetch('/api/notifications/config', {
+      const res = await fetch('/api/notifications/config', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -304,8 +361,18 @@ export const AdminDashboard: React.FC = () => {
         },
         body: JSON.stringify(payload),
       });
-      showToast('Notification preferences saved successfully');
-    } catch {} finally {
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await res.json();
+        if (data.ok) {
+          showToast('Notification preferences saved successfully');
+        }
+      } else {
+        showToast('Notification preferences updated');
+      }
+    } catch (err: any) {
+      showToast('Saved locally');
+    } finally {
       setIsSavingNotificationSettings(false);
     }
   };
@@ -3378,69 +3445,188 @@ export const AdminDashboard: React.FC = () => {
 
                 {showSmtpConfig && (
                   <div className="mt-4 p-4 bg-[#F4F3EF] border border-[#141413]/15 space-y-4">
-                    <div className="p-3 bg-white border border-[#141413]/10 text-xs text-[#5E5D59] leading-relaxed">
-                      <strong className="text-[#141413] block mb-1">How to send directly through your Gmail:</strong>
-                      1. Go to your Google Account at <a href="https://myaccount.google.com/security" target="_blank" rel="noopener noreferrer" className="underline text-[#1F6F43]">myaccount.google.com/security</a>.<br />
-                      2. Under <strong>2-Step Verification</strong>, generate a 16-character <strong>App Password</strong> named &ldquo;Tech Sokoni&rdquo;.<br />
-                      3. Enter Host: <code className="bg-[#EAE9E4] px-1">smtp.gmail.com</code>, Port: <code className="bg-[#EAE9E4] px-1">465</code>, Username: your Gmail, Password: your 16-character App Password.
+                    {/* Provider Quick Presets */}
+                    <div>
+                      <span className="block text-[10px] font-mono-num uppercase tracking-wider text-[#6E6D68] mb-1.5 font-semibold">
+                        Quick Provider Presets (1-Click Fill)
+                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSmtpForm((prev) => ({
+                              ...prev,
+                              smtpHost: 'smtp.zoho.com',
+                              smtpPort: 465,
+                              smtpSecure: true,
+                            }))
+                          }
+                          className="px-3 py-1.5 bg-white border border-[#141413]/20 hover:border-[#1F6F43] text-xs font-mono-num text-[#141413] flex items-center gap-1.5 cursor-pointer shadow-xs"
+                        >
+                          <span className="w-2 h-2 rounded-full bg-[#1F6F43]"></span>
+                          <span>Zoho Mail (SSL 465 · Recommended)</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSmtpForm((prev) => ({
+                              ...prev,
+                              smtpHost: 'smtp.zoho.com',
+                              smtpPort: 587,
+                              smtpSecure: false,
+                            }))
+                          }
+                          className="px-3 py-1.5 bg-white border border-[#141413]/20 hover:border-[#1F6F43] text-xs font-mono-num text-[#141413] flex items-center gap-1.5 cursor-pointer shadow-xs"
+                        >
+                          <span className="w-2 h-2 rounded-full bg-[#E65100]"></span>
+                          <span>Zoho Mail (STARTTLS 587)</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSmtpForm((prev) => ({
+                              ...prev,
+                              smtpHost: 'smtp.gmail.com',
+                              smtpPort: 465,
+                              smtpSecure: true,
+                            }))
+                          }
+                          className="px-3 py-1.5 bg-white border border-[#141413]/20 hover:border-[#1F6F43] text-xs font-mono-num text-[#141413] flex items-center gap-1.5 cursor-pointer shadow-xs"
+                        >
+                          <span className="w-2 h-2 rounded-full bg-[#1565C0]"></span>
+                          <span>Gmail / Google Workspace (SSL 465)</span>
+                        </button>
+                      </div>
                     </div>
 
+                    {/* Zoho Mail Configuration Guide */}
+                    <div className="p-3.5 bg-white border border-[#141413]/12 text-xs text-[#4B4A45] space-y-2 leading-relaxed">
+                      <div className="flex items-center gap-2 font-semibold text-[#141413]">
+                        <span className="px-1.5 py-0.5 bg-[#E8F5E9] text-[#1F6F43] text-[10px] font-mono-num rounded-xs">
+                          ZOHO MAIL SETUP GUIDE
+                        </span>
+                        <span>Important requirements for Shop@techsokoni.com:</span>
+                      </div>
+                      <ul className="list-disc pl-4 space-y-1 text-xs text-[#5E5D59]">
+                        <li>
+                          <strong>Port &amp; SSL Matching:</strong> If you use <strong>Port 465</strong>, SSL must be <strong>Yes</strong>. If you use <strong>Port 587</strong>, SSL must be <strong>No (STARTTLS)</strong>. Combining Port 587 with SSL causes a handshake failure.
+                        </li>
+                        <li>
+                          <strong>Zoho Application-Specific Password:</strong> If Two-Factor Authentication (2FA) is enabled on your Zoho account, you <em>cannot</em> use your regular Zoho login password. Generate a dedicated App Password at <a href="https://accounts.zoho.com" target="_blank" rel="noopener noreferrer" className="underline text-[#1F6F43] font-semibold">accounts.zoho.com</a> &rarr; <strong>Security</strong> &rarr; <strong>Application-Specific Passwords</strong>.
+                        </li>
+                        <li>
+                          <strong>Enable Outgoing SMTP:</strong> In your Zoho Mail web app, go to <strong>Settings &rarr; Mail Accounts &rarr; Outgoing (SMTP)</strong> and confirm outgoing SMTP access is toggled ON.
+                        </li>
+                        <li>
+                          <strong>Data Center Host:</strong> If your Zoho account was registered in the EU, use <code className="bg-[#EAE9E4] px-1 font-mono-num">smtp.zoho.eu</code>. For Global/US accounts, use <code className="bg-[#EAE9E4] px-1 font-mono-num">smtp.zoho.com</code>.
+                        </li>
+                      </ul>
+                    </div>
+
+                    {/* Verification Feedback Banner */}
+                    {smtpVerifyFeedback && (
+                      <div
+                        className={`p-3 text-xs font-mono-num border flex items-start gap-2.5 ${
+                          smtpVerifyFeedback.ok
+                            ? 'bg-[#E8F5E9] text-[#1F6F43] border-[#A5D6A7]'
+                            : 'bg-[#FFEBEE] text-[#C62828] border-[#FFCDD2]'
+                        }`}
+                      >
+                        <span className="font-bold text-sm leading-none mt-0.5">
+                          {smtpVerifyFeedback.ok ? '✓' : '⚠'}
+                        </span>
+                        <div className="flex-1 space-y-1">
+                          <p className="font-semibold">
+                            {smtpVerifyFeedback.ok ? 'Connection Successful' : 'Connection Check Failed'}
+                          </p>
+                          <p className="text-[11px] leading-relaxed opacity-95">
+                            {smtpVerifyFeedback.message}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Form Inputs */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
-                        <label className="block text-[10px] font-mono-num uppercase text-[#6E6D68] mb-1">
+                        <label className="block text-[10px] font-mono-num uppercase text-[#6E6D68] mb-1 font-semibold">
                           SMTP Host
                         </label>
                         <input
                           type="text"
-                          placeholder="smtp.gmail.com"
+                          placeholder="smtp.zoho.com"
                           value={smtpForm.smtpHost}
                           onChange={(e) => setSmtpForm({ ...smtpForm, smtpHost: e.target.value })}
-                          className="w-full bg-white border border-[#141413]/20 px-2.5 py-1.5 text-xs font-mono-num"
+                          className="w-full bg-white border border-[#141413]/20 px-2.5 py-1.5 text-xs font-mono-num text-[#141413]"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-mono-num uppercase text-[#6E6D68] mb-1">
+                        <label className="block text-[10px] font-mono-num uppercase text-[#6E6D68] mb-1 font-semibold">
                           Port
                         </label>
                         <input
                           type="number"
                           placeholder="465 or 587"
                           value={smtpForm.smtpPort}
-                          onChange={(e) => setSmtpForm({ ...smtpForm, smtpPort: Number(e.target.value) })}
-                          className="w-full bg-white border border-[#141413]/20 px-2.5 py-1.5 text-xs font-mono-num"
+                          onChange={(e) => {
+                            const p = Number(e.target.value);
+                            setSmtpForm({
+                              ...smtpForm,
+                              smtpPort: p,
+                              smtpSecure: p === 465,
+                            });
+                          }}
+                          className="w-full bg-white border border-[#141413]/20 px-2.5 py-1.5 text-xs font-mono-num text-[#141413]"
                         />
+                        <span className="text-[10px] text-[#6E6D68] font-mono-num block mt-0.5">
+                          {smtpForm.smtpPort === 465 ? 'Direct SSL' : smtpForm.smtpPort === 587 ? 'STARTTLS (SSL off)' : ''}
+                        </span>
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-mono-num uppercase text-[#6E6D68] mb-1">
+                        <label className="block text-[10px] font-mono-num uppercase text-[#6E6D68] mb-1 font-semibold">
                           SSL / TLS Secure
                         </label>
                         <select
                           value={smtpForm.smtpSecure ? 'true' : 'false'}
-                          onChange={(e) => setSmtpForm({ ...smtpForm, smtpSecure: e.target.value === 'true' })}
-                          className="w-full bg-white border border-[#141413]/20 px-2.5 py-1.5 text-xs font-mono-num"
+                          onChange={(e) => {
+                            const isSec = e.target.value === 'true';
+                            setSmtpForm({
+                              ...smtpForm,
+                              smtpSecure: isSec,
+                              smtpPort: isSec && smtpForm.smtpPort === 587 ? 465 : (!isSec && smtpForm.smtpPort === 465 ? 587 : smtpForm.smtpPort),
+                            });
+                          }}
+                          className="w-full bg-white border border-[#141413]/20 px-2.5 py-1.5 text-xs font-mono-num text-[#141413]"
                         >
                           <option value="true">Yes (Port 465 SSL)</option>
                           <option value="false">No (Port 587 STARTTLS)</option>
                         </select>
+                        {smtpForm.smtpPort === 587 && smtpForm.smtpSecure && (
+                          <span className="text-[10px] text-[#C62828] font-semibold block mt-0.5">
+                            ⚠ Port 587 requires SSL: No
+                          </span>
+                        )}
                       </div>
 
                       <div className="sm:col-span-2">
-                        <label className="block text-[10px] font-mono-num uppercase text-[#6E6D68] mb-1">
-                          SMTP User (Email)
+                        <label className="block text-[10px] font-mono-num uppercase text-[#6E6D68] mb-1 font-semibold">
+                          SMTP User (Sender Email)
                         </label>
                         <input
                           type="text"
-                          placeholder="sirdusman@gmail.com"
+                          placeholder="Shop@techsokoni.com"
                           value={smtpForm.smtpUser}
                           onChange={(e) => setSmtpForm({ ...smtpForm, smtpUser: e.target.value })}
-                          className="w-full bg-white border border-[#141413]/20 px-2.5 py-1.5 text-xs font-mono-num"
+                          className="w-full bg-white border border-[#141413]/20 px-2.5 py-1.5 text-xs font-mono-num text-[#141413]"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-mono-num uppercase text-[#6E6D68] mb-1">
+                        <label className="block text-[10px] font-mono-num uppercase text-[#6E6D68] mb-1 font-semibold">
                           App Password / Secret
                         </label>
                         <input
@@ -3448,19 +3634,38 @@ export const AdminDashboard: React.FC = () => {
                           placeholder="••••••••••••••••"
                           value={smtpForm.smtpPass}
                           onChange={(e) => setSmtpForm({ ...smtpForm, smtpPass: e.target.value })}
-                          className="w-full bg-white border border-[#141413]/20 px-2.5 py-1.5 text-xs font-mono-num"
+                          className="w-full bg-white border border-[#141413]/20 px-2.5 py-1.5 text-xs font-mono-num text-[#141413]"
                         />
                       </div>
                     </div>
 
-                    <div className="flex justify-end pt-2">
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[#141413]/10">
+                      <button
+                        type="button"
+                        onClick={handleTestSmtpConnection}
+                        disabled={isVerifyingSmtp || !smtpForm.smtpHost || !smtpForm.smtpUser || !smtpForm.smtpPass}
+                        className="px-4 py-2 bg-white border border-[#141413]/30 hover:border-[#141413] text-[#141413] text-xs font-mono-num uppercase tracking-wider cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {isVerifyingSmtp ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-[#1F6F43]" />
+                            <span>Verifying Credentials...</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[#1F6F43]" />
+                            <span>Test SMTP Connection</span>
+                          </>
+                        )}
+                      </button>
+
                       <button
                         type="button"
                         onClick={handleSaveNotificationConfig}
                         disabled={isSavingNotificationSettings}
-                        className="px-4 py-2 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-wider cursor-pointer"
+                        className="px-5 py-2 bg-[#141413] text-[#F4F3EF] hover:bg-[#2B2B28] text-xs font-mono-num uppercase tracking-wider cursor-pointer disabled:opacity-50"
                       >
-                        Save SMTP Settings
+                        {isSavingNotificationSettings ? 'Saving...' : 'Save SMTP Settings'}
                       </button>
                     </div>
                   </div>

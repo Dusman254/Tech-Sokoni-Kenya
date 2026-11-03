@@ -42,6 +42,8 @@ import {
   sendPasswordChangedConfirmationEmail,
   getAdminNotificationRecipient,
   getEmailTransporter,
+  testSmtpConnection,
+  formatSmtpError,
 } from './serverNotificationService';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -395,13 +397,45 @@ async function startServer() {
     });
   });
 
+  app.post('/api/notifications/verify-smtp', requireAdmin, async (req, res) => {
+    try {
+      const { smtpHost, smtpPort, smtpUser, smtpPass, smtpSecure } = req.body || {};
+      const result = await testSmtpConnection({
+        smtpHost,
+        smtpPort: Number(smtpPort),
+        smtpUser,
+        smtpPass,
+        smtpSecure: Boolean(smtpSecure),
+      });
+      return res.json(result);
+    } catch (err: any) {
+      return res.json({
+        ok: false,
+        error: formatSmtpError(err?.message),
+        rawError: err?.message,
+      });
+    }
+  });
+
   app.post('/api/notifications/test', requireAdmin, async (req, res) => {
     try {
       const targetEmail = req.body?.recipient || getAdminNotificationRecipient();
       const result = await sendTestNotificationEmail(targetEmail);
-      res.json({ ok: true, notification: result });
+      if (result.status === 'failed') {
+        return res.json({
+          ok: false,
+          error: result.error || 'Failed to dispatch via live SMTP',
+          rawError: result.error,
+          notification: result,
+        });
+      }
+      res.json({
+        ok: true,
+        notification: result,
+        isSimulated: result.status === 'simulated',
+      });
     } catch (err: any) {
-      res.status(500).json({ error: err?.message || 'Failed to send test notification' });
+      res.status(500).json({ error: formatSmtpError(err?.message || 'Failed to send test notification') });
     }
   });
 

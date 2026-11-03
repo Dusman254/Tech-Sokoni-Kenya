@@ -11,26 +11,68 @@ import { addNotificationLog, getDatabase } from './serverDb';
 // Email Transporter Factory
 // ============================================================================
 
+export function formatSmtpError(rawError?: string): string {
+  if (!rawError) return 'SMTP dispatch failed. Please verify host, port, and authentication credentials.';
+  const lower = rawError.toLowerCase();
+  if (lower.includes('wrong version number') || lower.includes('eproto')) {
+    return 'SSL/TLS Protocol Mismatch: Port 587 uses STARTTLS (SSL must be disabled). For direct SSL, use Port 465 (SSL enabled).';
+  }
+  if (lower.includes('535') || lower.includes('auth') || lower.includes('credential') || lower.includes('invalid login')) {
+    return 'Authentication Failed: The mail server (Zoho/Gmail) rejected your login. If Two-Factor Authentication is active, you must generate and use an Application-Specific Password (e.g. at accounts.zoho.com > Security > App Passwords or myaccount.google.com/security), rather than your personal login password. Also ensure Outgoing SMTP is turned ON in Zoho Mail settings.';
+  }
+  if (lower.includes('timeout') || lower.includes('etimedout') || lower.includes('timed out')) {
+    return 'Connection Timed Out: The mail server did not respond within 8 seconds. Verify the hostname (smtp.zoho.com or smtp.zoho.eu) and that port 465/587 is accessible.';
+  }
+  if (lower.includes('enotfound') || lower.includes('getaddrinfo')) {
+    return 'Hostname Unreachable: The SMTP server address is invalid or cannot be reached via DNS.';
+  }
+  if (lower.includes('econnrefused')) {
+    return 'Connection Refused: The mail server rejected connection on the specified port.';
+  }
+  return rawError;
+}
+
 export function getEmailTransporter() {
   const db = getDatabase();
   const settings = db.settings;
 
   const host = process.env.SMTP_HOST || settings.smtpHost;
-  const port = Number(process.env.SMTP_PORT || settings.smtpPort || 587);
+  const rawPort = process.env.SMTP_PORT || settings.smtpPort || 465;
+  const port = Number(rawPort) || 465;
   const user = process.env.SMTP_USER || settings.smtpUser;
   const pass = process.env.SMTP_PASS || settings.smtpPass;
-  const secure = process.env.SMTP_SECURE === 'true' || settings.smtpSecure || port === 465;
+
+  // Auto-correct port/secure mismatches:
+  // Port 465 is always SSL (secure: true)
+  // Port 587 / 25 is always STARTTLS (secure: false)
+  let secure = settings.smtpSecure;
+  if (port === 465) {
+    secure = true;
+  } else if (port === 587 || port === 25) {
+    secure = false;
+  } else if (process.env.SMTP_SECURE !== undefined) {
+    secure = process.env.SMTP_SECURE === 'true';
+  }
 
   if (host && user && pass) {
     return {
       isConfigured: true,
       transporter: nodemailer.createTransport({
-        host,
+        host: host.trim(),
         port,
         secure,
-        auth: { user, pass },
+        auth: {
+          user: user.trim(),
+          pass: pass.trim(),
+        },
+        connectionTimeout: 8000,
+        greetingTimeout: 8000,
+        socketTimeout: 10000,
+        tls: {
+          rejectUnauthorized: false,
+        },
       }),
-      fromAddress: user.includes('@') ? `"Tech Sokoni Showroom" <${user}>` : `"Tech Sokoni Showroom" <notifications@techsokoni.co.ke>`,
+      fromAddress: user.includes('@') ? `"Tech Sokoni Showroom" <${user.trim()}>` : `"Tech Sokoni Showroom" <notifications@techsokoni.co.ke>`,
     };
   }
 
@@ -40,6 +82,65 @@ export function getEmailTransporter() {
     transporter: null,
     fromAddress: '"Tech Sokoni Kenya" <alerts@techsokoni.co.ke>',
   };
+}
+
+export async function testSmtpConnection(config: {
+  smtpHost: string;
+  smtpPort: number;
+  smtpUser: string;
+  smtpPass: string;
+  smtpSecure?: boolean;
+}): Promise<{ ok: boolean; message?: string; error?: string; rawError?: string }> {
+  try {
+    const host = (config.smtpHost || '').trim();
+    const port = Number(config.smtpPort) || 465;
+    const user = (config.smtpUser || '').trim();
+    const pass = (config.smtpPass || '').trim();
+
+    if (!host || !user || !pass) {
+      return {
+        ok: false,
+        error: 'Please enter SMTP Host, User Email, and App Password.',
+      };
+    }
+
+    let secure = config.smtpSecure;
+    if (port === 465) {
+      secure = true;
+    } else if (port === 587 || port === 25) {
+      secure = false;
+    }
+
+    const testTransporter = nodemailer.createTransport({
+      host,
+      port,
+      secure,
+      auth: { user, pass },
+      connectionTimeout: 8000,
+      greetingTimeout: 8000,
+      socketTimeout: 10000,
+      tls: { rejectUnauthorized: false },
+    });
+
+    await Promise.race([
+      testTransporter.verify(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Connection timed out after 8 seconds')), 8500)
+      ),
+    ]);
+
+    return {
+      ok: true,
+      message: `Successfully connected and authenticated with ${host}:${port} as ${user}!`,
+    };
+  } catch (err: any) {
+    const raw = err?.message || 'SMTP connection failed';
+    return {
+      ok: false,
+      error: formatSmtpError(raw),
+      rawError: raw,
+    };
+  }
 }
 
 export function getAdminNotificationRecipient(): string {
@@ -488,18 +589,23 @@ async function dispatchAndRecordNotification(payload: {
 
   if (isConfigured && transporter) {
     try {
-      await transporter.sendMail({
-        from: fromAddress,
-        to: payload.recipient,
-        subject: payload.subject,
-        html: payload.htmlContent,
-        text: payload.textContent,
-      });
+      await Promise.race([
+        transporter.sendMail({
+          from: fromAddress,
+          to: payload.recipient,
+          subject: payload.subject,
+          html: payload.htmlContent,
+          text: payload.textContent,
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('SMTP timeout: Server took longer than 8 seconds to respond')), 8500)
+        ),
+      ]);
       status = 'sent';
       console.log(`[Notification]: Successfully dispatched live SMTP email to ${payload.recipient} (${payload.subject})`);
     } catch (err: any) {
       status = 'failed';
-      errorMsg = err?.message || 'SMTP delivery failed';
+      errorMsg = formatSmtpError(err?.message || 'SMTP delivery failed');
       console.warn(`[Notification]: SMTP delivery error to ${payload.recipient}:`, errorMsg);
     }
   } else {
