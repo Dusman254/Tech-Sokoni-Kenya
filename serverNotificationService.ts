@@ -36,11 +36,40 @@ export function getEmailTransporter() {
   const db = getDatabase();
   const settings = db.settings;
 
-  const host = process.env.SMTP_HOST || settings.smtpHost;
-  const rawPort = process.env.SMTP_PORT || settings.smtpPort || 465;
+  // Support standard Vercel / Cloud Run / hosting environment variables
+  const host =
+    process.env.SMTP_HOST ||
+    process.env.EMAIL_HOST ||
+    process.env.MAIL_HOST ||
+    process.env.ZOHO_HOST ||
+    settings.smtpHost;
+
+  const rawPort =
+    process.env.SMTP_PORT ||
+    process.env.EMAIL_PORT ||
+    process.env.MAIL_PORT ||
+    settings.smtpPort ||
+    465;
+
   const port = Number(rawPort) || 465;
-  const user = process.env.SMTP_USER || settings.smtpUser;
-  const pass = process.env.SMTP_PASS || settings.smtpPass;
+
+  const user =
+    process.env.SMTP_USER ||
+    process.env.SMTP_USERNAME ||
+    process.env.EMAIL_USER ||
+    process.env.MAIL_USER ||
+    process.env.ZOHO_USER ||
+    settings.smtpUser;
+
+  const pass =
+    process.env.SMTP_PASS ||
+    process.env.SMTP_PASSWORD ||
+    process.env.EMAIL_PASS ||
+    process.env.EMAIL_PASSWORD ||
+    process.env.MAIL_PASS ||
+    process.env.MAIL_PASSWORD ||
+    process.env.ZOHO_PASSWORD ||
+    settings.smtpPass;
 
   // Auto-correct port/secure mismatches:
   // Port 465 is always SSL (secure: true)
@@ -52,6 +81,8 @@ export function getEmailTransporter() {
     secure = false;
   } else if (process.env.SMTP_SECURE !== undefined) {
     secure = process.env.SMTP_SECURE === 'true';
+  } else if (process.env.EMAIL_SECURE !== undefined) {
+    secure = process.env.EMAIL_SECURE === 'true';
   }
 
   if (host && user && pass) {
@@ -146,8 +177,11 @@ export async function testSmtpConnection(config: {
 export function getAdminNotificationRecipient(): string {
   const db = getDatabase();
   return (
-    db.settings?.adminNotificationEmail?.trim() ||
+    process.env.ADMIN_NOTIFICATION_EMAIL?.trim() ||
     process.env.NOTIFICATION_EMAIL?.trim() ||
+    process.env.ADMIN_EMAIL?.trim() ||
+    process.env.ALERT_EMAIL?.trim() ||
+    db.settings?.adminNotificationEmail?.trim() ||
     'sirdusman@gmail.com'
   );
 }

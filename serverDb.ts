@@ -222,8 +222,22 @@ export function getPublicStorefrontData() {
  */
 export function getFullAdminData() {
   const db = getDatabase();
+  const envSmtpHost = process.env.SMTP_HOST || process.env.EMAIL_HOST || process.env.MAIL_HOST || process.env.ZOHO_HOST;
+  const envSmtpUser = process.env.SMTP_USER || process.env.SMTP_USERNAME || process.env.EMAIL_USER || process.env.MAIL_USER || process.env.ZOHO_USER;
+  const envSmtpPort = process.env.SMTP_PORT || process.env.EMAIL_PORT || process.env.MAIL_PORT;
+  const envAdminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || process.env.NOTIFICATION_EMAIL || process.env.ADMIN_EMAIL || process.env.ALERT_EMAIL;
+
+  const mergedSettings = {
+    ...db.settings,
+    ...(envSmtpHost ? { smtpHost: envSmtpHost } : {}),
+    ...(envSmtpUser ? { smtpUser: envSmtpUser } : {}),
+    ...(envSmtpPort ? { smtpPort: Number(envSmtpPort) } : {}),
+    ...(envAdminEmail ? { adminNotificationEmail: envAdminEmail } : {}),
+  };
+
   return {
     ...db,
+    settings: mergedSettings,
     allProducts: db.products,
     products: db.products.filter((p) => !p.deletedAt),
     deletedProducts: db.products.filter((p) => Boolean(p.deletedAt)),

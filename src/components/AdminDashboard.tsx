@@ -685,17 +685,13 @@ export const AdminDashboard: React.FC = () => {
     featured: true,
   });
 
-  // Handle Admin Passcode & 2-Step Verification Gate Submission
+  // Handle Admin Passcode Submission (Immediate Access via Master Key 1940)
   const handlePasscodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (passcodeInput.trim() === '1940') {
       setPasscodeError(false);
-      setAdminMfaStep('2step_code');
-      setAdminMfaCooldown(60);
-      setAdminMfaError('');
-      setAdminMfaCode('');
-      sendMfaCode('sirdusman@gmail.com', 'admin_login').catch(() => {});
-      showToast('Two-step verification code sent to sirdusman@gmail.com');
+      authenticateAdmin('1940');
+      showToast('Admin Access Granted. Welcome to Store Management.');
     } else {
       setPasscodeError(true);
       setPasscodeInput('');
@@ -1207,100 +1203,40 @@ export const AdminDashboard: React.FC = () => {
               TECH SOKONI · RESTRICTED ACCESS
             </p>
             <h1 className="font-editorial text-3xl text-[#141413] mt-1">
-              {adminMfaStep === 'passcode'
-                ? 'Executive Authorization'
-                : 'Two-Step Verification'}
+              Store Management Console
             </h1>
             <p className="text-xs text-[#6E6D68] mt-1 leading-relaxed">
-              {adminMfaStep === 'passcode'
-                ? 'Enter authorization key to begin Management Console verification.'
-                : 'A 6-digit security code was dispatched to sirdusman@gmail.com. Enter code to unlock.'}
+              Enter authorization key (<strong>1940</strong>) to unlock live catalog, orders, and inventory controls.
             </p>
           </div>
 
-          {adminMfaStep === 'passcode' ? (
-            <form onSubmit={handlePasscodeSubmit} className="space-y-4">
-              <input
-                type="password"
-                required
-                autoFocus
-                value={passcodeInput}
-                onChange={(e) => {
-                  setPasscodeInput(e.target.value);
-                  setPasscodeError(false);
-                }}
-                placeholder="Authorization Code"
-                className="w-full bg-[#EAE9E4] border border-[#141413]/25 px-4 py-3 text-center font-mono-num text-sm tracking-[0.3em] text-[#141413] focus:outline-none focus:border-[#141413]"
-              />
+          <form onSubmit={handlePasscodeSubmit} className="space-y-4">
+            <input
+              type="password"
+              required
+              autoFocus
+              value={passcodeInput}
+              onChange={(e) => {
+                setPasscodeInput(e.target.value);
+                setPasscodeError(false);
+              }}
+              placeholder="Authorization Key (1940)"
+              className="w-full bg-[#EAE9E4] border border-[#141413]/25 px-4 py-3 text-center font-mono-num text-sm tracking-[0.3em] text-[#141413] focus:outline-none focus:border-[#141413]"
+            />
 
-              {passcodeError && (
-                <p className="text-xs font-mono-num text-[#D94E34]">
-                  Access denied. Invalid authorization code.
-                </p>
-              )}
+            {passcodeError && (
+              <p className="text-xs font-mono-num text-[#D94E34]">
+                Access denied. Invalid authorization key.
+              </p>
+            )}
 
-              <button
-                type="submit"
-                className="w-full py-3 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-[0.2em] hover:bg-[#2B2B28] transition-colors cursor-pointer"
-              >
-                Continue to Verification
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handleAdminMfaVerify} className="space-y-4">
-              <div className="space-y-1">
-                <input
-                  type="text"
-                  required
-                  autoFocus
-                  maxLength={6}
-                  value={adminMfaCode}
-                  onChange={(e) => {
-                    setAdminMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6));
-                    setAdminMfaError('');
-                  }}
-                  placeholder="000000"
-                  className="w-full bg-white border border-[#141413]/30 py-3 text-center font-mono text-2xl font-bold tracking-[0.35em] text-[#141413] focus:outline-none focus:border-[#141413]"
-                />
-              </div>
-
-              {adminMfaError && (
-                <p className="text-xs font-mono-num text-[#D94E34]">
-                  {adminMfaError}
-                </p>
-              )}
-
-              <button
-                type="submit"
-                disabled={isAdminMfaVerifying || adminMfaCode.trim().length !== 6}
-                className="w-full py-3 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-[0.2em] hover:bg-[#2B2B28] transition-colors cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                <ShieldCheck className="w-4 h-4" />
-                <span>{isAdminMfaVerifying ? 'Verifying...' : 'Unlock Management Console'}</span>
-              </button>
-
-              <div className="flex items-center justify-between text-xs font-mono-num pt-1">
-                <button
-                  type="button"
-                  disabled={adminMfaCooldown > 0}
-                  onClick={handleResendAdminMfa}
-                  className="text-[#6E6D68] hover:text-[#141413] underline cursor-pointer disabled:opacity-50 disabled:no-underline"
-                >
-                  {adminMfaCooldown > 0 ? `Resend (${adminMfaCooldown}s)` : 'Resend Code'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAdminMfaStep('passcode');
-                    setAdminMfaError('');
-                  }}
-                  className="text-[#6E6D68] hover:text-[#141413] underline cursor-pointer"
-                >
-                  Re-enter Code
-                </button>
-              </div>
-            </form>
-          )}
+            <button
+              type="submit"
+              className="w-full py-3 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-[0.2em] hover:bg-[#2B2B28] transition-colors cursor-pointer"
+            >
+              Unlock Management Console
+            </button>
+          </form>
 
           <button
             onClick={() => navigate({ page: 'home' })}
