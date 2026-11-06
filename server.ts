@@ -3,7 +3,6 @@ import express, { Request, Response, NextFunction } from 'express';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import {
   initServerDatabase,
@@ -92,8 +91,8 @@ function createRateLimiter(options: { maxRequests: number; windowMs: number }) {
   };
 }
 
-// Clean up stale rate-limit records every 5 minutes
-setInterval(() => {
+// Clean up stale rate-limit records every 5 minutes (unref so process can exit cleanly in serverless)
+const staleRateLimitCleanup = setInterval(() => {
   const now = Date.now();
   for (const [key, value] of rateLimitStore.entries()) {
     if (now > value.resetTime) {
@@ -101,6 +100,9 @@ setInterval(() => {
     }
   }
 }, 5 * 60 * 1000);
+if (staleRateLimitCleanup.unref) {
+  staleRateLimitCleanup.unref();
+}
 
 // ============================================================================
 // AI Daily Spending Cap Guard
@@ -143,8 +145,11 @@ export const app = express();
 
 // Handle URL prefix normalization for Vercel Serverless Function rewrites
 app.use((req, _res, next) => {
-  if (
-    process.env.VERCEL &&
+  const forwardedUrl = (req.headers['x-forwarded-url'] as string) || (req.headers['x-matched-path'] as string);
+  if (forwardedUrl && forwardedUrl.startsWith('/api')) {
+    req.url = forwardedUrl;
+  } else if (
+    (process.env.VERCEL || process.env.VERCEL_ENV || process.env.AWS_LAMBDA_FUNCTION_NAME) &&
     req.url &&
     !req.url.startsWith('/api') &&
     !req.url.startsWith('/uploads') &&
@@ -1271,19 +1276,24 @@ STRICT FIDELITY RULES:
     });
   });
 
+export const handler = (req: any, res: any) => app(req, res);
 export default app;
 
-if (!process.env.VERCEL) {
+if (!process.env.VERCEL && !process.env.VERCEL_ENV && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
   const PORT = Number(process.env.PORT) || 3000;
   if (process.env.NODE_ENV !== 'production') {
-    createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    }).then((vite) => {
-      app.use(vite.middlewares);
-      app.listen(PORT, '0.0.0.0', () => {
-        console.log(`Tech Sokoni server running on http://0.0.0.0:${PORT}`);
+    import('vite').then(({ createServer }) => {
+      createServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      }).then((vite) => {
+        app.use(vite.middlewares);
+        app.listen(PORT, '0.0.0.0', () => {
+          console.log(`Tech Sokoni server running on http://0.0.0.0:${PORT}`);
+        });
       });
+    }).catch((err) => {
+      console.error('Failed to initialize Vite development server:', err);
     });
   } else {
     const distPath = path.resolve(__dirname, 'dist');

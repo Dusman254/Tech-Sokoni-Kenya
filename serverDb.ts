@@ -50,7 +50,13 @@ export interface TechSokoniDatabase {
   warranties: WarrantyRegistration[];
 }
 
-const DATA_DIR = path.join(__dirname, 'data');
+const isVercel = Boolean(
+  process.env.VERCEL ||
+  process.env.VERCEL_ENV ||
+  process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  process.env.LAMBDA_TASK_ROOT
+);
+const DATA_DIR = isVercel ? '/tmp/tech_sokoni_data' : path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'tech_sokoni_db.json');
 const BACKUP_FILE = path.join(DATA_DIR, 'tech_sokoni_db_backup.json');
 
@@ -163,6 +169,22 @@ export function initServerDatabase(): TechSokoniDatabase {
     }
   }
 
+  // Load bundled seed database if on Vercel
+  if (isVercel) {
+    try {
+      const bundledPath = path.join(process.cwd(), 'data', 'tech_sokoni_db.json');
+      if (fs.existsSync(bundledPath)) {
+        const raw = fs.readFileSync(bundledPath, 'utf-8');
+        const parsed = JSON.parse(raw) as TechSokoniDatabase;
+        if (parsed && Array.isArray(parsed.products)) {
+          dbMemory = parsed;
+          persistDatabaseSync();
+          return dbMemory;
+        }
+      }
+    } catch {}
+  }
+
   // Create initial database file
   dbMemory = getInitialDatabase();
   persistDatabaseSync();
@@ -175,23 +197,20 @@ export function initServerDatabase(): TechSokoniDatabase {
  */
 export function persistDatabaseSync(): void {
   if (!dbMemory) return;
-  ensureDataDirectory();
-
-  dbMemory.lastUpdated = new Date().toISOString();
-  const serialized = JSON.stringify(dbMemory, null, 2);
-  const tempFile = path.join(DATA_DIR, `tech_sokoni_db_${Date.now()}_tmp.json`);
-
   try {
+    ensureDataDirectory();
+
+    dbMemory.lastUpdated = new Date().toISOString();
+    const serialized = JSON.stringify(dbMemory, null, 2);
+    const tempFile = path.join(DATA_DIR, `tech_sokoni_db_${Date.now()}_tmp.json`);
+
     fs.writeFileSync(tempFile, serialized, 'utf-8');
     fs.renameSync(tempFile, DB_FILE);
 
     // Maintain a secondary backup file
     fs.writeFileSync(BACKUP_FILE, serialized, 'utf-8');
   } catch (err: any) {
-    console.error('[Server Database]: Failed to write database to disk:', err.message);
-    try {
-      if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
-    } catch {}
+    console.warn('[Server Database]: Disk persist notice (memory active):', err?.message);
   }
 }
 
