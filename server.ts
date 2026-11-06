@@ -1,4 +1,9 @@
-import 'dotenv/config';
+if (!process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME && !process.env.LAMBDA_TASK_ROOT) {
+  try {
+    const dotenv = await import('dotenv');
+    dotenv.config();
+  } catch {}
+}
 import express, { Request, Response, NextFunction } from 'express';
 import fs from 'fs';
 import path from 'path';
