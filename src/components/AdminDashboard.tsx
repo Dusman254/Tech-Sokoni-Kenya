@@ -113,6 +113,8 @@ export const AdminDashboard: React.FC = () => {
     updateOffer,
     deleteOffer,
     updateOrderStatus,
+    deleteOrder,
+    clearAllMockOrdersAndBookings,
     verifyMpesaPayment,
     recordManualMpesaMessage,
     updateSettings,
@@ -2162,14 +2164,29 @@ export const AdminDashboard: React.FC = () => {
                   Every order placed on the live storefront appears here immediately. Updating status or verifying M-Pesa updates the client&apos;s Order History in real time.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setActiveTab('mpesa')}
-                className="px-4 py-2.5 bg-[#2E7D32] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-wider flex items-center gap-2 self-start cursor-pointer"
-              >
-                <Smartphone className="w-3.5 h-3.5" />
-                <span>Open M-Pesa SMS Hub ({mpesaTransactions.length})</span>
-              </button>
+              <div className="flex flex-wrap items-center gap-2 self-start">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('mpesa')}
+                  className="px-4 py-2.5 bg-[#2E7D32] hover:bg-[#256628] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-wider flex items-center gap-2 cursor-pointer transition-colors"
+                >
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>Open M-Pesa SMS Hub ({mpesaTransactions.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm("Purge all demo / mock orders, payments, and appointments to start afresh? All showroom products will be strictly preserved.")) {
+                      clearAllMockOrdersAndBookings();
+                    }
+                  }}
+                  className="px-3.5 py-2.5 border border-red-300 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-mono-num uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-colors"
+                  title="Purge all fake / test orders and bookings while keeping all products intact"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Clear Mock Data</span>
+                </button>
+              </div>
             </div>
 
             {orders.length === 0 ? (
@@ -2343,10 +2360,24 @@ export const AdminDashboard: React.FC = () => {
                               downloadOrderReceiptPdf(order, settings)
                             }
                             title="Download Client PDF Receipt"
-                            className="px-3 py-2 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+                            className="px-3 py-2 bg-[#141413] text-[#F4F3EF] text-xs font-mono-num uppercase tracking-wider flex items-center gap-1.5 cursor-pointer hover:bg-[#2B2B28] transition-colors"
                           >
                             <Download className="w-3.5 h-3.5" />
                             <span>PDF</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Delete order ${order.orderNumber} permanently?`)) {
+                                deleteOrder(order.id);
+                              }
+                            }}
+                            title="Delete Order"
+                            className="px-2.5 py-2 border border-red-300 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-mono-num uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Delete</span>
                           </button>
                         </div>
                       </div>
@@ -2824,6 +2855,29 @@ export const AdminDashboard: React.FC = () => {
               <p className="text-[10px] text-[#6E6D68] mt-1 font-mono-num">
                 Instant email alerts for orders and showroom appointments are routed to this inbox. For advanced outbox logs, test sending, and SMTP setup, visit the &ldquo;Email Alerts&rdquo; tab.
               </p>
+            </div>
+
+            <div className="pt-4 border-t border-[#141413]/10">
+              <h3 className="text-sm font-semibold text-[#141413] flex items-center gap-2">
+                <Trash2 className="w-4 h-4 text-red-600" />
+                <span>Reset Orders &amp; Bookings (Start Afresh)</span>
+              </h3>
+              <p className="text-xs text-[#6E6D68] mt-1">
+                Purges all demo orders, test M-Pesa SMS transactions, and mock showroom bookings from the database.
+                <strong className="text-[#141413] ml-1">All 7 live inventory products will be strictly preserved.</strong>
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm("Purge all demo orders and bookings to start afresh? All showroom products will be strictly preserved.")) {
+                    clearAllMockOrdersAndBookings();
+                  }
+                }}
+                className="mt-3 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-mono-num uppercase tracking-wider flex items-center gap-2 cursor-pointer transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Clear Mock Orders &amp; Bookings</span>
+              </button>
             </div>
           </div>
         )}

@@ -71,19 +71,16 @@ service cloud.firestore {
       allow create, update, delete: if isValidId(productId);
     }
 
-    // Client Profiles - Private to customer and admin
+    // Client Profiles - Customers & Storefront sync
     match /clients/{clientId} {
-      allow get: if isValidId(clientId) && (
-        isSignedIn() && (request.auth.uid == clientId || existing().uid == request.auth.uid || isAdmin())
-      );
-      allow list: if isSignedIn() && (resource.data.uid == request.auth.uid || isAdmin());
-      allow create, update: if isValidId(clientId);
+      allow get, list: if true;
+      allow create, update, delete: if isValidId(clientId);
     }
 
     // Orders (M-Pesa Express & Payment on Delivery)
     match /orders/{orderId} {
       allow get, list: if true;
-      allow create, update: if isValidId(orderId);
+      allow create, update, delete: if isValidId(orderId);
     }
 
     // M-Pesa Transactions & Confirmation Messages

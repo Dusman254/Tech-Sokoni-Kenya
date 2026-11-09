@@ -49,6 +49,8 @@ export const AdminViewingsSection: React.FC = () => {
     bookingConfig,
     products,
     updateViewingAppointmentStatus,
+    deleteViewingAppointment,
+    clearAllMockOrdersAndBookings,
     rescheduleViewingAppointment,
     addViewingInternalNote,
     assignViewingStaff,
@@ -464,15 +466,33 @@ export const AdminViewingsSection: React.FC = () => {
               )}
             </div>
 
-            {/* CSV Export Button */}
-            <button
-              type="button"
-              onClick={handleExportCsv}
-              className="py-2.5 px-4 bg-[#141413] text-[#F4F3EF] hover:bg-[#2B2B28] text-xs font-mono-num uppercase tracking-wider flex items-center justify-center gap-2 transition-colors cursor-pointer whitespace-nowrap shrink-0"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Export CSV</span>
-            </button>
+            {/* Actions: Export & Clear */}
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleExportCsv}
+                className="py-2.5 px-4 bg-[#141413] text-[#F4F3EF] hover:bg-[#2B2B28] text-xs font-mono-num uppercase tracking-wider flex items-center justify-center gap-2 transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export CSV</span>
+              </button>
+
+              {viewingAppointments.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm("Purge all demo showroom viewing bookings? Products will not be touched.")) {
+                      clearAllMockOrdersAndBookings();
+                    }
+                  }}
+                  className="py-2.5 px-3 border border-red-300 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-mono-num uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+                  title="Purge all demo bookings"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Clear Demo Bookings</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Appointments Table / Cards */}
@@ -619,6 +639,20 @@ export const AdminViewingsSection: React.FC = () => {
                               className="px-2.5 py-1 bg-[#141413] text-[#F4F3EF] hover:bg-[#2B2B28] text-[10px] font-mono-num uppercase tracking-wider cursor-pointer whitespace-nowrap"
                             >
                               Manage
+                            </button>
+
+                            {/* Delete Appointment */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(`Delete viewing booking ${app.bookingReference} for ${app.customerName}?`)) {
+                                  deleteViewingAppointment(app.id);
+                                }
+                              }}
+                              title="Delete Appointment"
+                              className="w-7 h-7 flex items-center justify-center border border-red-300 bg-red-50 hover:bg-red-100 text-red-700 cursor-pointer transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </td>
@@ -1394,6 +1428,19 @@ export const AdminViewingsSection: React.FC = () => {
                     Cancel Booking...
                   </button>
                 )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm(`Delete viewing booking ${selectedAppointment.bookingReference} permanently?`)) {
+                      deleteViewingAppointment(selectedAppointment.id);
+                      setSelectedAppointment(null);
+                    }
+                  }}
+                  className="py-1.5 px-3 border border-red-300 bg-red-50 hover:bg-red-100 text-red-700 font-semibold"
+                >
+                  Delete Booking
+                </button>
               </div>
 
               {/* Reschedule Panel */}

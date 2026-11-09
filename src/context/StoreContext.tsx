@@ -48,6 +48,7 @@ import {
   saveMpesaTransactionToFirestore,
   saveOfferToFirestore,
   saveOrderToFirestore,
+  deleteOrderFromFirestore,
   saveProductToFirestore,
   saveSettingsToFirestore,
   seedFirestoreIfEmpty,
@@ -227,6 +228,9 @@ interface StoreContextValue {
     status: OrderStatus,
     trackingNote?: string
   ) => void;
+  deleteOrder: (orderId: string) => Promise<boolean>;
+  deleteViewingAppointment: (appointmentId: string) => Promise<boolean>;
+  clearAllMockOrdersAndBookings: () => Promise<void>;
   submitMpesaConfirmation: (
     orderId: string,
     mpesaCode: string,
@@ -489,11 +493,29 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   const [offers, setOffers] = useState<Offer[]>(() =>
     loadFromStorage(STORAGE_KEYS.OFFERS, INITIAL_OFFERS)
   );
-  const [orders, setOrders] = useState<Order[]>(() =>
-    loadFromStorage(STORAGE_KEYS.ORDERS, INITIAL_ORDERS)
-  );
+  const [orders, setOrders] = useState<Order[]>(() => {
+    const loaded = loadFromStorage(STORAGE_KEYS.ORDERS, INITIAL_ORDERS);
+    return Array.isArray(loaded)
+      ? loaded.filter(
+          (o) =>
+            o.orderNumber !== 'TS-2026-1001' &&
+            o.orderNumber !== 'TS-2026-1002' &&
+            o.orderNumber !== 'TS-2026-1003' &&
+            o.id !== 'ord-1793374569543-ytvn' &&
+            o.id !== 'ord-1792510778081-1dzp' &&
+            o.id !== 'ord-1792490900805-7vcf'
+        )
+      : [];
+  });
   const [mpesaTransactions, setMpesaTransactions] = useState<MpesaTransaction[]>(
-    () => loadFromStorage(STORAGE_KEYS.MPESA_TX, [])
+    () => {
+      const loaded = loadFromStorage<MpesaTransaction[]>(STORAGE_KEYS.MPESA_TX, []);
+      return Array.isArray(loaded)
+        ? loaded.filter(
+            (tx) => tx.orderNumber !== 'TS-2026-1003' && tx.id !== 'tx-1793374569543-7cwc'
+          )
+        : [];
+    }
   );
   const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
     const loaded = loadFromStorage(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS);
@@ -560,12 +582,23 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   // "Book to View" State
   const [viewingAppointments, setViewingAppointments] = useState<
     ViewingAppointment[]
-  >(() =>
-    loadFromStorage(
+  >(() => {
+    const loaded = loadFromStorage(
       STORAGE_KEYS.VIEWING_APPOINTMENTS,
       INITIAL_VIEWING_APPOINTMENTS
-    )
-  );
+    );
+    return Array.isArray(loaded)
+      ? loaded.filter(
+          (v) =>
+            v.bookingReference !== 'TSV-2026-3338' &&
+            v.bookingReference !== 'TSV-2026-7785' &&
+            v.id !== 'viewing-1793374552630-twhd' &&
+            v.id !== 'viewing-1792490919221-1yae' &&
+            v.id !== 'viewing-tsv-2026-0001' &&
+            v.id !== 'viewing-tsv-2026-0002'
+        )
+      : [];
+  });
   const [viewingLocations, setViewingLocations] = useState<ViewingLocation[]>(
     () => loadFromStorage(STORAGE_KEYS.VIEWING_LOCATIONS, DEFAULT_VIEWING_LOCATIONS)
   );
@@ -2396,6 +2429,26 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
     showToast(`Order status updated to ${status}`);
   };
 
+  const deleteOrder = async (orderId: string): Promise<boolean> => {
+    setOrders((prev) => prev.filter((o) => o.id !== orderId));
+    setMpesaTransactions((prev) => prev.filter((tx) => tx.orderId !== orderId));
+    deleteOrderFromFirestore(orderId).catch(() => {});
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: 'DELETE',
+        headers: {
+          'x-admin-key': '1940',
+        },
+      });
+      showToast('Order removed from registry');
+      return res.ok;
+    } catch (err) {
+      console.warn('Failed to delete order from server:', err);
+      showToast('Order deleted locally');
+      return true;
+    }
+  };
+
   const submitMpesaConfirmation = (
     orderId: string,
     mpesaCode: string,
@@ -2986,6 +3039,54 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
     );
   };
 
+  const deleteViewingAppointment = async (appointmentId: string): Promise<boolean> => {
+    setViewingAppointments((prev) => prev.filter((app) => app.id !== appointmentId));
+    deleteViewingAppointmentFromFirestore(appointmentId).catch(() => {});
+    try {
+      const res = await fetch(`/api/viewings/${appointmentId}`, {
+        method: 'DELETE',
+        headers: {
+          'x-admin-key': '1940',
+        },
+      });
+      showToast('Viewing appointment deleted');
+      return res.ok;
+    } catch (err) {
+      console.warn('Failed to delete appointment from server:', err);
+      showToast('Appointment removed locally');
+      return true;
+    }
+  };
+
+  const clearAllMockOrdersAndBookings = async (): Promise<void> => {
+    setOrders([]);
+    setMpesaTransactions([]);
+    setViewingAppointments([]);
+    try {
+      localStorage.setItem('tech_sokoni_orders', JSON.stringify([]));
+      localStorage.setItem('tech_sokoni_mpesa_txs', JSON.stringify([]));
+      localStorage.setItem('tech_sokoni_viewing_appointments', JSON.stringify([]));
+    } catch {}
+
+    try {
+      const res = await fetch('/api/admin/clear-mock-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-key': '1940',
+        },
+      });
+      if (res.ok) {
+        showToast('All demo orders & bookings cleared. Products preserved.');
+      } else {
+        showToast('Orders and bookings cleared locally.');
+      }
+    } catch (err) {
+      console.warn('Failed to clear mock data on server:', err);
+      showToast('Orders and bookings cleared locally.');
+    }
+  };
+
   const addViewingInternalNote = (id: string, note: string) => {
     const now = new Date().toISOString();
     setViewingAppointments((prev) =>
@@ -3282,6 +3383,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
         updateOffer,
         deleteOffer,
         updateOrderStatus,
+        deleteOrder,
+        deleteViewingAppointment,
+        clearAllMockOrdersAndBookings,
         submitMpesaConfirmation,
         verifyMpesaPayment,
         recordManualMpesaMessage,

@@ -451,12 +451,24 @@ function initServerDatabase() {
           if (parsed.settings.notifyOnNewBooking === void 0) parsed.settings.notifyOnNewBooking = true;
           if (parsed.settings.notifyOnWarrantyReg === void 0) parsed.settings.notifyOnWarrantyReg = true;
         }
+        if (Array.isArray(parsed.orders)) {
+          parsed.orders = parsed.orders.filter(
+            (o) => o.orderNumber !== "TS-2026-1001" && o.orderNumber !== "TS-2026-1002" && o.orderNumber !== "TS-2026-1003" && o.id !== "ord-1793374569543-ytvn" && o.id !== "ord-1792510778081-1dzp" && o.id !== "ord-1792490900805-7vcf"
+          );
+        }
+        if (Array.isArray(parsed.mpesaTransactions)) {
+          parsed.mpesaTransactions = parsed.mpesaTransactions.filter(
+            (tx) => tx.orderNumber !== "TS-2026-1003" && tx.id !== "tx-1793374569543-7cwc"
+          );
+        }
         if (Array.isArray(parsed.clients)) {
-          parsed.clients = parsed.clients.filter((c) => c.id !== "client-brian-mwangi");
+          parsed.clients = parsed.clients.filter(
+            (c) => c.id !== "client-brian-mwangi" && c.email !== "wanjiku@example.com" && c.email !== "alice.otieno@techsokoni.co.ke" && c.email !== "grace.wanjiku@test.co.ke"
+          );
         }
         if (Array.isArray(parsed.viewingAppointments)) {
           parsed.viewingAppointments = parsed.viewingAppointments.filter(
-            (v) => v.id !== "viewing-tsv-2026-0001" && v.id !== "viewing-tsv-2026-0002"
+            (v) => v.bookingReference !== "TSV-2026-3338" && v.bookingReference !== "TSV-2026-7785" && v.id !== "viewing-1793374552630-twhd" && v.id !== "viewing-1792490919221-1yae" && v.id !== "viewing-tsv-2026-0001" && v.id !== "viewing-tsv-2026-0002"
           );
         }
         dbMemory = parsed;
@@ -707,6 +719,59 @@ function trackOrder(query) {
     (o) => o.orderNumber.toLowerCase() === q || o.id.toLowerCase() === q || o.customerPhone.replace(/\D/g, "").includes(q.replace(/\D/g, ""))
   );
   return found || null;
+}
+function deleteOrder(id) {
+  const db = getDatabase();
+  const initialLen = db.orders.length;
+  db.orders = db.orders.filter((o) => o.id !== id && o.orderNumber !== id);
+  if (db.orders.length !== initialLen) {
+    db.mpesaTransactions = db.mpesaTransactions.filter(
+      (tx) => tx.orderId !== id && tx.orderNumber !== id
+    );
+    persistDatabaseSync();
+    return true;
+  }
+  return false;
+}
+function clearAllOrders() {
+  const db = getDatabase();
+  db.orders = [];
+  db.mpesaTransactions = [];
+  persistDatabaseSync();
+}
+function deleteViewingAppointment(id) {
+  const db = getDatabase();
+  const initialLen = db.viewingAppointments.length;
+  db.viewingAppointments = db.viewingAppointments.filter(
+    (a) => a.id !== id && a.bookingReference !== id
+  );
+  if (db.viewingAppointments.length !== initialLen) {
+    persistDatabaseSync();
+    return true;
+  }
+  return false;
+}
+function clearAllViewingAppointments() {
+  const db = getDatabase();
+  db.viewingAppointments = [];
+  persistDatabaseSync();
+}
+function clearMockData() {
+  const db = getDatabase();
+  const ordersCleared = db.orders.length;
+  const appointmentsCleared = db.viewingAppointments.length;
+  const transactionsCleared = db.mpesaTransactions.length;
+  db.orders = [];
+  db.viewingAppointments = [];
+  db.mpesaTransactions = [];
+  db.clients = db.clients.filter(
+    (c) => c.email === "sirdusman@gmail.com" || !c.email.endsWith("@example.com") && !c.email.endsWith("@test.co.ke")
+  );
+  db.notifications = db.notifications.filter(
+    (n) => n.referenceId !== "TS-2026-1003" && n.referenceId !== "TSV-2026-3338" && !n.subject.includes("TS-2026-1003") && !n.subject.includes("TSV-2026-3338")
+  );
+  persistDatabaseSync();
+  return { ordersCleared, appointmentsCleared, transactionsCleared };
 }
 function addViewingAppointment(data) {
   const db = getDatabase();
@@ -1805,6 +1870,15 @@ app.put("/api/orders/:id", requireAdmin, (req, res) => {
   if (!updated) return res.status(404).json({ error: "Order not found" });
   res.json(updated);
 });
+app.delete("/api/orders/:id", requireAdmin, (req, res) => {
+  const success = deleteOrder(req.params.id);
+  if (!success) return res.status(404).json({ error: "Order not found" });
+  res.json({ ok: true, id: req.params.id });
+});
+app.delete("/api/orders", requireAdmin, (_req, res) => {
+  clearAllOrders();
+  res.json({ ok: true, message: "All orders cleared" });
+});
 app.get("/api/orders/track", (req, res) => {
   const query = req.query.query;
   if (!query) return res.status(400).json({ error: "Order reference or phone number is required." });
@@ -1938,6 +2012,19 @@ app.put("/api/viewings/:id", requireAdmin, (req, res) => {
   const updated = updateViewingAppointment(req.params.id, updates, auditNote, actor);
   if (!updated) return res.status(404).json({ error: "Appointment not found" });
   res.json(updated);
+});
+app.delete("/api/viewings/:id", requireAdmin, (req, res) => {
+  const success = deleteViewingAppointment(req.params.id);
+  if (!success) return res.status(404).json({ error: "Appointment not found" });
+  res.json({ ok: true, id: req.params.id });
+});
+app.delete("/api/viewings", requireAdmin, (_req, res) => {
+  clearAllViewingAppointments();
+  res.json({ ok: true, message: "All appointments cleared" });
+});
+app.post("/api/admin/clear-mock-data", requireAdmin, (_req, res) => {
+  const summary = clearMockData();
+  res.json({ ok: true, summary, message: "Mock data cleared successfully. All showroom products are preserved." });
 });
 app.post("/api/viewings/locations", requireAdmin, (req, res) => {
   const loc = addViewingLocation(req.body);

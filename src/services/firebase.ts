@@ -465,6 +465,15 @@ export async function saveOrderToFirestore(order: Order): Promise<{ ok: boolean;
   }
 }
 
+export async function deleteOrderFromFirestore(orderId: string): Promise<void> {
+  const path = `orders/${orderId}`;
+  try {
+    await deleteDoc(doc(db, 'orders', orderId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path, false);
+  }
+}
+
 export async function saveMpesaTransactionToFirestore(
   tx: MpesaTransaction
 ): Promise<void> {

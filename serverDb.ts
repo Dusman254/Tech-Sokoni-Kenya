@@ -141,12 +141,40 @@ export function initServerDatabase(): TechSokoniDatabase {
           if (parsed.settings.notifyOnNewBooking === undefined) parsed.settings.notifyOnNewBooking = true;
           if (parsed.settings.notifyOnWarrantyReg === undefined) parsed.settings.notifyOnWarrantyReg = true;
         }
+        if (Array.isArray(parsed.orders)) {
+          parsed.orders = parsed.orders.filter(
+            (o) =>
+              o.orderNumber !== 'TS-2026-1001' &&
+              o.orderNumber !== 'TS-2026-1002' &&
+              o.orderNumber !== 'TS-2026-1003' &&
+              o.id !== 'ord-1793374569543-ytvn' &&
+              o.id !== 'ord-1792510778081-1dzp' &&
+              o.id !== 'ord-1792490900805-7vcf'
+          );
+        }
+        if (Array.isArray(parsed.mpesaTransactions)) {
+          parsed.mpesaTransactions = parsed.mpesaTransactions.filter(
+            (tx) => tx.orderNumber !== 'TS-2026-1003' && tx.id !== 'tx-1793374569543-7cwc'
+          );
+        }
         if (Array.isArray(parsed.clients)) {
-          parsed.clients = parsed.clients.filter((c) => c.id !== 'client-brian-mwangi');
+          parsed.clients = parsed.clients.filter(
+            (c) =>
+              c.id !== 'client-brian-mwangi' &&
+              c.email !== 'wanjiku@example.com' &&
+              c.email !== 'alice.otieno@techsokoni.co.ke' &&
+              c.email !== 'grace.wanjiku@test.co.ke'
+          );
         }
         if (Array.isArray(parsed.viewingAppointments)) {
           parsed.viewingAppointments = parsed.viewingAppointments.filter(
-            (v) => v.id !== 'viewing-tsv-2026-0001' && v.id !== 'viewing-tsv-2026-0002'
+            (v) =>
+              v.bookingReference !== 'TSV-2026-3338' &&
+              v.bookingReference !== 'TSV-2026-7785' &&
+              v.id !== 'viewing-1793374552630-twhd' &&
+              v.id !== 'viewing-1792490919221-1yae' &&
+              v.id !== 'viewing-tsv-2026-0001' &&
+              v.id !== 'viewing-tsv-2026-0002'
           );
         }
         dbMemory = parsed;
@@ -460,6 +488,80 @@ export function trackOrder(query: string): Order | null {
   );
 
   return found || null;
+}
+
+export function deleteOrder(id: string): boolean {
+  const db = getDatabase();
+  const initialLen = db.orders.length;
+  db.orders = db.orders.filter((o) => o.id !== id && o.orderNumber !== id);
+  if (db.orders.length !== initialLen) {
+    db.mpesaTransactions = db.mpesaTransactions.filter(
+      (tx) => tx.orderId !== id && tx.orderNumber !== id
+    );
+    persistDatabaseSync();
+    return true;
+  }
+  return false;
+}
+
+export function clearAllOrders(): void {
+  const db = getDatabase();
+  db.orders = [];
+  db.mpesaTransactions = [];
+  persistDatabaseSync();
+}
+
+export function deleteViewingAppointment(id: string): boolean {
+  const db = getDatabase();
+  const initialLen = db.viewingAppointments.length;
+  db.viewingAppointments = db.viewingAppointments.filter(
+    (a) => a.id !== id && a.bookingReference !== id
+  );
+  if (db.viewingAppointments.length !== initialLen) {
+    persistDatabaseSync();
+    return true;
+  }
+  return false;
+}
+
+export function clearAllViewingAppointments(): void {
+  const db = getDatabase();
+  db.viewingAppointments = [];
+  persistDatabaseSync();
+}
+
+export function clearMockData(): {
+  ordersCleared: number;
+  appointmentsCleared: number;
+  transactionsCleared: number;
+} {
+  const db = getDatabase();
+  const ordersCleared = db.orders.length;
+  const appointmentsCleared = db.viewingAppointments.length;
+  const transactionsCleared = db.mpesaTransactions.length;
+
+  db.orders = [];
+  db.viewingAppointments = [];
+  db.mpesaTransactions = [];
+
+  // Filter fake clients, preserving user accounts
+  db.clients = db.clients.filter(
+    (c) =>
+      c.email === 'sirdusman@gmail.com' ||
+      (!c.email.endsWith('@example.com') && !c.email.endsWith('@test.co.ke'))
+  );
+
+  // Clear mock notification logs while preserving test/system verifications
+  db.notifications = db.notifications.filter(
+    (n) =>
+      n.referenceId !== 'TS-2026-1003' &&
+      n.referenceId !== 'TSV-2026-3338' &&
+      !n.subject.includes('TS-2026-1003') &&
+      !n.subject.includes('TSV-2026-3338')
+  );
+
+  persistDatabaseSync();
+  return { ordersCleared, appointmentsCleared, transactionsCleared };
 }
 
 export function addViewingAppointment(data: Omit<ViewingAppointment, 'id' | 'bookingReference' | 'status' | 'auditTrail' | 'createdAt' | 'updatedAt'>): ViewingAppointment {

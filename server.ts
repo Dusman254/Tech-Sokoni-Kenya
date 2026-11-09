@@ -19,9 +19,14 @@ import {
   restoreProduct,
   addOrder,
   updateOrderStatus,
+  deleteOrder,
+  clearAllOrders,
   trackOrder,
   addViewingAppointment,
   updateViewingAppointment,
+  deleteViewingAppointment,
+  clearAllViewingAppointments,
+  clearMockData,
   addViewingLocation,
   updateViewingLocation,
   deleteViewingLocation,
@@ -338,6 +343,17 @@ initServerDatabase();
     res.json(updated);
   });
 
+  app.delete('/api/orders/:id', requireAdmin, (req, res) => {
+    const success = deleteOrder(req.params.id);
+    if (!success) return res.status(404).json({ error: 'Order not found' });
+    res.json({ ok: true, id: req.params.id });
+  });
+
+  app.delete('/api/orders', requireAdmin, (_req, res) => {
+    clearAllOrders();
+    res.json({ ok: true, message: 'All orders cleared' });
+  });
+
   // Public Order Tracking Endpoint (Does not expose private details of other clients)
   app.get('/api/orders/track', (req, res) => {
     const query = req.query.query as string;
@@ -489,6 +505,22 @@ initServerDatabase();
     const updated = updateViewingAppointment(req.params.id, updates, auditNote, actor);
     if (!updated) return res.status(404).json({ error: 'Appointment not found' });
     res.json(updated);
+  });
+
+  app.delete('/api/viewings/:id', requireAdmin, (req, res) => {
+    const success = deleteViewingAppointment(req.params.id);
+    if (!success) return res.status(404).json({ error: 'Appointment not found' });
+    res.json({ ok: true, id: req.params.id });
+  });
+
+  app.delete('/api/viewings', requireAdmin, (_req, res) => {
+    clearAllViewingAppointments();
+    res.json({ ok: true, message: 'All appointments cleared' });
+  });
+
+  app.post('/api/admin/clear-mock-data', requireAdmin, (_req, res) => {
+    const summary = clearMockData();
+    res.json({ ok: true, summary, message: 'Mock data cleared successfully. All showroom products are preserved.' });
   });
 
   // Viewing Locations & Config
