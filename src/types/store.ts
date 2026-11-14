@@ -268,7 +268,8 @@ export type ActiveRoute =
         | 'contact'
         | 'privacy'
         | 'terms';
-    };
+    }
+  | { page: 'not-found' };
 
 export type ViewingBookingStatus =
   | 'Pending Confirmation'

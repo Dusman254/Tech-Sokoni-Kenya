@@ -81,6 +81,11 @@ import {
 } from '../data/viewingConfig';
 import { errorTracker } from '../services/errorTracker';
 import { analyticsService } from '../services/analyticsService';
+import {
+  getPageTitleForRoute,
+  getUrlForRoute,
+  parseRouteFromUrl,
+} from '../utils/urlRouter';
 
 export interface EffectivePricing {
   originalPrice: number;
@@ -564,7 +569,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isFirebaseConnected, setIsFirebaseConnected] =
     useState<boolean>(false);
 
-  const [route, setRoute] = useState<ActiveRoute>({ page: 'home' });
+  const [route, setRoute] = useState<ActiveRoute>(() => parseRouteFromUrl());
   const [isRouteLoading, setIsRouteLoading] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -632,7 +637,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // Detect password reset link from email (e.g., /?mode=resetPassword&oobCode=... or /?oobCode=...)
+  // Detect password reset link from email & sync browser Back/Forward + document title
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
@@ -652,7 +657,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch {
       // Ignore query string parsing errors
     }
+
+    const handlePopState = () => {
+      const nextRoute = parseRouteFromUrl();
+      setRoute(nextRoute);
+      document.title = getPageTitleForRoute(nextRoute);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.title = getPageTitleForRoute(route);
+    }
+  }, [route]);
 
   const clientsRef = useRef<ClientAccount[]>(clients);
   useEffect(() => {
@@ -1268,6 +1288,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const navigate = (nextRoute: ActiveRoute, skipSkeleton = false) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    try {
+      const targetUrl = getUrlForRoute(nextRoute);
+      if (
+        typeof window !== 'undefined' &&
+        nextRoute.page !== 'not-found' &&
+        window.location.pathname !== targetUrl
+      ) {
+        window.history.pushState(null, '', targetUrl);
+      }
+    } catch {}
     if (!skipSkeleton) {
       setIsRouteLoading(true);
       setRoute(nextRoute);

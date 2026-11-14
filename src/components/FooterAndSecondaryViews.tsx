@@ -96,11 +96,14 @@ export const InfoSectionView: React.FC<{
       ],
     },
     returns: {
-      kicker: 'CUSTOMER SUPPORT · RETURNS',
+      kicker: 'CUSTOMER SUPPORT · RETURN & EXCHANGE POLICY',
       title: '14-Day Showroom Exchange & Return Policy.',
       body: [
-        'If a hardware system does not integrate seamlessly into your workflow, you may initiate a return or configuration exchange within 14 calendar days of delivery at our Nairobi CBD showroom (Kenyatta Pioneer Building, 5th Floor, Shop 514).',
-        'For any factory hardware defect discovered within 30 days, Tech Sokoni provides an immediate verified replacement unit.',
+        'At Tech Sokoni Kenya, every hardware purchase is backed by a transparent 14-day return & configuration exchange window and a 30-day factory defect replacement guarantee.',
+        '1. Inspection Before Payment: On Delivery (Nairobi & nationwide courier), you may physically inspect the sealed box, serial number, and condition before completing payment via Cash or Lipa Na M-Pesa (Till 9309020).',
+        '2. 14-Day Return or Exchange: If a laptop, phone, monitor, desktop, or printer does not fit your workflow, bring it back in its original box and packaging with accessories within 14 calendar days to our Nairobi CBD showroom (Kenyatta Pioneer Building, 5th Floor, Shop 514, Kenyatta Avenue).',
+        '3. 30-Day Immediate Defect Replacement: Any hardware unit exhibiting a verified manufacturing defect within 30 days qualifies for immediate same-model replacement or full refund via M-Pesa/bank transfer within 24 hours.',
+        '4. How to Initiate a Return: Call or WhatsApp our concierge on +254 792 620 789 or email shop@techsokoni.com with your Order Reference (e.g. TS-2026-1001) and device serial number.',
       ],
     },
     warranty: {
@@ -222,6 +225,37 @@ export const InfoSectionView: React.FC<{
             <span>Call +254 792 620 789</span>
           </a>
         </div>
+      </div>
+
+      {/* Quick Policy & Support Links */}
+      <div className="pt-4 border-t border-[#141413]/10 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] font-mono-num uppercase tracking-wider text-[#6E6D68]">
+        {(
+          [
+            { id: 'returns', label: 'Return Policy', href: '/return-policy' },
+            { id: 'delivery', label: 'Delivery Policy', href: '/delivery-policy' },
+            { id: 'warranty', label: '6-Month Warranty', href: '/warranty' },
+            { id: 'privacy', label: 'Privacy Policy', href: '/privacy-policy' },
+            { id: 'terms', label: 'Terms of Sale', href: '/terms' },
+            { id: 'faq', label: 'FAQs', href: '/faq' },
+            { id: 'contact', label: 'Contact', href: '/contact' },
+          ] as const
+        ).map((item) => (
+          <a
+            key={item.id}
+            href={item.href}
+            onClick={(e) => {
+              e.preventDefault();
+              navigate({ page: 'info', section: item.id });
+            }}
+            className={`transition-colors ${
+              section === item.id
+                ? 'text-[#141413] font-semibold underline underline-offset-4'
+                : 'hover:text-[#141413]'
+            }`}
+          >
+            {item.label}
+          </a>
+        ))}
       </div>
     </div>
   );
@@ -481,60 +515,76 @@ export const Footer: React.FC = () => {
               </p>
               <ul className="space-y-1.5 text-xs text-[#5E5D59]">
                 <li>
-                  <button
-                    onClick={() => navigate({ page: 'track-shipment' })}
+                  <a
+                    href="/track-shipment"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate({ page: 'track-shipment' });
+                    }}
                     className="hover:text-[#141413] text-[#1F6F43] font-semibold transition-colors cursor-pointer"
                   >
                     Track Order
-                  </button>
+                  </a>
                 </li>
                 <li>
-                  <button
-                    onClick={() =>
-                      navigate({ page: 'info', section: 'contact' })
-                    }
+                  <a
+                    href="/contact"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate({ page: 'info', section: 'contact' });
+                    }}
                     className="hover:text-[#141413] transition-colors cursor-pointer"
                   >
                     Contact Us
-                  </button>
+                  </a>
                 </li>
                 <li>
-                  <button
-                    onClick={() =>
-                      navigate({ page: 'info', section: 'delivery' })
-                    }
+                  <a
+                    href="/delivery-policy"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate({ page: 'info', section: 'delivery' });
+                    }}
                     className="hover:text-[#141413] transition-colors cursor-pointer"
                   >
                     Delivery
-                  </button>
+                  </a>
                 </li>
                 <li>
-                  <button
-                    onClick={() =>
-                      navigate({ page: 'info', section: 'returns' })
-                    }
+                  <a
+                    href="/return-policy"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate({ page: 'info', section: 'returns' });
+                    }}
                     className="hover:text-[#141413] transition-colors cursor-pointer"
                   >
-                    Returns
-                  </button>
+                    Return Policy
+                  </a>
                 </li>
                 <li>
-                  <button
-                    onClick={() =>
-                      navigate({ page: 'info', section: 'warranty' })
-                    }
+                  <a
+                    href="/warranty"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate({ page: 'info', section: 'warranty' });
+                    }}
                     className="hover:text-[#141413] transition-colors cursor-pointer"
                   >
                     Warranty
-                  </button>
+                  </a>
                 </li>
                 <li>
-                  <button
-                    onClick={() => navigate({ page: 'info', section: 'faq' })}
+                  <a
+                    href="/faq"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate({ page: 'info', section: 'faq' });
+                    }}
                     className="hover:text-[#141413] transition-colors cursor-pointer"
                   >
                     FAQs
-                  </button>
+                  </a>
                 </li>
               </ul>
             </div>
@@ -546,46 +596,64 @@ export const Footer: React.FC = () => {
               </p>
               <ul className="space-y-1.5 text-xs text-[#5E5D59]">
                 <li>
-                  <button
-                    onClick={() => navigate({ page: 'info', section: 'about' })}
+                  <a
+                    href="/about"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate({ page: 'info', section: 'about' });
+                    }}
                     className="hover:text-[#141413] transition-colors cursor-pointer"
                   >
                     About Us
-                  </button>
+                  </a>
                 </li>
                 <li>
-                  <button
-                    onClick={() =>
-                      navigate({ page: 'info', section: 'privacy' })
-                    }
+                  <a
+                    href="/privacy-policy"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate({ page: 'info', section: 'privacy' });
+                    }}
                     className="hover:text-[#141413] transition-colors cursor-pointer"
                   >
-                    Privacy
-                  </button>
+                    Privacy Policy
+                  </a>
                 </li>
                 <li>
-                  <button
-                    onClick={() => navigate({ page: 'info', section: 'terms' })}
+                  <a
+                    href="/terms"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate({ page: 'info', section: 'terms' });
+                    }}
                     className="hover:text-[#141413] transition-colors cursor-pointer"
                   >
                     Terms
-                  </button>
+                  </a>
                 </li>
                 <li>
-                  <button
-                    onClick={() => navigate({ page: 'client-portal' })}
+                  <a
+                    href="/client-portal"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate({ page: 'client-portal' });
+                    }}
                     className="hover:text-[#141413] transition-colors cursor-pointer"
                   >
                     Client Area
-                  </button>
+                  </a>
                 </li>
                 <li>
-                  <button
-                    onClick={() => navigate({ page: 'admin' })}
+                  <a
+                    href="/admin"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate({ page: 'admin' });
+                    }}
                     className="hover:text-[#141413] transition-colors font-medium text-[#141413] cursor-pointer"
                   >
                     Admin
-                  </button>
+                  </a>
                 </li>
               </ul>
             </div>
