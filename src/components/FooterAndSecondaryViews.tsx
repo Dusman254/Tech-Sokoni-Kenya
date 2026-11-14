@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { ProductCard } from './ProductCard';
+import { TechSokoniLogo } from './TechSokoniLogo';
 
 export const WishlistView: React.FC = () => {
   const { products, wishlist, navigate } = useStore();
@@ -257,13 +258,14 @@ export const Footer: React.FC = () => {
       <div className="max-w-[1440px] mx-auto px-4 sm:px-8 py-8 sm:py-11">
         {/* TOP ROW: Brand Identity + Modern Newsletter Subscription Form */}
         <div className="pb-6 border-b border-[#141413]/10 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={() => navigate({ page: 'home' })}
-                className="text-base sm:text-lg font-semibold tracking-[0.18em] uppercase text-[#141413] cursor-pointer"
+                aria-label="Tech Sokoni Home"
+                className="cursor-pointer hover:opacity-80 transition-opacity"
               >
-                TECH SOKONI
+                <TechSokoniLogo size="md" showSubtitle />
               </button>
               <span className="text-[10px] font-mono-num uppercase tracking-widest px-2 py-0.5 bg-[#EAE9E4] text-[#5E5D59]">
                 Nairobi CBD · Shop 514

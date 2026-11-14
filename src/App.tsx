@@ -140,21 +140,28 @@ const StorefrontRouter: React.FC = () => {
       <SearchOverlay />
       <CartAndCheckout />
 
-      {/* Floating WhatsApp Concierge Button (+254 792 620 789) — Positioned cleanly above mobile bottom bars */}
-      {route.page !== 'admin' && (
-        <a
-          href="https://wa.me/254792620789?text=Hello%20Tech%20Sokoni!%20I%20would%20like%20to%20inquire%20about%20an%20order%20or%20product."
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Chat with Tech Sokoni on WhatsApp (+254 792 620 789)"
-          className={`fixed right-4 sm:right-6 z-30 bg-[#1F6F43] text-[#F4F3EF] hover:bg-[#185835] shadow-lg border border-[#F4F3EF]/20 px-3.5 py-2.5 flex items-center gap-2 transition-all duration-200 ${whatsappBottomClass}`}
-        >
-          <MessageCircle className="w-4 h-4 shrink-0" />
-          <span className="text-[11px] font-mono-num uppercase tracking-wider font-medium">
-            WhatsApp
-          </span>
-        </a>
-      )}
+      {/* Floating WhatsApp Concierge Button (+254 792 620 789) — Smooth fade-in on load */}
+      <AnimatePresence>
+        {route.page !== 'admin' && (
+          <motion.a
+            key="whatsapp-concierge-fab"
+            initial={{ opacity: 0, y: 12, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.96 }}
+            transition={{ duration: 0.55, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            href="https://wa.me/254792620789?text=Hello%20Tech%20Sokoni!%20I%20would%20like%20to%20inquire%20about%20an%20order%20or%20product."
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Chat with Tech Sokoni on WhatsApp (+254 792 620 789)"
+            className={`fixed right-4 sm:right-6 z-30 bg-[#1F6F43] text-[#F4F3EF] hover:bg-[#185835] shadow-lg border border-[#F4F3EF]/20 px-3.5 py-2.5 flex items-center gap-2 transition-colors duration-200 ${whatsappBottomClass}`}
+          >
+            <MessageCircle className="w-4 h-4 shrink-0" />
+            <span className="text-[11px] font-mono-num uppercase tracking-wider font-medium">
+              WhatsApp
+            </span>
+          </motion.a>
+        )}
+      </AnimatePresence>
 
       {/* Quiet Toast Feedback */}
       {toastMessage && (

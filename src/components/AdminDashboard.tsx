@@ -61,6 +61,11 @@ import {
 import { StudioImage } from './StudioImage';
 import { AdminViewingsSection } from './AdminViewingsSection';
 import {
+  TechSokoniLogo,
+  downloadTechSokoniLogoPng,
+  downloadTechSokoniLogoSvg,
+} from './TechSokoniLogo';
+import {
   uploadProductImage,
   probeFirestoreAccess,
   testFirestoreWriteAccess,
@@ -1441,16 +1446,16 @@ export const AdminDashboard: React.FC = () => {
         <div>
           <div className="h-16 px-4 border-b border-[#F4F3EF]/10 flex items-center justify-between gap-2">
             {!isSidebarCollapsed && (
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[#2E7D32] animate-pulse" />
+              <div className="min-w-0 flex items-center gap-2.5">
+                <TechSokoniLogo variant="mark" theme="dark" size="sm" />
+                <div className="min-w-0">
                   <p className="text-[10px] font-mono-num uppercase tracking-[0.22em] text-[#A09F99] truncate">
                     LIVE CONSOLE
                   </p>
+                  <p className="font-editorial text-lg text-[#F4F3EF] truncate leading-tight">
+                    Tech.Sokoni Admin
+                  </p>
                 </div>
-                <p className="font-editorial text-lg text-[#F4F3EF] truncate">
-                  Tech.Sokoni Admin
-                </p>
               </div>
             )}
             <button
@@ -2855,6 +2860,88 @@ export const AdminDashboard: React.FC = () => {
               <p className="text-[10px] text-[#6E6D68] mt-1 font-mono-num">
                 Instant email alerts for orders and showroom appointments are routed to this inbox. For advanced outbox logs, test sending, and SMTP setup, visit the &ldquo;Email Alerts&rdquo; tab.
               </p>
+            </div>
+
+            <div className="pt-4 border-t border-[#141413]/10 space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold text-[#141413]">
+                  Official Tech Sokoni Brand Logo &amp; Asset Kit
+                </h3>
+                <p className="text-xs text-[#6E6D68] mt-1">
+                  Download high-resolution SVG vector or PNG assets of the Tech Sokoni architectural monogram and horizontal lockup for invoices, social profiles, and storefront signage.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Light Lockup Card */}
+                <div className="bg-[#F4F3EF] border border-[#141413]/15 p-4 space-y-3">
+                  <div className="py-3 flex items-center justify-center border border-[#141413]/10 bg-[#F4F3EF]">
+                    <TechSokoniLogo variant="lockup" theme="light" size="md" showSubtitle />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => downloadTechSokoniLogoSvg('lockup', 'light')}
+                      className="flex-1 py-1.5 px-2.5 bg-[#141413] text-[#F4F3EF] text-[10px] font-mono-num uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-[#2B2B28] cursor-pointer"
+                    >
+                      <Download className="w-3 h-3" />
+                      <span>SVG</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => downloadTechSokoniLogoPng('lockup', 'light')}
+                      className="flex-1 py-1.5 px-2.5 border border-[#141413]/25 text-[#141413] text-[10px] font-mono-num uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-[#141413]/5 cursor-pointer"
+                    >
+                      <Download className="w-3 h-3" />
+                      <span>PNG (HD)</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Dark Lockup Card */}
+                <div className="bg-[#141413] border border-[#141413] p-4 space-y-3">
+                  <div className="py-3 flex items-center justify-center border border-[#F4F3EF]/12 bg-[#141413]">
+                    <TechSokoniLogo variant="lockup" theme="dark" size="md" showSubtitle />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => downloadTechSokoniLogoSvg('lockup', 'dark')}
+                      className="flex-1 py-1.5 px-2.5 bg-[#F4F3EF] text-[#141413] text-[10px] font-mono-num uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-[#EAE9E4] cursor-pointer"
+                    >
+                      <Download className="w-3 h-3" />
+                      <span>SVG</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => downloadTechSokoniLogoPng('lockup', 'dark')}
+                      className="flex-1 py-1.5 px-2.5 border border-[#F4F3EF]/30 text-[#F4F3EF] text-[10px] font-mono-num uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-[#F4F3EF]/10 cursor-pointer"
+                    >
+                      <Download className="w-3 h-3" />
+                      <span>PNG (HD)</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => downloadTechSokoniLogoSvg('mark', 'light')}
+                  className="px-3 py-1.5 border border-[#141413]/20 text-[10px] font-mono-num uppercase tracking-wider text-[#141413] hover:bg-[#EAE9E4] flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Download className="w-3 h-3" />
+                  <span>Square Emblem SVG</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => downloadTechSokoniLogoPng('mark', 'light')}
+                  className="px-3 py-1.5 border border-[#141413]/20 text-[10px] font-mono-num uppercase tracking-wider text-[#141413] hover:bg-[#EAE9E4] flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Download className="w-3 h-3" />
+                  <span>Square Emblem PNG (1024px)</span>
+                </button>
+              </div>
             </div>
 
             <div className="pt-4 border-t border-[#141413]/10">

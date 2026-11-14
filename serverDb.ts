@@ -205,6 +205,21 @@ export function initServerDatabase(): TechSokoniDatabase {
         const raw = fs.readFileSync(bundledPath, 'utf-8');
         const parsed = JSON.parse(raw) as TechSokoniDatabase;
         if (parsed && Array.isArray(parsed.products)) {
+          if (!Array.isArray(parsed.notifications)) parsed.notifications = [];
+          if (!Array.isArray(parsed.warranties)) parsed.warranties = [];
+          if (!Array.isArray(parsed.orders)) parsed.orders = [];
+          if (!Array.isArray(parsed.viewingAppointments)) parsed.viewingAppointments = [];
+          if (!Array.isArray(parsed.mpesaTransactions)) parsed.mpesaTransactions = [];
+          if (!parsed.settings) {
+            parsed.settings = INITIAL_SETTINGS;
+          } else {
+            if (!parsed.settings.adminNotificationEmail) {
+              parsed.settings.adminNotificationEmail = 'sirdusman@gmail.com';
+            }
+            if (parsed.settings.notifyOnNewOrder === undefined) parsed.settings.notifyOnNewOrder = true;
+            if (parsed.settings.notifyOnNewBooking === undefined) parsed.settings.notifyOnNewBooking = true;
+            if (parsed.settings.notifyOnWarrantyReg === undefined) parsed.settings.notifyOnWarrantyReg = true;
+          }
           dbMemory = parsed;
           persistDatabaseSync();
           return dbMemory;
@@ -381,13 +396,31 @@ export function restoreProduct(id: string): Product | null {
   return product;
 }
 
-export function addOrder(orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'status'>): Order {
+export function addOrder(
+  orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'status'> & {
+    id?: string;
+    orderNumber?: string;
+  }
+): Order {
   const db = getDatabase();
   const nextNum = 1001 + db.orders.length;
   const nowIso = new Date().toISOString();
 
-  const orderNumber = `TS-2026-${nextNum}`;
-  const id = `ord-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const requestedOrderNum = orderData.orderNumber?.trim();
+  const hasDuplicateOrderNum =
+    requestedOrderNum && db.orders.some((o) => o.orderNumber === requestedOrderNum);
+  const orderNumber =
+    requestedOrderNum && !hasDuplicateOrderNum
+      ? requestedOrderNum
+      : `TS-2026-${nextNum}`;
+
+  const requestedId = orderData.id?.trim();
+  const hasDuplicateId =
+    requestedId && db.orders.some((o) => o.id === requestedId);
+  const id =
+    requestedId && !hasDuplicateId
+      ? requestedId
+      : `ord-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
   const newOrder: Order = {
     ...orderData,
@@ -470,6 +503,66 @@ export function updateOrderStatus(id: string, status: Order['status'], trackingN
     order.trackingNote = trackingNote;
   }
   order.updatedAt = new Date().toISOString();
+
+  persistDatabaseSync();
+  return order;
+}
+
+export function recordOrderMpesaConfirmation(
+  orderId: string,
+  mpesaCode: string,
+  mpesaMessage: string,
+  orderSnapshot?: Partial<Order>
+): Order | null {
+  const db = getDatabase();
+  const cleanCode = (mpesaCode || '').trim().toUpperCase();
+  const cleanMsg = (mpesaMessage || '').trim();
+  const nowIso = new Date().toISOString();
+
+  let order = db.orders.find((o) => o.id === orderId || o.orderNumber === orderId);
+  if (!order && orderSnapshot && orderSnapshot.customerName && Array.isArray(orderSnapshot.items)) {
+    order = addOrder({
+      ...(orderSnapshot as any),
+      id: orderSnapshot.id || orderId,
+      mpesaCode: cleanCode || orderSnapshot.mpesaCode,
+      mpesaMessage: cleanMsg || orderSnapshot.mpesaMessage,
+      mpesaStatus: 'Pending Verification',
+    });
+  }
+  if (!order) return null;
+
+  order.paymentMethod = 'M-Pesa Express';
+  if (cleanCode) order.mpesaCode = cleanCode;
+  if (cleanMsg) order.mpesaMessage = cleanMsg;
+  order.mpesaStatus = 'Pending Verification';
+  order.trackingNote = `M-Pesa payment message (${cleanCode || 'SMS'}) received. Admin verifying Till 9309020 settlement.`;
+  order.updatedAt = nowIso;
+
+  const existingTx = db.mpesaTransactions.find(
+    (tx) => tx.orderId === order!.id || tx.orderNumber === order!.orderNumber
+  );
+  if (existingTx) {
+    if (cleanCode) existingTx.mpesaCode = cleanCode;
+    if (cleanMsg) existingTx.mpesaMessage = cleanMsg;
+    existingTx.status = 'Pending Verification';
+  } else {
+    db.mpesaTransactions.unshift({
+      id: `tx-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      customerEmail: order.customerEmail || '',
+      amount: order.total,
+      tillNumber: '9309020',
+      mpesaCode: cleanCode || 'MPESA-SMS',
+      mpesaMessage:
+        cleanMsg ||
+        `${cleanCode} Confirmed. Ksh${order.total.toLocaleString()}.00 paid to TECH SOKONI KENYA Till 9309020.`,
+      status: 'Pending Verification',
+      createdAt: nowIso,
+    });
+  }
 
   persistDatabaseSync();
   return order;

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 72" width="360" height="72" role="img" aria-label="Tech Sokoni Kenya Official Logo">
+  <rect width="360" height="72" fill="#F4F3EF" />
+  <!-- Emblem Box -->
+  <rect x="8" y="8" width="56" height="56" rx="9" fill="#141413" />
+  <rect x="11" y="11" width="50" height="50" rx="7" fill="none" stroke="#F4F3EF" stroke-opacity="0.14" stroke-width="1" />
+  <path d="M19 21H53V26.5H39V49.5H33V26.5H19V21Z" fill="#F4F3EF" />
+  <rect x="45" y="38" width="7.5" height="11.5" rx="1.5" fill="#1F6F43" />
+  <rect x="19.5" y="38" width="7.5" height="5.5" rx="1" fill="#F4F3EF" fill-opacity="0.28" />
+  <!-- Wordmark Lockup -->
+  <text x="80" y="39" fill="#141413" font-family="'Plus Jakarta Sans', 'Inter', Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="4.5">TECH SOKONI</text>
+  <text x="81" y="55" fill="#5E5D59" font-family="'JetBrains Mono', monospace" font-size="9.5" font-weight="500" letter-spacing="2.4">NAIROBI SHOWROOM · KENYA</text>
+</svg>

@@ -32,49 +32,84 @@ export function formatSmtpError(rawError?: string): string {
   return rawError;
 }
 
+function cleanEnvValue(value?: string): string {
+  if (!value) return '';
+  return value.trim().replace(/^["'](.*)["']$/, '$1').trim();
+}
+
+function createTransporterInstance(config: {
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  pass: string;
+}) {
+  return nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: {
+      user: config.user,
+      pass: config.pass,
+    },
+    connectionTimeout: 4500,
+    greetingTimeout: 4500,
+    socketTimeout: 6000,
+    tls: {
+      rejectUnauthorized: false,
+    },
+  });
+}
+
 export function getEmailTransporter() {
   const db = getDatabase();
   const settings = db.settings;
 
   // Support standard Vercel / Cloud Run / hosting environment variables
-  const host =
+  const host = cleanEnvValue(
     process.env.SMTP_HOST ||
-    process.env.EMAIL_HOST ||
-    process.env.MAIL_HOST ||
-    process.env.ZOHO_HOST ||
-    settings.smtpHost;
+      process.env.EMAIL_HOST ||
+      process.env.MAIL_HOST ||
+      process.env.ZOHO_HOST ||
+      settings.smtpHost
+  );
 
-  const rawPort =
-    process.env.SMTP_PORT ||
-    process.env.EMAIL_PORT ||
-    process.env.MAIL_PORT ||
-    settings.smtpPort ||
-    465;
+  const rawPort = cleanEnvValue(
+    String(
+      process.env.SMTP_PORT ||
+        process.env.EMAIL_PORT ||
+        process.env.MAIL_PORT ||
+        settings.smtpPort ||
+        465
+    )
+  );
 
   const port = Number(rawPort) || 465;
 
-  const user =
+  const user = cleanEnvValue(
     process.env.SMTP_USER ||
-    process.env.SMTP_USERNAME ||
-    process.env.EMAIL_USER ||
-    process.env.MAIL_USER ||
-    process.env.ZOHO_USER ||
-    settings.smtpUser;
+      process.env.SMTP_USERNAME ||
+      process.env.EMAIL_USER ||
+      process.env.MAIL_USER ||
+      process.env.ZOHO_USER ||
+      settings.smtpUser
+  );
 
-  const pass =
+  const pass = cleanEnvValue(
     process.env.SMTP_PASS ||
-    process.env.SMTP_PASSWORD ||
-    process.env.EMAIL_PASS ||
-    process.env.EMAIL_PASSWORD ||
-    process.env.MAIL_PASS ||
-    process.env.MAIL_PASSWORD ||
-    process.env.ZOHO_PASSWORD ||
-    settings.smtpPass;
+      process.env.SMTP_PASSWORD ||
+      process.env.EMAIL_PASS ||
+      process.env.EMAIL_PASSWORD ||
+      process.env.MAIL_PASS ||
+      process.env.MAIL_PASSWORD ||
+      process.env.ZOHO_PASSWORD ||
+      settings.smtpPass
+  );
 
   // Auto-correct port/secure mismatches:
   // Port 465 is always SSL (secure: true)
   // Port 587 / 25 is always STARTTLS (secure: false)
-  let secure = settings.smtpSecure;
+  let secure: boolean = Boolean(settings.smtpSecure ?? (port === 465));
   if (port === 465) {
     secure = true;
   } else if (port === 587 || port === 25) {
@@ -85,31 +120,26 @@ export function getEmailTransporter() {
     secure = process.env.EMAIL_SECURE === 'true';
   }
 
+  const customFrom = cleanEnvValue(process.env.SMTP_FROM || process.env.EMAIL_FROM);
+  const fromAddress =
+    customFrom ||
+    (user.includes('@')
+      ? `"Tech Sokoni Showroom" <${user}>`
+      : `"Tech Sokoni Showroom" <notifications@techsokoni.co.ke>`);
+
   if (host && user && pass) {
     return {
       isConfigured: true,
-      transporter: nodemailer.createTransport({
-        host: host.trim(),
-        port,
-        secure,
-        auth: {
-          user: user.trim(),
-          pass: pass.trim(),
-        },
-        connectionTimeout: 8000,
-        greetingTimeout: 8000,
-        socketTimeout: 10000,
-        tls: {
-          rejectUnauthorized: false,
-        },
-      }),
-      fromAddress: user.includes('@') ? `"Tech Sokoni Showroom" <${user.trim()}>` : `"Tech Sokoni Showroom" <notifications@techsokoni.co.ke>`,
+      smtpConfig: { host, port, secure, user, pass },
+      transporter: createTransporterInstance({ host, port, secure, user, pass }),
+      fromAddress,
     };
   }
 
   // Fallback direct / simulated transporter
   return {
     isConfigured: false,
+    smtpConfig: null,
     transporter: null,
     fromAddress: '"Tech Sokoni Kenya" <alerts@techsokoni.co.ke>',
   };
@@ -232,7 +262,10 @@ function buildHtmlWrapper(title: string, subtitle: string, bodyContent: string):
 <body>
   <div class="container">
     <div class="header">
-      <div class="brand">Tech Sokoni Kenya — Showroom Dispatch Alert</div>
+      <div class="brand" style="display:flex; align-items:center; gap:10px;">
+        <span style="display:inline-block; width:20px; height:20px; background:#F4F3EF; color:#141413; text-align:center; line-height:20px; font-weight:800; font-size:12px; border-radius:3px;">T</span>
+        <span>Tech Sokoni Kenya — Showroom Dispatch Alert</span>
+      </div>
       <h1 class="title">${title}</h1>
       <div class="subtitle">${subtitle}</div>
     </div>
@@ -605,6 +638,50 @@ Order, viewing booking, and warranty alerts are configured to notify you at ${re
 // Core Dispatcher with Automatic Log & Error Recording
 // ============================================================================
 
+async function sendMailWithRetry(
+  smtpConfig: { host: string; port: number; secure: boolean; user: string; pass: string },
+  mailOptions: { from: string; to: string; subject: string; html: string; text: string }
+): Promise<void> {
+  const primaryTransporter = createTransporterInstance(smtpConfig);
+  try {
+    await Promise.race([
+      primaryTransporter.sendMail(mailOptions),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('SMTP timeout: Server took longer than 5.5 seconds to respond')), 5500)
+      ),
+    ]);
+  } catch (err: any) {
+    const msg = String(err?.message || '').toLowerCase();
+    const isNetworkOrTimeout =
+      msg.includes('timeout') ||
+      msg.includes('etimedout') ||
+      msg.includes('econnrefused') ||
+      msg.includes('socket');
+
+    // If port 465 timed out or refused, automatically attempt port 587 STARTTLS (and vice-versa)
+    if (isNetworkOrTimeout && (smtpConfig.port === 465 || smtpConfig.port === 587)) {
+      const altPort = smtpConfig.port === 465 ? 587 : 465;
+      const altSecure = altPort === 465;
+      console.warn(
+        `[Notification]: Port ${smtpConfig.port} failed (${err?.message}). Retrying via port ${altPort}...`
+      );
+      const fallbackTransporter = createTransporterInstance({
+        ...smtpConfig,
+        port: altPort,
+        secure: altSecure,
+      });
+      await Promise.race([
+        fallbackTransporter.sendMail(mailOptions),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Fallback SMTP timeout')), 4500)
+        ),
+      ]);
+      return;
+    }
+    throw err;
+  }
+}
+
 async function dispatchAndRecordNotification(payload: {
   type: 'order' | 'booking' | 'warranty' | 'test';
   recipient: string;
@@ -614,27 +691,22 @@ async function dispatchAndRecordNotification(payload: {
   textContent: string;
   referenceId?: string;
 }): Promise<EmailNotificationLog> {
-  const { isConfigured, transporter, fromAddress } = getEmailTransporter();
+  const { isConfigured, smtpConfig, transporter, fromAddress } = getEmailTransporter();
   const id = `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   const nowIso = new Date().toISOString();
 
   let status: 'sent' | 'simulated' | 'failed' = 'simulated';
   let errorMsg: string | undefined;
 
-  if (isConfigured && transporter) {
+  if (isConfigured && transporter && smtpConfig) {
     try {
-      await Promise.race([
-        transporter.sendMail({
-          from: fromAddress,
-          to: payload.recipient,
-          subject: payload.subject,
-          html: payload.htmlContent,
-          text: payload.textContent,
-        }),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('SMTP timeout: Server took longer than 8 seconds to respond')), 8500)
-        ),
-      ]);
+      await sendMailWithRetry(smtpConfig, {
+        from: fromAddress,
+        to: payload.recipient,
+        subject: payload.subject,
+        html: payload.htmlContent,
+        text: payload.textContent,
+      });
       status = 'sent';
       console.log(`[Notification]: Successfully dispatched live SMTP email to ${payload.recipient} (${payload.subject})`);
     } catch (err: any) {
@@ -666,6 +738,64 @@ async function dispatchAndRecordNotification(payload: {
 
   addNotificationLog(logEntry);
   return logEntry;
+}
+
+export async function sendMpesaConfirmationNotificationEmail(
+  order: Order,
+  mpesaCode: string,
+  mpesaMessage: string
+): Promise<EmailNotificationLog> {
+  const recipient = getAdminNotificationRecipient();
+  const subject = `💳 [Tech Sokoni] M-Pesa Payment Code ${mpesaCode || 'SMS'} Received for Order #${order.orderNumber}`;
+  const waPhone = cleanKenyanPhoneForWa(order.customerPhone);
+  const waLink = `https://wa.me/${waPhone}?text=${encodeURIComponent(
+    `Hello ${order.customerName}, thank you for sending your M-Pesa confirmation (${mpesaCode}) for order #${order.orderNumber}. We are verifying and dispatching shortly.`
+  )}`;
+
+  const bodyContent = `
+    <div style="margin-bottom: 20px;">
+      <span class="badge badge-order">💳 M-Pesa Confirmation Submitted</span>
+      <span style="float: right; font-family: monospace; font-size: 12px; color: #6E6D68;">Order Ref: <strong>${order.orderNumber}</strong></span>
+    </div>
+
+    <div class="card">
+      <div style="font-size: 11px; font-family: monospace; text-transform: uppercase; color: #6E6D68; margin-bottom: 12px; font-weight: 600;">M-Pesa Settlement Details (Till 9309020)</div>
+      <div class="grid-row"><span class="label">M-Pesa Code:</span><span class="value" style="color:#1F6F43; font-family:monospace; font-size:15px;">${mpesaCode || 'See SMS Message'}</span></div>
+      <div class="grid-row"><span class="label">Order Amount:</span><span class="value">KSh ${order.total.toLocaleString()}</span></div>
+      <div class="grid-row"><span class="label">Customer:</span><span class="value">${order.customerName} (${order.customerPhone})</span></div>
+      ${mpesaMessage ? `<div style="margin-top:12px; padding:10px; background:#FFFFFF; border:1px solid #EAE9E4; font-family:monospace; font-size:12px;">${mpesaMessage}</div>` : ''}
+    </div>
+
+    <div style="margin-top: 20px;">
+      <a href="tel:${order.customerPhone}" class="btn">Call Customer</a>
+      <a href="${waLink}" target="_blank" class="btn btn-secondary">WhatsApp Customer</a>
+    </div>
+  `;
+
+  const htmlContent = buildHtmlWrapper(
+    `M-Pesa Code Submitted — #${order.orderNumber}`,
+    `Code: ${mpesaCode || 'SMS'} • KSh ${order.total.toLocaleString()}`,
+    bodyContent
+  );
+
+  const textContent = `TECH SOKONI KENYA - M-PESA CONFIRMATION RECEIVED
+====================================================
+Order: ${order.orderNumber}
+Customer: ${order.customerName} (${order.customerPhone})
+Amount: KSh ${order.total.toLocaleString()}
+M-Pesa Code: ${mpesaCode || 'N/A'}
+Message: ${mpesaMessage || 'N/A'}
+====================================================`;
+
+  return await dispatchAndRecordNotification({
+    type: 'order',
+    recipient,
+    subject,
+    summary: `M-Pesa payment (${mpesaCode || 'SMS'}) submitted for Order #${order.orderNumber} (${order.customerName})`,
+    htmlContent,
+    textContent,
+    referenceId: `${order.orderNumber}-MPESA`,
+  });
 }
 
 // ============================================================================

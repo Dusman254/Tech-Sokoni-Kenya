@@ -2512,6 +2512,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       return prev;
     });
 
+    // Immediately notify server so an email alert with the M-Pesa code is dispatched to the store owner
+    const snapshot = targetOrder || orders.find((o) => o.id === orderId);
+    fetch(`/api/orders/${encodeURIComponent(orderId)}/mpesa-confirmation`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mpesaCode: cleanCode,
+        mpesaMessage: cleanMsg,
+        orderSnapshot: snapshot,
+      }),
+    }).catch((err) => console.warn('Failed to sync M-Pesa confirmation to server:', err));
+
     showToast('M-Pesa payment confirmation sent to Admin Dashboard');
   };
 

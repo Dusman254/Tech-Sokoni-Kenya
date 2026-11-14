@@ -19,6 +19,7 @@ import {
   restoreProduct,
   addOrder,
   updateOrderStatus,
+  recordOrderMpesaConfirmation,
   deleteOrder,
   clearAllOrders,
   trackOrder,
@@ -43,6 +44,7 @@ import {
 } from './serverDb';
 import {
   sendOrderNotificationEmail,
+  sendMpesaConfirmationNotificationEmail,
   sendBookingNotificationEmail,
   sendWarrantyNotificationEmail,
   sendTestNotificationEmail,
@@ -320,14 +322,60 @@ initServerDatabase();
       }
       const order = addOrder(req.body);
 
-      // Asynchronously dispatch email notification to store owner (sirdusman@gmail.com)
-      sendOrderNotificationEmail(order).catch((err) => {
+      // Await immediate email dispatch before completing HTTP response so serverless hosts (Vercel/Cloud Run)
+      // never freeze or terminate the function before SMTP finishes sending to sirdusman@gmail.com.
+      let emailNotification: { status?: string; recipient?: string; error?: string } | null = null;
+      try {
+        const log = await sendOrderNotificationEmail(order);
+        emailNotification = {
+          status: log.status,
+          recipient: log.recipient,
+          error: log.error,
+        };
+      } catch (err: any) {
         console.error('[Notification]: Error dispatching order notification:', err?.message || err);
-      });
+        emailNotification = { status: 'failed', error: err?.message || 'Dispatch error' };
+      }
 
-      res.status(201).json({ ok: true, order });
+      res.status(201).json({ ok: true, order, emailNotification });
     } catch (err: any) {
       res.status(500).json({ error: err?.message || 'Failed to record order' });
+    }
+  });
+
+  app.post('/api/orders/:id/mpesa-confirmation', async (req, res) => {
+    try {
+      const { mpesaCode, mpesaMessage, orderSnapshot } = req.body || {};
+      const updated = recordOrderMpesaConfirmation(
+        req.params.id,
+        mpesaCode,
+        mpesaMessage,
+        orderSnapshot
+      );
+      if (!updated) {
+        return res.status(404).json({ error: 'Order not found for M-Pesa confirmation' });
+      }
+
+      let emailNotification: { status?: string; recipient?: string; error?: string } | null = null;
+      try {
+        const log = await sendMpesaConfirmationNotificationEmail(
+          updated,
+          mpesaCode || updated.mpesaCode || '',
+          mpesaMessage || updated.mpesaMessage || ''
+        );
+        emailNotification = {
+          status: log.status,
+          recipient: log.recipient,
+          error: log.error,
+        };
+      } catch (err: any) {
+        console.error('[Notification]: Error dispatching M-Pesa notification:', err?.message || err);
+        emailNotification = { status: 'failed', error: err?.message || 'Dispatch error' };
+      }
+
+      res.json({ ok: true, order: updated, emailNotification });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Failed to record M-Pesa confirmation' });
     }
   });
 
@@ -392,12 +440,16 @@ initServerDatabase();
     try {
       const appt = addViewingAppointment(req.body);
 
-      // Asynchronously dispatch email notification to store owner (sirdusman@gmail.com)
-      sendBookingNotificationEmail(appt).catch((err) => {
+      // Await email dispatch before completing HTTP response so serverless hosts never cut off SMTP
+      let emailNotification: { status?: string; recipient?: string; error?: string } | null = null;
+      try {
+        const log = await sendBookingNotificationEmail(appt);
+        emailNotification = { status: log.status, recipient: log.recipient, error: log.error };
+      } catch (err: any) {
         console.error('[Notification]: Error dispatching booking notification:', err?.message || err);
-      });
+      }
 
-      res.status(201).json({ ok: true, appointment: appt });
+      res.status(201).json({ ok: true, appointment: appt, emailNotification });
     } catch (err: any) {
       res.status(400).json({ error: err?.message || 'Failed to record appointment' });
     }
@@ -412,11 +464,15 @@ initServerDatabase();
       }
       const reg = addWarrantyRegistration(req.body);
 
-      sendWarrantyNotificationEmail(reg).catch((err) => {
+      let emailNotification: { status?: string; recipient?: string; error?: string } | null = null;
+      try {
+        const log = await sendWarrantyNotificationEmail(reg);
+        emailNotification = { status: log.status, recipient: log.recipient, error: log.error };
+      } catch (err: any) {
         console.error('[Notification]: Error dispatching warranty notification:', err?.message || err);
-      });
+      }
 
-      res.status(201).json({ ok: true, registration: reg });
+      res.status(201).json({ ok: true, registration: reg, emailNotification });
     } catch (err: any) {
       res.status(400).json({ error: err?.message || 'Failed to register warranty' });
     }

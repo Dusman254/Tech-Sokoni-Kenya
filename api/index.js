@@ -498,6 +498,21 @@ function initServerDatabase() {
         const raw = fs.readFileSync(bundledPath, "utf-8");
         const parsed = JSON.parse(raw);
         if (parsed && Array.isArray(parsed.products)) {
+          if (!Array.isArray(parsed.notifications)) parsed.notifications = [];
+          if (!Array.isArray(parsed.warranties)) parsed.warranties = [];
+          if (!Array.isArray(parsed.orders)) parsed.orders = [];
+          if (!Array.isArray(parsed.viewingAppointments)) parsed.viewingAppointments = [];
+          if (!Array.isArray(parsed.mpesaTransactions)) parsed.mpesaTransactions = [];
+          if (!parsed.settings) {
+            parsed.settings = INITIAL_SETTINGS;
+          } else {
+            if (!parsed.settings.adminNotificationEmail) {
+              parsed.settings.adminNotificationEmail = "sirdusman@gmail.com";
+            }
+            if (parsed.settings.notifyOnNewOrder === void 0) parsed.settings.notifyOnNewOrder = true;
+            if (parsed.settings.notifyOnNewBooking === void 0) parsed.settings.notifyOnNewBooking = true;
+            if (parsed.settings.notifyOnWarrantyReg === void 0) parsed.settings.notifyOnWarrantyReg = true;
+          }
           dbMemory = parsed;
           persistDatabaseSync();
           return dbMemory;
@@ -642,8 +657,12 @@ function addOrder(orderData) {
   const db = getDatabase();
   const nextNum = 1001 + db.orders.length;
   const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-  const orderNumber = `TS-2026-${nextNum}`;
-  const id = `ord-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const requestedOrderNum = orderData.orderNumber?.trim();
+  const hasDuplicateOrderNum = requestedOrderNum && db.orders.some((o) => o.orderNumber === requestedOrderNum);
+  const orderNumber = requestedOrderNum && !hasDuplicateOrderNum ? requestedOrderNum : `TS-2026-${nextNum}`;
+  const requestedId = orderData.id?.trim();
+  const hasDuplicateId = requestedId && db.orders.some((o) => o.id === requestedId);
+  const id = requestedId && !hasDuplicateId ? requestedId : `ord-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   const newOrder = {
     ...orderData,
     id,
@@ -708,6 +727,54 @@ function updateOrderStatus(id, status, trackingNote) {
     order.trackingNote = trackingNote;
   }
   order.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+  persistDatabaseSync();
+  return order;
+}
+function recordOrderMpesaConfirmation(orderId, mpesaCode, mpesaMessage, orderSnapshot) {
+  const db = getDatabase();
+  const cleanCode = (mpesaCode || "").trim().toUpperCase();
+  const cleanMsg = (mpesaMessage || "").trim();
+  const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+  let order = db.orders.find((o) => o.id === orderId || o.orderNumber === orderId);
+  if (!order && orderSnapshot && orderSnapshot.customerName && Array.isArray(orderSnapshot.items)) {
+    order = addOrder({
+      ...orderSnapshot,
+      id: orderSnapshot.id || orderId,
+      mpesaCode: cleanCode || orderSnapshot.mpesaCode,
+      mpesaMessage: cleanMsg || orderSnapshot.mpesaMessage,
+      mpesaStatus: "Pending Verification"
+    });
+  }
+  if (!order) return null;
+  order.paymentMethod = "M-Pesa Express";
+  if (cleanCode) order.mpesaCode = cleanCode;
+  if (cleanMsg) order.mpesaMessage = cleanMsg;
+  order.mpesaStatus = "Pending Verification";
+  order.trackingNote = `M-Pesa payment message (${cleanCode || "SMS"}) received. Admin verifying Till 9309020 settlement.`;
+  order.updatedAt = nowIso;
+  const existingTx = db.mpesaTransactions.find(
+    (tx) => tx.orderId === order.id || tx.orderNumber === order.orderNumber
+  );
+  if (existingTx) {
+    if (cleanCode) existingTx.mpesaCode = cleanCode;
+    if (cleanMsg) existingTx.mpesaMessage = cleanMsg;
+    existingTx.status = "Pending Verification";
+  } else {
+    db.mpesaTransactions.unshift({
+      id: `tx-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      customerEmail: order.customerEmail || "",
+      amount: order.total,
+      tillNumber: "9309020",
+      mpesaCode: cleanCode || "MPESA-SMS",
+      mpesaMessage: cleanMsg || `${cleanCode} Confirmed. Ksh${order.total.toLocaleString()}.00 paid to TECH SOKONI KENYA Till 9309020.`,
+      status: "Pending Verification",
+      createdAt: nowIso
+    });
+  }
   persistDatabaseSync();
   return order;
 }
@@ -992,15 +1059,46 @@ function formatSmtpError(rawError) {
   }
   return rawError;
 }
+function cleanEnvValue(value) {
+  if (!value) return "";
+  return value.trim().replace(/^["'](.*)["']$/, "$1").trim();
+}
+function createTransporterInstance(config) {
+  return nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: {
+      user: config.user,
+      pass: config.pass
+    },
+    connectionTimeout: 4500,
+    greetingTimeout: 4500,
+    socketTimeout: 6e3,
+    tls: {
+      rejectUnauthorized: false
+    }
+  });
+}
 function getEmailTransporter() {
   const db = getDatabase();
   const settings = db.settings;
-  const host = process.env.SMTP_HOST || process.env.EMAIL_HOST || process.env.MAIL_HOST || process.env.ZOHO_HOST || settings.smtpHost;
-  const rawPort = process.env.SMTP_PORT || process.env.EMAIL_PORT || process.env.MAIL_PORT || settings.smtpPort || 465;
+  const host = cleanEnvValue(
+    process.env.SMTP_HOST || process.env.EMAIL_HOST || process.env.MAIL_HOST || process.env.ZOHO_HOST || settings.smtpHost
+  );
+  const rawPort = cleanEnvValue(
+    String(
+      process.env.SMTP_PORT || process.env.EMAIL_PORT || process.env.MAIL_PORT || settings.smtpPort || 465
+    )
+  );
   const port = Number(rawPort) || 465;
-  const user = process.env.SMTP_USER || process.env.SMTP_USERNAME || process.env.EMAIL_USER || process.env.MAIL_USER || process.env.ZOHO_USER || settings.smtpUser;
-  const pass = process.env.SMTP_PASS || process.env.SMTP_PASSWORD || process.env.EMAIL_PASS || process.env.EMAIL_PASSWORD || process.env.MAIL_PASS || process.env.MAIL_PASSWORD || process.env.ZOHO_PASSWORD || settings.smtpPass;
-  let secure = settings.smtpSecure;
+  const user = cleanEnvValue(
+    process.env.SMTP_USER || process.env.SMTP_USERNAME || process.env.EMAIL_USER || process.env.MAIL_USER || process.env.ZOHO_USER || settings.smtpUser
+  );
+  const pass = cleanEnvValue(
+    process.env.SMTP_PASS || process.env.SMTP_PASSWORD || process.env.EMAIL_PASS || process.env.EMAIL_PASSWORD || process.env.MAIL_PASS || process.env.MAIL_PASSWORD || process.env.ZOHO_PASSWORD || settings.smtpPass
+  );
+  let secure = Boolean(settings.smtpSecure ?? port === 465);
   if (port === 465) {
     secure = true;
   } else if (port === 587 || port === 25) {
@@ -1010,29 +1108,19 @@ function getEmailTransporter() {
   } else if (process.env.EMAIL_SECURE !== void 0) {
     secure = process.env.EMAIL_SECURE === "true";
   }
+  const customFrom = cleanEnvValue(process.env.SMTP_FROM || process.env.EMAIL_FROM);
+  const fromAddress = customFrom || (user.includes("@") ? `"Tech Sokoni Showroom" <${user}>` : `"Tech Sokoni Showroom" <notifications@techsokoni.co.ke>`);
   if (host && user && pass) {
     return {
       isConfigured: true,
-      transporter: nodemailer.createTransport({
-        host: host.trim(),
-        port,
-        secure,
-        auth: {
-          user: user.trim(),
-          pass: pass.trim()
-        },
-        connectionTimeout: 8e3,
-        greetingTimeout: 8e3,
-        socketTimeout: 1e4,
-        tls: {
-          rejectUnauthorized: false
-        }
-      }),
-      fromAddress: user.includes("@") ? `"Tech Sokoni Showroom" <${user.trim()}>` : `"Tech Sokoni Showroom" <notifications@techsokoni.co.ke>`
+      smtpConfig: { host, port, secure, user, pass },
+      transporter: createTransporterInstance({ host, port, secure, user, pass }),
+      fromAddress
     };
   }
   return {
     isConfigured: false,
+    smtpConfig: null,
     transporter: null,
     fromAddress: '"Tech Sokoni Kenya" <alerts@techsokoni.co.ke>'
   };
@@ -1129,7 +1217,10 @@ function buildHtmlWrapper(title, subtitle, bodyContent) {
 <body>
   <div class="container">
     <div class="header">
-      <div class="brand">Tech Sokoni Kenya \u2014 Showroom Dispatch Alert</div>
+      <div class="brand" style="display:flex; align-items:center; gap:10px;">
+        <span style="display:inline-block; width:20px; height:20px; background:#F4F3EF; color:#141413; text-align:center; line-height:20px; font-weight:800; font-size:12px; border-radius:3px;">T</span>
+        <span>Tech Sokoni Kenya \u2014 Showroom Dispatch Alert</span>
+      </div>
       <h1 class="title">${title}</h1>
       <div class="subtitle">${subtitle}</div>
     </div>
@@ -1449,26 +1540,55 @@ Order, viewing booking, and warranty alerts are configured to notify you at ${re
     textContent
   });
 }
+async function sendMailWithRetry(smtpConfig, mailOptions) {
+  const primaryTransporter = createTransporterInstance(smtpConfig);
+  try {
+    await Promise.race([
+      primaryTransporter.sendMail(mailOptions),
+      new Promise(
+        (_, reject) => setTimeout(() => reject(new Error("SMTP timeout: Server took longer than 5.5 seconds to respond")), 5500)
+      )
+    ]);
+  } catch (err) {
+    const msg = String(err?.message || "").toLowerCase();
+    const isNetworkOrTimeout = msg.includes("timeout") || msg.includes("etimedout") || msg.includes("econnrefused") || msg.includes("socket");
+    if (isNetworkOrTimeout && (smtpConfig.port === 465 || smtpConfig.port === 587)) {
+      const altPort = smtpConfig.port === 465 ? 587 : 465;
+      const altSecure = altPort === 465;
+      console.warn(
+        `[Notification]: Port ${smtpConfig.port} failed (${err?.message}). Retrying via port ${altPort}...`
+      );
+      const fallbackTransporter = createTransporterInstance({
+        ...smtpConfig,
+        port: altPort,
+        secure: altSecure
+      });
+      await Promise.race([
+        fallbackTransporter.sendMail(mailOptions),
+        new Promise(
+          (_, reject) => setTimeout(() => reject(new Error("Fallback SMTP timeout")), 4500)
+        )
+      ]);
+      return;
+    }
+    throw err;
+  }
+}
 async function dispatchAndRecordNotification(payload) {
-  const { isConfigured, transporter, fromAddress } = getEmailTransporter();
+  const { isConfigured, smtpConfig, transporter, fromAddress } = getEmailTransporter();
   const id = `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   const nowIso = (/* @__PURE__ */ new Date()).toISOString();
   let status = "simulated";
   let errorMsg;
-  if (isConfigured && transporter) {
+  if (isConfigured && transporter && smtpConfig) {
     try {
-      await Promise.race([
-        transporter.sendMail({
-          from: fromAddress,
-          to: payload.recipient,
-          subject: payload.subject,
-          html: payload.htmlContent,
-          text: payload.textContent
-        }),
-        new Promise(
-          (_, reject) => setTimeout(() => reject(new Error("SMTP timeout: Server took longer than 8 seconds to respond")), 8500)
-        )
-      ]);
+      await sendMailWithRetry(smtpConfig, {
+        from: fromAddress,
+        to: payload.recipient,
+        subject: payload.subject,
+        html: payload.htmlContent,
+        text: payload.textContent
+      });
       status = "sent";
       console.log(`[Notification]: Successfully dispatched live SMTP email to ${payload.recipient} (${payload.subject})`);
     } catch (err) {
@@ -1495,6 +1615,55 @@ async function dispatchAndRecordNotification(payload) {
   };
   addNotificationLog(logEntry);
   return logEntry;
+}
+async function sendMpesaConfirmationNotificationEmail(order, mpesaCode, mpesaMessage) {
+  const recipient = getAdminNotificationRecipient();
+  const subject = `\u{1F4B3} [Tech Sokoni] M-Pesa Payment Code ${mpesaCode || "SMS"} Received for Order #${order.orderNumber}`;
+  const waPhone = cleanKenyanPhoneForWa(order.customerPhone);
+  const waLink = `https://wa.me/${waPhone}?text=${encodeURIComponent(
+    `Hello ${order.customerName}, thank you for sending your M-Pesa confirmation (${mpesaCode}) for order #${order.orderNumber}. We are verifying and dispatching shortly.`
+  )}`;
+  const bodyContent = `
+    <div style="margin-bottom: 20px;">
+      <span class="badge badge-order">\u{1F4B3} M-Pesa Confirmation Submitted</span>
+      <span style="float: right; font-family: monospace; font-size: 12px; color: #6E6D68;">Order Ref: <strong>${order.orderNumber}</strong></span>
+    </div>
+
+    <div class="card">
+      <div style="font-size: 11px; font-family: monospace; text-transform: uppercase; color: #6E6D68; margin-bottom: 12px; font-weight: 600;">M-Pesa Settlement Details (Till 9309020)</div>
+      <div class="grid-row"><span class="label">M-Pesa Code:</span><span class="value" style="color:#1F6F43; font-family:monospace; font-size:15px;">${mpesaCode || "See SMS Message"}</span></div>
+      <div class="grid-row"><span class="label">Order Amount:</span><span class="value">KSh ${order.total.toLocaleString()}</span></div>
+      <div class="grid-row"><span class="label">Customer:</span><span class="value">${order.customerName} (${order.customerPhone})</span></div>
+      ${mpesaMessage ? `<div style="margin-top:12px; padding:10px; background:#FFFFFF; border:1px solid #EAE9E4; font-family:monospace; font-size:12px;">${mpesaMessage}</div>` : ""}
+    </div>
+
+    <div style="margin-top: 20px;">
+      <a href="tel:${order.customerPhone}" class="btn">Call Customer</a>
+      <a href="${waLink}" target="_blank" class="btn btn-secondary">WhatsApp Customer</a>
+    </div>
+  `;
+  const htmlContent = buildHtmlWrapper(
+    `M-Pesa Code Submitted \u2014 #${order.orderNumber}`,
+    `Code: ${mpesaCode || "SMS"} \u2022 KSh ${order.total.toLocaleString()}`,
+    bodyContent
+  );
+  const textContent = `TECH SOKONI KENYA - M-PESA CONFIRMATION RECEIVED
+====================================================
+Order: ${order.orderNumber}
+Customer: ${order.customerName} (${order.customerPhone})
+Amount: KSh ${order.total.toLocaleString()}
+M-Pesa Code: ${mpesaCode || "N/A"}
+Message: ${mpesaMessage || "N/A"}
+====================================================`;
+  return await dispatchAndRecordNotification({
+    type: "order",
+    recipient,
+    subject,
+    summary: `M-Pesa payment (${mpesaCode || "SMS"}) submitted for Order #${order.orderNumber} (${order.customerName})`,
+    htmlContent,
+    textContent,
+    referenceId: `${order.orderNumber}-MPESA`
+  });
 }
 async function sendPasswordResetCodeEmail(recipient, code, clientName) {
   const subject = `\u{1F510} [Tech Sokoni] Your 6-Digit Password Reset Verification Code: ${code}`;
@@ -1852,12 +2021,54 @@ app.post("/api/orders", async (req, res) => {
       return res.status(400).json({ error: "Please provide full delivery and customer contact details." });
     }
     const order = addOrder(req.body);
-    sendOrderNotificationEmail(order).catch((err) => {
+    let emailNotification = null;
+    try {
+      const log = await sendOrderNotificationEmail(order);
+      emailNotification = {
+        status: log.status,
+        recipient: log.recipient,
+        error: log.error
+      };
+    } catch (err) {
       console.error("[Notification]: Error dispatching order notification:", err?.message || err);
-    });
-    res.status(201).json({ ok: true, order });
+      emailNotification = { status: "failed", error: err?.message || "Dispatch error" };
+    }
+    res.status(201).json({ ok: true, order, emailNotification });
   } catch (err) {
     res.status(500).json({ error: err?.message || "Failed to record order" });
+  }
+});
+app.post("/api/orders/:id/mpesa-confirmation", async (req, res) => {
+  try {
+    const { mpesaCode, mpesaMessage, orderSnapshot } = req.body || {};
+    const updated = recordOrderMpesaConfirmation(
+      req.params.id,
+      mpesaCode,
+      mpesaMessage,
+      orderSnapshot
+    );
+    if (!updated) {
+      return res.status(404).json({ error: "Order not found for M-Pesa confirmation" });
+    }
+    let emailNotification = null;
+    try {
+      const log = await sendMpesaConfirmationNotificationEmail(
+        updated,
+        mpesaCode || updated.mpesaCode || "",
+        mpesaMessage || updated.mpesaMessage || ""
+      );
+      emailNotification = {
+        status: log.status,
+        recipient: log.recipient,
+        error: log.error
+      };
+    } catch (err) {
+      console.error("[Notification]: Error dispatching M-Pesa notification:", err?.message || err);
+      emailNotification = { status: "failed", error: err?.message || "Dispatch error" };
+    }
+    res.json({ ok: true, order: updated, emailNotification });
+  } catch (err) {
+    res.status(500).json({ error: err?.message || "Failed to record M-Pesa confirmation" });
   }
 });
 app.get("/api/orders", requireAdmin, (_req, res) => {
@@ -1912,10 +2123,14 @@ app.get("/api/viewings", requireAdmin, (_req, res) => {
 app.post("/api/viewings", async (req, res) => {
   try {
     const appt = addViewingAppointment(req.body);
-    sendBookingNotificationEmail(appt).catch((err) => {
+    let emailNotification = null;
+    try {
+      const log = await sendBookingNotificationEmail(appt);
+      emailNotification = { status: log.status, recipient: log.recipient, error: log.error };
+    } catch (err) {
       console.error("[Notification]: Error dispatching booking notification:", err?.message || err);
-    });
-    res.status(201).json({ ok: true, appointment: appt });
+    }
+    res.status(201).json({ ok: true, appointment: appt, emailNotification });
   } catch (err) {
     res.status(400).json({ error: err?.message || "Failed to record appointment" });
   }
@@ -1927,10 +2142,14 @@ app.post("/api/warranties", async (req, res) => {
       return res.status(400).json({ error: "Serial number, model, and purchase date are required." });
     }
     const reg = addWarrantyRegistration(req.body);
-    sendWarrantyNotificationEmail(reg).catch((err) => {
+    let emailNotification = null;
+    try {
+      const log = await sendWarrantyNotificationEmail(reg);
+      emailNotification = { status: log.status, recipient: log.recipient, error: log.error };
+    } catch (err) {
       console.error("[Notification]: Error dispatching warranty notification:", err?.message || err);
-    });
-    res.status(201).json({ ok: true, registration: reg });
+    }
+    res.status(201).json({ ok: true, registration: reg, emailNotification });
   } catch (err) {
     res.status(400).json({ error: err?.message || "Failed to register warranty" });
   }

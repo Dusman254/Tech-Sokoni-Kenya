@@ -11,6 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
+import { TechSokoniLogo } from './TechSokoniLogo';
 
 export const Header: React.FC = () => {
   const {
@@ -147,12 +148,13 @@ export const Header: React.FC = () => {
         }`}
       >
         <div className="max-w-[1440px] mx-auto px-4 sm:px-8 h-16 flex items-center justify-between">
-          {/* ZONE 1: Brand Title (Single Element Wordmark) */}
+          {/* ZONE 1: Brand Title & Architectural Emblem */}
           <button
             onClick={() => navigate({ page: 'home' })}
-            className="text-left text-base sm:text-lg font-semibold tracking-[0.18em] uppercase text-[#141413] hover:opacity-75 transition-opacity whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-[#141413]"
+            aria-label="Tech Sokoni Home"
+            className="hover:opacity-80 transition-opacity whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-[#141413]"
           >
-            TECH SOKONI
+            <TechSokoniLogo size="md" />
           </button>
 
           {/* ZONE 2: Desktop Center Navigation */}
@@ -279,9 +281,10 @@ export const Header: React.FC = () => {
           <div className="px-4 sm:px-8 h-16 flex items-center justify-between border-b border-[#141413]/10 shrink-0">
             <button
               onClick={() => handleMobileNav(() => navigate({ page: 'home' }))}
-              className="text-base font-semibold tracking-[0.18em] uppercase text-[#141413]"
+              aria-label="Tech Sokoni Home"
+              className="cursor-pointer"
             >
-              TECH SOKONI
+              <TechSokoniLogo size="sm" />
             </button>
             <div className="flex items-center gap-2">
               <button
